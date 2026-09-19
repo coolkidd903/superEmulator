@@ -2,25 +2,35 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport"
+      content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+
 <title>superEmulator</title>
 
-<script src="./libv86.js"></script>
-
 <style>
-*{box-sizing:border-box}
+*{
+    box-sizing:border-box;
+}
 
-html,body{
+html,
+body{
     margin:0;
     width:100%;
     height:100%;
     overflow:hidden;
-    background:#000;
+    background:#080b10;
     color:#fff;
-    font-family:system-ui,sans-serif;
+    font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Arial,
+        sans-serif;
 }
 
-button,input,select{
+button,
+input,
+select{
     font:inherit;
 }
 
@@ -28,275 +38,322 @@ button{
     cursor:pointer;
 }
 
-#menu{
-    width:100%;
-    height:100%;
-    overflow:auto;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    padding:25px;
-    background:
-        radial-gradient(
-            circle at 50% 15%,
-            #252525,
-            #0b0b0b 50%,
-            #000
-        );
+.hidden{
+    display:none !important;
 }
 
-.panel{
-    width:min(850px,96vw);
-    max-height:95vh;
+/* =========================================================
+   MAIN MENU
+========================================================= */
+
+#menu{
+    position:fixed;
+    inset:0;
     overflow:auto;
-    padding:30px;
-    border:1px solid #444;
-    border-radius:20px;
-    background:#111;
-    box-shadow:0 25px 100px #000;
+    background:
+        radial-gradient(circle at 50% 0%,#182338 0%,#0b1019 45%,#05070a 100%);
+    z-index:100;
+}
+
+.menu-inner{
+    width:min(900px,94vw);
+    margin:0 auto;
+    padding:55px 0 70px;
 }
 
 .logo{
     text-align:center;
-    font-size:42px;
-    font-weight:900;
+    margin-bottom:10px;
 }
 
-.subtitle{
-    text-align:center;
-    color:#888;
-    margin:5px 0 25px;
-}
-
-.section{
-    margin-top:18px;
-    padding:18px;
-    border:1px solid #292929;
-    border-radius:12px;
-    background:#0a0a0a;
-}
-
-.sectionTitle{
+.logo h1{
+    margin:0;
+    font-size:clamp(38px,7vw,72px);
+    letter-spacing:4px;
     font-weight:800;
-    color:#ccc;
-    margin-bottom:12px;
+    text-shadow:
+        0 0 20px rgba(80,150,255,.35);
+}
+
+.logo p{
+    margin:10px 0 35px;
+    color:#8fa2bd;
+    font-size:14px;
+}
+
+.panel{
+    background:rgba(15,22,34,.88);
+    border:1px solid #27354b;
+    border-radius:18px;
+    padding:25px;
+    box-shadow:
+        0 20px 60px rgba(0,0,0,.4),
+        inset 0 1px rgba(255,255,255,.03);
 }
 
 .field{
-    margin-top:12px;
+    margin-bottom:20px;
 }
 
-label{
+.field:last-child{
+    margin-bottom:0;
+}
+
+.field label{
     display:block;
-    color:#aaa;
+    margin-bottom:8px;
+    color:#b8c7db;
     font-size:13px;
-    margin-bottom:6px;
+    font-weight:700;
 }
 
-input[type=file],
-select{
+select,
+input[type="number"],
+input[type="file"]{
     width:100%;
-    padding:11px;
-    background:#111;
+    min-height:44px;
+    border-radius:10px;
+    border:1px solid #34445d;
+    background:#0a1019;
     color:#fff;
-    border:1px solid #444;
-    border-radius:8px;
+    padding:9px 12px;
+    outline:none;
+}
+
+select:focus,
+input:focus{
+    border-color:#5b9cff;
+}
+
+.file-name{
+    margin-top:6px;
+    color:#72849d;
+    font-size:12px;
+    word-break:break-all;
+}
+
+.os-info{
+    margin-top:10px;
+    padding:12px;
+    border-radius:10px;
+    background:#0a111c;
+    border:1px solid #202d40;
+    color:#8fa5c0;
+    font-size:12px;
+    line-height:1.6;
+}
+
+.os-info strong{
+    color:#dce8f8;
 }
 
 .grid{
     display:grid;
     grid-template-columns:1fr 1fr;
-    gap:12px;
+    gap:18px;
 }
 
 @media(max-width:650px){
     .grid{
         grid-template-columns:1fr;
     }
-
-    .panel{
-        padding:20px;
-    }
 }
 
-.mainButton{
+.start-button{
     width:100%;
-    margin-top:20px;
-    padding:16px;
+    margin-top:25px;
+    min-height:56px;
     border:0;
-    border-radius:10px;
-    background:#fff;
-    color:#111;
+    border-radius:14px;
+    background:linear-gradient(135deg,#3279ff,#5d9cff);
+    color:white;
     font-weight:800;
-    font-size:17px;
+    font-size:18px;
+    box-shadow:0 10px 30px rgba(50,121,255,.25);
+    transition:.15s;
 }
 
-.mainButton:hover{
-    background:#ddd;
+.start-button:hover{
+    filter:brightness(1.1);
+    transform:translateY(-1px);
 }
 
-.mainButton:disabled{
-    opacity:.4;
+.start-button:active{
+    transform:translateY(1px);
 }
 
-.status{
-    margin-top:13px;
-    padding:12px;
-    background:#080808;
-    border:1px solid #333;
-    border-radius:9px;
-    color:#aaa;
-    font:12px monospace;
-    white-space:pre-wrap;
-    word-break:break-word;
-}
-
-.status.ok{
-    color:#91ff91;
-}
-
-.status.warn{
-    color:#ffd866;
-}
-
-.status.error{
-    color:#ff7777;
-}
-
-#diagnostics{
-    padding:12px;
-    background:#080808;
-    border:1px solid #292929;
-    border-radius:9px;
-    font:12px monospace;
-    line-height:1.7;
-}
-
-.ok{
-    color:#91ff91;
-}
-
-.bad{
-    color:#ff7777;
-}
-
-.warn{
-    color:#ffd866;
-}
-
-.note{
-    color:#777;
+.warning{
+    margin-top:18px;
+    padding:12px 14px;
+    border-radius:10px;
+    background:rgba(255,180,50,.07);
+    border:1px solid rgba(255,180,50,.2);
+    color:#d5c08d;
     font-size:12px;
     line-height:1.6;
-    margin-top:7px;
 }
 
-
-/* ==============================
+/* =========================================================
    EMULATOR
-============================== */
+========================================================= */
 
 #emulator{
     position:fixed;
     inset:0;
-    display:none;
+    width:100vw;
+    height:100vh;
     background:#000;
-    z-index:1000;
+    z-index:10;
 }
 
-#screen{
+#screen_container{
     position:absolute;
-    inset:0;
-    display:flex;
-    align-items:center;
-    justify-content:center;
+    left:0;
+    right:0;
+    top:52px;
+    bottom:0;
+
     background:#000;
+
+    overflow:auto;
+
+    display:flex;
+    justify-content:center;
+    align-items:flex-start;
+
+    z-index:1;
 }
 
-#screen canvas{
-    max-width:100%;
-    max-height:100%;
-}
-
-#screen > div{
-    color:#fff;
-    font:14px monospace;
+#screen_container > div{
     white-space:pre;
+    font:14px monospace;
+    line-height:14px;
 }
 
+#screen_container canvas{
+    display:block;
+    image-rendering:auto;
+    max-width:none;
+}
 
-/* ==============================
+/* =========================================================
    TOOLBAR
-============================== */
+========================================================= */
 
 #toolbar{
     position:absolute;
-    top:10px;
-    left:10px;
-    right:10px;
-    z-index:3000;
+    left:0;
+    right:0;
+    top:0;
+    height:52px;
 
     display:flex;
+    align-items:center;
     gap:7px;
 
-    opacity:0;
-    transition:.2s;
+    padding:7px 10px;
+
+    background:
+        linear-gradient(
+            rgba(15,20,29,.98),
+            rgba(9,13,19,.98)
+        );
+
+    border-bottom:1px solid #29374a;
+
+    z-index:999999;
+
+    box-shadow:0 3px 15px rgba(0,0,0,.5);
 }
 
-#emulator:hover #toolbar{
-    opacity:1;
-}
+.tool-button{
+    height:36px;
+    min-width:40px;
 
-.tool{
-    width:auto;
-    margin:0;
-    padding:9px 13px;
-
-    border:1px solid #555;
     border-radius:8px;
 
-    background:rgba(15,15,15,.9);
-    color:#fff;
+    border:1px solid #35455d;
+    background:#111a27;
+    color:#eaf2ff;
+
+    padding:0 12px;
+
+    font-size:13px;
+    font-weight:700;
+
+    transition:.12s;
 }
 
-.tool:hover{
-    background:#292929;
+.tool-button:hover{
+    background:#1c2a3d;
+    border-color:#53749d;
 }
 
-.powerOn{
-    border-color:#477b47;
+.tool-button.power{
+    background:#102519;
+    border-color:#28643c;
 }
 
-.powerOff{
-    border-color:#8a4444;
+.tool-button.power.off{
+    background:#281313;
+    border-color:#673030;
 }
 
+.tool-button.reset{
+    background:#211a10;
+    border-color:#654a27;
+}
 
-/* ==============================
-   BOOT OVERLAY
-============================== */
+.tool-spacer{
+    flex:1;
+}
 
-#bootOverlay{
+#status{
+    color:#8ea1ba;
+    font-size:12px;
+    white-space:nowrap;
+}
+
+@media(max-width:700px){
+    #status{
+        display:none;
+    }
+
+    .tool-button{
+        padding:0 8px;
+        font-size:11px;
+    }
+}
+
+/* =========================================================
+   LOADING
+========================================================= */
+
+#loading{
     position:absolute;
-    inset:0;
-    display:none;
+    inset:52px 0 0;
+
+    display:flex;
     align-items:center;
     justify-content:center;
 
-    background:rgba(0,0,0,.9);
+    background:#000;
 
-    z-index:4000;
+    z-index:5000;
+}
 
+.loading-box{
     text-align:center;
+    width:min(500px,90vw);
 }
 
 .spinner{
-    width:45px;
-    height:45px;
-    margin:0 auto 15px;
+    width:42px;
+    height:42px;
+    margin:0 auto 20px;
 
-    border:4px solid #333;
-    border-top-color:#fff;
+    border:4px solid #253144;
+    border-top-color:#5b9cff;
     border-radius:50%;
 
     animation:spin 1s linear infinite;
@@ -308,349 +365,524 @@ select{
     }
 }
 
-#bootText{
-    color:#ccc;
+#loadingText{
+    color:#d9e5f4;
+    font-weight:700;
 }
 
+#loadingDetail{
+    margin-top:8px;
+    color:#71849e;
+    font-size:12px;
+    line-height:1.5;
+}
 
-/* ==============================
-   POWER STATUS
-============================== */
+/* =========================================================
+   ERROR
+========================================================= */
 
-#powerIndicator{
+#errorOverlay{
     position:absolute;
-    bottom:12px;
-    right:12px;
+    inset:52px 0 0;
 
-    z-index:2500;
+    display:flex;
+    align-items:center;
+    justify-content:center;
 
-    padding:7px 10px;
+    background:#050607;
 
-    background:rgba(0,0,0,.7);
-    border-radius:7px;
+    z-index:6000;
+}
 
-    font:11px monospace;
-    color:#888;
+.error-box{
+    width:min(760px,92vw);
+    max-height:85vh;
+    overflow:auto;
+
+    padding:25px;
+
+    background:#11171f;
+    border:1px solid #492b2b;
+    border-radius:16px;
+}
+
+.error-title{
+    color:#ff8c8c;
+    font-size:20px;
+    font-weight:800;
+    margin-bottom:12px;
+}
+
+#errorMessage{
+    white-space:pre-wrap;
+    word-break:break-word;
+    color:#d5dce6;
+    font:12px/1.6 monospace;
+
+    background:#090c10;
+    border-radius:10px;
+    padding:15px;
+
+    max-height:300px;
+    overflow:auto;
+}
+
+.error-buttons{
+    display:flex;
+    gap:10px;
+    margin-top:15px;
+    flex-wrap:wrap;
+}
+
+/* =========================================================
+   LOG MODAL
+========================================================= */
+
+#logModal{
+    position:fixed;
+    inset:0;
+
+    background:rgba(0,0,0,.75);
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    z-index:2000000;
+}
+
+.log-box{
+    width:min(1000px,94vw);
+    height:min(750px,90vh);
+
+    background:#10161f;
+    border:1px solid #34465f;
+    border-radius:15px;
+
+    display:flex;
+    flex-direction:column;
+
+    overflow:hidden;
+}
+
+.log-header{
+    display:flex;
+    align-items:center;
+    gap:8px;
+
+    padding:12px 14px;
+
+    border-bottom:1px solid #2a384b;
+}
+
+.log-title{
+    font-weight:800;
+    flex:1;
+}
+
+#logOutput{
+    flex:1;
+    margin:0;
+
+    padding:15px;
+
+    overflow:auto;
+
+    background:#070a0e;
+
+    color:#b8c8dc;
+
+    font:12px/1.55 monospace;
+
+    white-space:pre-wrap;
+    word-break:break-word;
+}
+
+/* =========================================================
+   TOAST
+========================================================= */
+
+#toast{
+    position:fixed;
+
+    left:50%;
+    bottom:25px;
+
+    transform:translate(-50%,20px);
+
+    opacity:0;
+
+    pointer-events:none;
+
+    padding:10px 16px;
+
+    background:#172131;
+    border:1px solid #344a67;
+
+    border-radius:10px;
+
+    color:#fff;
+
+    font-size:13px;
+
+    z-index:3000000;
+
+    transition:.2s;
+}
+
+#toast.show{
+    opacity:1;
+    transform:translate(-50%,0);
 }
 </style>
 </head>
 
 <body>
 
-<!-- =========================================================
+<!-- =======================================================
      MENU
-========================================================= -->
+======================================================= -->
 
 <section id="menu">
 
-<div class="panel">
+    <div class="menu-inner">
 
-    <div class="logo">
-        superEmulator
-    </div>
-
-    <div class="subtitle">
-        Browser PC Emulator
-    </div>
-
-
-    <div class="section">
-
-        <div class="sectionTitle">
-            🖥 仮想PC
+        <div class="logo">
+            <h1>superEmulator</h1>
+            <p>Browser x86 PC Emulator</p>
         </div>
 
-        <div class="grid">
+        <div class="panel">
 
             <div class="field">
 
-                <label>
-                    アーキテクチャ
+                <label for="osSelect">
+                    起動するOS
                 </label>
 
-                <select id="architecture">
-
-                    <option value="x86">
-                        x86 / 32-bit
-                    </option>
-
-                    <option value="x64">
-                        x86-64 / 64-bit
-                    </option>
-
-                </select>
-
-            </div>
-
-
-            <div class="field">
-
-                <label>
-                    OS
-                </label>
-
-                <select id="osProfile">
-
-                    <option value="generic">
-                        Generic x86
-                    </option>
+                <select id="osSelect">
 
                     <option value="win95">
-                        Windows 95 / 98 / ME
+                        Windows 95 / 32bit
+                    </option>
+
+                    <option value="win98">
+                        Windows 98 / 32bit
+                    </option>
+
+                    <option value="winme">
+                        Windows ME / 32bit
+                    </option>
+
+                    <option value="winnt">
+                        Windows NT 4.0
+                    </option>
+
+                    <option value="win2000">
+                        Windows 2000 / 32bit
                     </option>
 
                     <option value="winxp">
-                        Windows XP
+                        Windows XP / 32bit
                     </option>
 
-                    <option value="win10">
-                        Windows 10
+                    <option value="winvista">
+                        Windows Vista / 32bit
                     </option>
 
-                    <option value="win11">
-                        Windows 11
+                    <option value="win7">
+                        Windows 7 / 32bit
                     </option>
 
-                </select>
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <div class="section">
-
-        <div class="sectionTitle">
-            💿 ISO
-        </div>
-
-        <input
-            id="iso"
-            type="file"
-            accept=".iso,application/octet-stream"
-        >
-
-        <div class="note">
-            自分で用意したOSのISOを選択してください。
-        </div>
-
-    </div>
-
-
-    <div class="section">
-
-        <div class="sectionTitle">
-            ⚙️ メモリ・ディスク
-        </div>
-
-        <div class="grid">
-
-            <div class="field">
-
-                <label>
-                    RAM
-                </label>
-
-                <select id="ram">
-
-                    <option value="67108864">
-                        64 MB
-                    </option>
-
-                    <option value="134217728">
-                        128 MB
-                    </option>
-
-                    <option value="268435456">
-                        256 MB
-                    </option>
-
-                    <option value="536870912" selected>
-                        512 MB
-                    </option>
-
-                    <option value="1073741824">
-                        1 GB
+                    <option value="win8">
+                        Windows 8 / 32bit
                     </option>
 
                 </select>
+
+                <div id="osInfo" class="os-info">
+                    Windows 95向け設定
+                </div>
 
             </div>
 
 
             <div class="field">
 
-                <label>
-                    仮想HDD
+                <label for="isoInput">
+                    OSインストールISO
                 </label>
 
-                <select id="diskSize">
+                <input
+                    id="isoInput"
+                    type="file"
+                    accept=".iso,application/octet-stream"
+                >
 
-                    <option value="268435456">
-                        256 MB
-                    </option>
-
-                    <option value="536870912">
-                        512 MB
-                    </option>
-
-                    <option value="1073741824">
-                        1 GB
-                    </option>
-
-                    <option value="2147483648" selected>
-                        2 GB
-                    </option>
-
-                </select>
+                <div
+                    id="isoName"
+                    class="file-name"
+                >
+                    ISO未選択
+                </div>
 
             </div>
 
-        </div>
+
+            <div class="grid">
+
+                <div class="field">
+
+                    <label for="ramSelect">
+                        RAM
+                    </label>
+
+                    <select id="ramSelect">
+
+                        <option value="32">
+                            32 MB
+                        </option>
+
+                        <option value="64">
+                            64 MB
+                        </option>
+
+                        <option value="128" selected>
+                            128 MB
+                        </option>
+
+                        <option value="256">
+                            256 MB
+                        </option>
+
+                        <option value="512">
+                            512 MB
+                        </option>
+
+                    </select>
+
+                </div>
 
 
-        <div class="field">
+                <div class="field">
 
-            <label>
-                既存HDDイメージ（任意）
-            </label>
+                    <label for="hddSize">
+                        仮想HDD
+                    </label>
 
-            <input
-                id="hdd"
-                type="file"
-                accept=".img,.ima,.bin,.vhd,application/octet-stream"
+                    <select id="hddSize">
+
+                        <option value="256">
+                            256 MB
+                        </option>
+
+                        <option value="512">
+                            512 MB
+                        </option>
+
+                        <option value="1024" selected>
+                            1 GB
+                        </option>
+
+                        <option value="2048">
+                            2 GB
+                        </option>
+
+                        <option value="4096">
+                            4 GB
+                        </option>
+
+                        <option value="8192">
+                            8 GB
+                        </option>
+
+                    </select>
+
+                </div>
+
+            </div>
+
+
+            <div class="field">
+
+                <label for="hddInput">
+                    既存HDDイメージ（任意）
+                </label>
+
+                <input
+                    id="hddInput"
+                    type="file"
+                    accept=".img,.bin,.vhd,application/octet-stream"
+                >
+
+                <div
+                    id="hddName"
+                    class="file-name"
+                >
+                    HDDイメージ未選択
+                </div>
+
+            </div>
+
+
+            <div class="field">
+
+                <label for="floppyInput">
+                    フロッピーイメージ（任意）
+                </label>
+
+                <input
+                    id="floppyInput"
+                    type="file"
+                    accept=".img,.ima,.flp,.bin,application/octet-stream"
+                >
+
+                <div
+                    id="floppyName"
+                    class="file-name"
+                >
+                    フロッピー未選択
+                </div>
+
+            </div>
+
+
+            <button
+                id="startButton"
+                class="start-button"
             >
+                ▶ エミュレーターを起動
+            </button>
+
+
+            <div class="warning">
+                ⚠️ WindowsのISOやHDDイメージはユーザー自身が合法的に利用できるものを使用してください。
+                superEmulator自体にはWindowsのOSファイルは含まれていません。
+            </div>
 
         </div>
 
     </div>
-
-
-    <div class="section">
-
-        <div class="sectionTitle">
-            💾 ブートフロッピー（任意）
-        </div>
-
-        <input
-            id="fda"
-            type="file"
-            accept=".img,.ima,.flp,.bin,application/octet-stream"
-        >
-
-        <div class="note">
-            Windows 95などのブート非対応CDを使う場合に指定できます。
-        </div>
-
-    </div>
-
-
-    <div class="section">
-
-        <div class="sectionTitle">
-            🔍 起動前診断
-        </div>
-
-        <div id="diagnostics">
-            診断中...
-        </div>
-
-    </div>
-
-
-    <button
-        id="boot"
-        class="mainButton"
-    >
-        🚀 起動
-    </button>
-
-
-    <div
-        id="status"
-        class="status"
-    >
-        待機中
-    </div>
-
-</div>
 
 </section>
 
 
-<!-- =========================================================
+<!-- =======================================================
      EMULATOR
-========================================================= -->
+======================================================= -->
 
-<section id="emulator">
+<section
+    id="emulator"
+    class="hidden"
+>
 
     <div id="toolbar">
 
-        <!-- ★ 電源ボタン -->
         <button
-            id="power"
-            class="tool powerOff"
+            id="powerButton"
+            class="tool-button power"
         >
-            🔴 電源
+            ⏻ 電源ON
         </button>
 
         <button
-            id="runPause"
-            class="tool"
+            id="resetButton"
+            class="tool-button reset"
         >
-            ⏸ 一時停止
+            ↻ リセット
         </button>
 
         <button
-            id="reset"
-            class="tool"
-        >
-            🔄 リセット
-        </button>
-
-        <button
-            id="fullscreen"
-            class="tool"
+            id="fullscreenButton"
+            class="tool-button"
         >
             ⛶ 全画面
         </button>
 
         <button
-            id="exit"
-            class="tool"
+            id="logButton"
+            class="tool-button"
         >
-            ✕ 終了
+            🛠 ログ
         </button>
+
+        <button
+            id="exitButton"
+            class="tool-button"
+        >
+            ← 戻る
+        </button>
+
+        <div class="tool-spacer"></div>
+
+        <div id="status">
+            準備中
+        </div>
 
     </div>
 
 
-    <div id="screen">
+    <!--
+        v86公式basic.htmlと同じ形式
+    -->
+
+    <div id="screen_container">
 
         <div></div>
 
-        <canvas
-            style="display:none"
-        ></canvas>
+        <canvas></canvas>
 
     </div>
 
 
-    <div id="powerIndicator">
-        POWER: OFF
-    </div>
+    <div id="loading">
 
-
-    <div id="bootOverlay">
-
-        <div>
+        <div class="loading-box">
 
             <div class="spinner"></div>
 
-            <div id="bootText">
-                起動しています...
+            <div id="loadingText">
+                エミュレーターを準備しています…
+            </div>
+
+            <div id="loadingDetail">
+                BIOS / VGA BIOS / WASM / ディスクを確認中
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div
+        id="errorOverlay"
+        class="hidden"
+    >
+
+        <div class="error-box">
+
+            <div class="error-title">
+                ⚠️ エミュレーターの起動に失敗しました
+            </div>
+
+            <pre id="errorMessage"></pre>
+
+            <div class="error-buttons">
+
+                <button
+                    id="errorLogButton"
+                    class="tool-button"
+                >
+                    🛠 詳細ログ
+                </button>
+
+                <button
+                    id="errorBackButton"
+                    class="tool-button"
+                >
+                    ← メニューへ
+                </button>
+
             </div>
 
         </div>
@@ -660,235 +892,608 @@ select{
 </section>
 
 
+<!-- =======================================================
+     LOG MODAL
+======================================================= -->
+
+<div
+    id="logModal"
+    class="hidden"
+>
+
+    <div class="log-box">
+
+        <div class="log-header">
+
+            <div class="log-title">
+                🛠 superEmulator 詳細ログ
+            </div>
+
+            <button
+                id="copyLogButton"
+                class="tool-button"
+            >
+                コピー
+            </button>
+
+            <button
+                id="clearLogButton"
+                class="tool-button"
+            >
+                クリア
+            </button>
+
+            <button
+                id="closeLogButton"
+                class="tool-button"
+            >
+                閉じる
+            </button>
+
+        </div>
+
+        <pre id="logOutput"></pre>
+
+    </div>
+
+</div>
+
+
+<div id="toast"></div>
+
+
+<!-- =======================================================
+     v86
+     
+     このHTMLと同じフォルダに
+     
+       libv86.js
+       v86.wasm
+       seabios.bin
+       vgabios.bin
+     
+     を置いてください。
+======================================================= -->
+
+<script src="./libv86.js"></script>
+
+
 <script>
 "use strict";
 
-
 /* =========================================================
-   GLOBAL STATE
+   GLOBALS
 ========================================================= */
 
 let emulator = null;
 
-let poweredOn = false;
+let selectedISO = null;
+let selectedHDD = null;
+let selectedFloppy = null;
 
-let paused = false;
+let isRunning = false;
+let isStarting = false;
+
+let currentOS = "win95";
+
+let logLines = [];
+
+let toastTimer = null;
 
 
 /* =========================================================
-   HELPERS
+   DOM
 ========================================================= */
 
-const $ = id =>
-    document.getElementById(id);
+const $ = id => document.getElementById(id);
+
+const menu = $("menu");
+const emulatorUI = $("emulator");
+
+const osSelect = $("osSelect");
+const isoInput = $("isoInput");
+const hddInput = $("hddInput");
+const floppyInput = $("floppyInput");
+
+const isoName = $("isoName");
+const hddName = $("hddName");
+const floppyName = $("floppyName");
+
+const ramSelect = $("ramSelect");
+const hddSize = $("hddSize");
+
+const osInfo = $("osInfo");
+
+const startButton = $("startButton");
+
+const powerButton = $("powerButton");
+const resetButton = $("resetButton");
+const fullscreenButton = $("fullscreenButton");
+const logButton = $("logButton");
+const exitButton = $("exitButton");
+
+const status = $("status");
+
+const loading = $("loading");
+const loadingText = $("loadingText");
+const loadingDetail = $("loadingDetail");
+
+const errorOverlay = $("errorOverlay");
+const errorMessage = $("errorMessage");
+
+const errorLogButton = $("errorLogButton");
+const errorBackButton = $("errorBackButton");
+
+const logModal = $("logModal");
+const logOutput = $("logOutput");
+
+const copyLogButton = $("copyLogButton");
+const clearLogButton = $("clearLogButton");
+const closeLogButton = $("closeLogButton");
+
+const toast = $("toast");
 
 
-function setStatus(
-    text,
-    type=""
-){
+/* =========================================================
+   OS CONFIG
+========================================================= */
 
-    const el =
-        $("status");
+const OS_CONFIG = {
 
-    el.textContent =
-        text;
+    win95: {
+        name: "Windows 95",
+        ram: 64,
+        hdd: 1024,
+        info:
+            "Windows 95向け。ACPIを無効にし、Legacy PC構成で起動します。"
+    },
 
-    el.className =
-        "status " + type;
-}
+    win98: {
+        name: "Windows 98",
+        ram: 128,
+        hdd: 1024,
+        info:
+            "Windows 98向け。Windows 9x用の互換設定を使用します。"
+    },
 
+    winme: {
+        name: "Windows ME",
+        ram: 128,
+        hdd: 1024,
+        info:
+            "Windows ME向け。Windows 9x系として起動します。"
+    },
 
-function setBootText(
-    text
-){
+    winnt: {
+        name: "Windows NT 4.0",
+        ram: 128,
+        hdd: 1024,
+        info:
+            "Windows NT 4.0向けのLegacy PC構成です。"
+    },
 
-    $("bootText").textContent =
-        text;
-}
+    win2000: {
+        name: "Windows 2000",
+        ram: 128,
+        hdd: 2048,
+        info:
+            "Windows 2000向け。ACPIを無効にしてStandard PCとして起動します。"
+    },
 
+    winxp: {
+        name: "Windows XP 32bit",
+        ram: 256,
+        hdd: 4096,
+        info:
+            "Windows XP 32bit向け。v86では条件付きサポートです。"
+    },
 
-function setPowerState(
-    state
-){
+    winvista: {
+        name: "Windows Vista 32bit",
+        ram: 512,
+        hdd: 8192,
+        info:
+            "Windows Vista 32bit向け。v86では条件付きサポートです。"
+    },
 
-    poweredOn =
-        state;
+    win7: {
+        name: "Windows 7 32bit",
+        ram: 512,
+        hdd: 8192,
+        info:
+            "Windows 7 32bit向け。ISOによっては起動に時間がかかります。"
+    },
 
-    const indicator =
-        $("powerIndicator");
-
-    const button =
-        $("power");
-
-
-    if(state){
-
-        indicator.textContent =
-            "POWER: ON";
-
-        indicator.style.color =
-            "#91ff91";
-
-        button.textContent =
-            "🟢 電源ON";
-
-        button.classList.remove(
-            "powerOff"
-        );
-
-        button.classList.add(
-            "powerOn"
-        );
-
-    }else{
-
-        indicator.textContent =
-            "POWER: OFF";
-
-        indicator.style.color =
-            "#ff7777";
-
-        button.textContent =
-            "🔴 電源";
-
-        button.classList.remove(
-            "powerOn"
-        );
-
-        button.classList.add(
-            "powerOff"
-        );
-
+    win8: {
+        name: "Windows 8 32bit",
+        ram: 512,
+        hdd: 8192,
+        info:
+            "Windows 8 32bit向け。v86では条件付きサポートです。"
     }
 
-}
+};
 
 
-function readFile(
-    file
-){
+/* =========================================================
+   LOGGING
+========================================================= */
 
-    return new Promise(
-        (resolve,reject)=>{
+function nowTime(){
 
-            if(!file){
+    const d = new Date();
 
-                reject(
-                    new Error(
-                        "ファイルが選択されていません。"
-                    )
-                );
-
-                return;
-            }
-
-
-            const reader =
-                new FileReader();
-
-
-            reader.onload =
-                () => resolve(
-                    reader.result
-                );
-
-
-            reader.onerror =
-                () => reject(
-                    new Error(
-                        "ファイル読み込み失敗: " +
-                        file.name
-                    )
-                );
-
-
-            reader.readAsArrayBuffer(
-                file
-            );
-
+    return d.toLocaleTimeString(
+        "ja-JP",
+        {
+            hour12:false
         }
     );
+
 }
 
 
-function createBlankDisk(
-    size
-){
+function log(message, type="INFO"){
 
-    try{
+    const line =
+        "[" +
+        nowTime() +
+        "] [" +
+        type +
+        "] " +
+        String(message);
 
-        return new ArrayBuffer(
-            size
-        );
+    logLines.push(line);
 
-    }catch(error){
+    if(logLines.length > 5000){
+        logLines.shift();
+    }
 
-        throw new Error(
-            "仮想HDDを作成できませんでした。\n" +
-            "ディスクサイズを小さくしてください。\n\n" +
-            error.message
+    if(logOutput){
+        logOutput.textContent =
+            logLines.join("\n");
+
+        logOutput.scrollTop =
+            logOutput.scrollHeight;
+    }
+
+    console.log(line);
+
+}
+
+
+function logError(message){
+
+    log(message,"ERROR");
+
+}
+
+
+window.addEventListener(
+    "error",
+    event => {
+
+        logError(
+            "window.error: " +
+            event.message +
+            " @ " +
+            event.filename +
+            ":" +
+            event.lineno +
+            ":" +
+            event.colno
         );
 
     }
+);
+
+
+window.addEventListener(
+    "unhandledrejection",
+    event => {
+
+        logError(
+            "Unhandled Promise Rejection: " +
+            (event.reason?.stack ||
+             event.reason ||
+             "unknown")
+        );
+
+    }
+);
+
+
+/* =========================================================
+   TOAST
+========================================================= */
+
+function showToast(message){
+
+    toast.textContent = message;
+
+    toast.classList.add("show");
+
+    clearTimeout(toastTimer);
+
+    toastTimer =
+        setTimeout(
+            () => toast.classList.remove("show"),
+            2200
+        );
 
 }
 
 
 /* =========================================================
-   V86 DETECTION
+   FILE DISPLAY
 ========================================================= */
 
-function getV86Constructor(){
+isoInput.addEventListener(
+    "change",
+    () => {
 
-    if(
-        typeof window.V86 ===
-        "function"
-    ){
+        selectedISO =
+            isoInput.files &&
+            isoInput.files[0]
+            ? isoInput.files[0]
+            : null;
 
-        return window.V86;
+        if(selectedISO){
+
+            isoName.textContent =
+                selectedISO.name +
+                " (" +
+                formatBytes(selectedISO.size) +
+                ")";
+
+            log(
+                "ISO selected: " +
+                selectedISO.name +
+                " / " +
+                selectedISO.size +
+                " bytes"
+            );
+
+        }else{
+
+            isoName.textContent =
+                "ISO未選択";
+
+        }
 
     }
+);
 
 
-    if(
-        typeof window.V86Starter ===
-        "function"
-    ){
+hddInput.addEventListener(
+    "change",
+    () => {
 
-        return window.V86Starter;
+        selectedHDD =
+            hddInput.files &&
+            hddInput.files[0]
+            ? hddInput.files[0]
+            : null;
+
+        if(selectedHDD){
+
+            hddName.textContent =
+                selectedHDD.name +
+                " (" +
+                formatBytes(selectedHDD.size) +
+                ")";
+
+            log(
+                "HDD selected: " +
+                selectedHDD.name +
+                " / " +
+                selectedHDD.size +
+                " bytes"
+            );
+
+        }else{
+
+            hddName.textContent =
+                "HDDイメージ未選択";
+
+        }
 
     }
+);
 
 
-    return null;
+floppyInput.addEventListener(
+    "change",
+    () => {
+
+        selectedFloppy =
+            floppyInput.files &&
+            floppyInput.files[0]
+            ? floppyInput.files[0]
+            : null;
+
+        if(selectedFloppy){
+
+            floppyName.textContent =
+                selectedFloppy.name +
+                " (" +
+                formatBytes(selectedFloppy.size) +
+                ")";
+
+            log(
+                "Floppy selected: " +
+                selectedFloppy.name +
+                " / " +
+                selectedFloppy.size +
+                " bytes"
+            );
+
+        }else{
+
+            floppyName.textContent =
+                "フロッピー未選択";
+
+        }
+
+    }
+);
+
+
+function formatBytes(bytes){
+
+    if(bytes < 1024){
+        return bytes + " B";
+    }
+
+    if(bytes < 1024 * 1024){
+        return (bytes / 1024).toFixed(1) + " KB";
+    }
+
+    if(bytes < 1024 * 1024 * 1024){
+        return (bytes / 1024 / 1024).toFixed(1) + " MB";
+    }
+
+    return (
+        bytes /
+        1024 /
+        1024 /
+        1024
+    ).toFixed(2) + " GB";
 
 }
 
 
 /* =========================================================
-   DIAGNOSTICS
+   OS SELECTION
 ========================================================= */
 
-async function checkFile(
-    url
-){
+osSelect.addEventListener(
+    "change",
+    updateOSInfo
+);
+
+
+function updateOSInfo(){
+
+    currentOS =
+        osSelect.value;
+
+    const cfg =
+        OS_CONFIG[currentOS];
+
+    if(!cfg){
+        return;
+    }
+
+    osInfo.innerHTML =
+        "<strong>" +
+        escapeHTML(cfg.name) +
+        "</strong><br>" +
+        escapeHTML(cfg.info);
+
+    log(
+        "OS selected: " +
+        cfg.name
+    );
+
+}
+
+
+function escapeHTML(value){
+
+    return String(value)
+        .replace(/&/g,"&amp;")
+        .replace(/</g,"&lt;")
+        .replace(/>/g,"&gt;")
+        .replace(/"/g,"&quot;")
+        .replace(/'/g,"&#039;");
+
+}
+
+
+/* =========================================================
+   INITIAL SETTINGS
+========================================================= */
+
+updateOSInfo();
+
+
+function applyOSDefaults(){
+
+    const cfg =
+        OS_CONFIG[currentOS];
+
+    if(!cfg){
+        return;
+    }
+
+    ramSelect.value =
+        String(cfg.ram);
+
+    hddSize.value =
+        String(cfg.hdd);
+
+}
+
+
+/* =========================================================
+   RESOURCE CHECK
+========================================================= */
+
+async function checkLocalResource(path){
+
+    /*
+       file:// ではfetchが使えないケースがあるため、
+       HTTP(S)の場合だけfetch確認する。
+    */
+
+    if(location.protocol === "file:"){
+
+        log(
+            "file:// detected. " +
+            "Resource fetch test skipped.",
+            "WARN"
+        );
+
+        return true;
+    }
 
     try{
 
         const response =
             await fetch(
-                url,
+                path,
                 {
                     method:"HEAD",
                     cache:"no-store"
                 }
             );
 
+        if(!response.ok){
 
-        return response.ok;
+            throw new Error(
+                path +
+                " HTTP " +
+                response.status
+            );
 
-    }catch(_){
+        }
+
+        log(
+            "Resource OK: " +
+            path
+        );
+
+        return true;
+
+    }catch(error){
+
+        logError(
+            "Resource unavailable: " +
+            path +
+            " / " +
+            error.message
+        );
 
         return false;
 
@@ -897,508 +1502,444 @@ async function checkFile(
 }
 
 
-async function runDiagnostics(){
+/* =========================================================
+   ARRAYBUFFER
+========================================================= */
 
-    const d =
-        $("diagnostics");
+async function fileToArrayBuffer(file){
 
-
-    let html = "";
-
-
-    if(
-        getV86Constructor()
-    ){
-
-        html +=
-            '<span class="ok">[✓] libv86.js</span><br>';
-
-    }else{
-
-        html +=
-            '<span class="bad">[✗] libv86.js</span><br>';
-
+    if(!file){
+        return null;
     }
 
+    log(
+        "Reading file: " +
+        file.name +
+        " (" +
+        formatBytes(file.size) +
+        ")"
+    );
 
-    if(
-        typeof WebAssembly !==
-        "undefined"
-    ){
+    const buffer =
+        await file.arrayBuffer();
 
-        html +=
-            '<span class="ok">[✓] WebAssembly</span><br>';
+    log(
+        "File loaded: " +
+        file.name
+    );
 
-    }else{
-
-        html +=
-            '<span class="bad">[✗] WebAssembly</span><br>';
-
-    }
-
-
-    if(
-        location.protocol ===
-        "file:"
-    ){
-
-        html +=
-            '<span class="warn">[!] file://</span><br>';
-
-        html +=
-            '<span class="warn">' +
-            '    HTTPサーバー経由を推奨' +
-            '</span><br>';
-
-    }else{
-
-        html +=
-            '<span class="ok">[✓] HTTP/HTTPS</span><br>';
-
-    }
-
-
-    /*
-      v86本体に必要なファイル。
-    */
-
-    if(
-        location.protocol !==
-        "file:"
-    ){
-
-        for(
-            const file of [
-                "v86.wasm",
-                "seabios.bin",
-                "vgabios.bin"
-            ]
-        ){
-
-            const exists =
-                await checkFile(
-                    "./" + file
-                );
-
-
-            if(exists){
-
-                html +=
-                    '<span class="ok">' +
-                    '[✓] ' +
-                    file +
-                    '</span><br>';
-
-            }else{
-
-                html +=
-                    '<span class="bad">' +
-                    '[✗] ' +
-                    file +
-                    '</span><br>';
-
-            }
-
-        }
-
-    }else{
-
-        html +=
-            '<span class="warn">' +
-            '[?] v86.wasm / BIOS — HTTP環境で確認' +
-            '</span>';
-
-    }
-
-
-    d.innerHTML =
-        html;
+    return buffer;
 
 }
 
 
 /* =========================================================
-   PROFILE
+   SHOW / HIDE
 ========================================================= */
 
-function getProfile(){
+function showEmulator(){
 
-    const architecture =
-        $("architecture").value;
+    menu.classList.add("hidden");
 
-    const os =
-        $("osProfile").value;
+    emulatorUI.classList.remove("hidden");
+
+}
 
 
-    /*
-      現在のv86はx86。
-      x86-64はまだ別バックエンドが必要。
-    */
+function showMenu(){
 
-    if(
-        architecture ===
-        "x64"
-    ){
+    emulatorUI.classList.add("hidden");
 
-        return {
-            supported:false,
-            reason:
-                "現在のv86はx86-64 CPUを実装していません。"
-        };
+    menu.classList.remove("hidden");
+
+}
+
+
+/* =========================================================
+   LOADING
+========================================================= */
+
+function setLoading(
+    visible,
+    text="",
+    detail=""
+){
+
+    if(visible){
+
+        loading.classList.remove("hidden");
+
+        loadingText.textContent =
+            text;
+
+        loadingDetail.textContent =
+            detail;
+
+    }else{
+
+        loading.classList.add("hidden");
 
     }
 
+}
 
-    let ram =
-        Number(
-            $("ram").value
+
+/* =========================================================
+   ERROR
+========================================================= */
+
+function showStartupError(error){
+
+    const text =
+        error &&
+        error.stack
+        ? error.stack
+        : String(error);
+
+    errorMessage.textContent =
+        text;
+
+    errorOverlay.classList.remove("hidden");
+
+    setLoading(false);
+
+    logError(text);
+
+}
+
+
+function hideStartupError(){
+
+    errorOverlay.classList.add("hidden");
+
+}
+
+
+/* =========================================================
+   CREATE EMULATOR
+========================================================= */
+
+async function createEmulator(){
+
+    if(isStarting){
+
+        log(
+            "Start request ignored because emulator is already starting.",
+            "WARN"
         );
 
-
-    let acpi =
-        false;
-
-
-    if(
-        os === "win95"
-    ){
-
-        ram =
-            Math.min(
-                Math.max(
-                    ram,
-                    64 * 1024 * 1024
-                ),
-                512 * 1024 * 1024
-            );
-
-        acpi =
-            false;
+        return;
 
     }
 
-
-    if(
-        os === "winxp"
-    ){
-
-        ram =
-            Math.max(
-                ram,
-                128 * 1024 * 1024
-            );
-
-        /*
-          ACPIはv86ではexperimentalなので
-          XPプロファイルでも最初はOFF。
-        */
-
-        acpi =
-            false;
-
-    }
-
-
-    return {
-        supported:true,
-        ram,
-        acpi
-    };
-
-}
-
-
-/* =========================================================
-   FULLSCREEN
-========================================================= */
-
-async function enterFullscreen(){
-
-    try{
-
-        if(
-            document.fullscreenElement
-        ){
-
-            return;
-
-        }
-
-
-        if(
-            $("emulator").requestFullscreen
-        ){
-
-            await $("emulator")
-                .requestFullscreen();
-
-        }
-
-    }catch(error){
-
-        console.warn(
-            "Fullscreen:",
-            error
-        );
-
-    }
-
-}
-
-
-/* =========================================================
-   POWER ON
-========================================================= */
-
-async function powerOn(){
-
-    /*
-      既にインスタンスが存在している場合は
-      「電源ON」ではなく再開。
-    */
-
-    if(
-        emulator
-    ){
+    if(emulator){
 
         try{
 
-            if(
-                typeof emulator.run ===
-                "function"
-            ){
+            log(
+                "Existing emulator found. Destroying..."
+            );
 
-                await emulator.run();
+            if(typeof emulator.destroy === "function"){
 
-                poweredOn =
-                    true;
+                await emulator.destroy();
 
-                paused =
-                    false;
+            }else if(typeof emulator.stop === "function"){
 
-                setPowerState(
-                    true
-                );
-
-                $("runPause").textContent =
-                    "⏸ 一時停止";
-
-                return;
+                await emulator.stop();
 
             }
 
         }catch(error){
 
-            console.error(
-                error
+            logError(
+                "Existing emulator cleanup failed: " +
+                error.message
             );
 
         }
 
-    }
-
-
-    await bootNewEmulator();
-
-}
-
-
-/* =========================================================
-   CREATE + BOOT
-========================================================= */
-
-async function bootNewEmulator(){
-
-    const Constructor =
-        getV86Constructor();
-
-
-    if(!Constructor){
-
-        setStatus(
-            "❌ libv86.jsが読み込まれていません。",
-            "error"
-        );
-
-        return;
+        emulator = null;
 
     }
 
 
-    const profile =
-        getProfile();
+    isStarting = true;
 
+    hideStartupError();
 
-    if(
-        !profile.supported
-    ){
+    applyOSDefaults();
 
-        setStatus(
-            "⚠️ 64-bitモードは現在使用できません。\n\n" +
-            profile.reason,
-            "warn"
-        );
+    showEmulator();
 
-        return;
-
-    }
-
-
-    const isoFile =
-        $("iso").files[0];
-
-
-    if(!isoFile){
-
-        setStatus(
-            "❌ ISOを選択してください。",
-            "error"
-        );
-
-        return;
-
-    }
-
-
-    $("boot").disabled =
-        true;
-
-
-    $("menu").style.display =
-        "none";
-
-    $("emulator").style.display =
-        "block";
-
-    $("bootOverlay").style.display =
-        "flex";
-
-
-    /*
-      ブラウザのユーザー操作直後に要求。
-    */
-
-    enterFullscreen();
+    setLoading(
+        true,
+        "エミュレーターを準備しています…",
+        "ファイルを読み込んでいます"
+    );
 
 
     try{
 
-        /* =============================================
+        log("======================================");
+        log("superEmulator startup");
+        log("======================================");
+
+        log(
+            "Browser protocol: " +
+            location.protocol
+        );
+
+        log(
+            "Page URL: " +
+            location.href
+        );
+
+        /*
+         * v86公式ではローカルファイルを直接開くより、
+         * HTTP(S)のローカルサーバー経由が推奨。
+         */
+
+        if(location.protocol === "file:"){
+
+            log(
+                "WARNING: This page is running under file://",
+                "WARN"
+            );
+
+            log(
+                "v86 officially recommends serving the files through a web server.",
+                "WARN"
+            );
+
+        }
+
+
+        /* -------------------------------------------------
+           Check global v86
+        ------------------------------------------------- */
+
+        if(typeof window.V86 !== "function" &&
+           typeof window.V86Starter !== "function"){
+
+            throw new Error(
+                "V86 / V86Starter が見つかりません。\n" +
+                "libv86.js が正しく読み込まれているか確認してください。"
+            );
+
+        }
+
+        log(
+            "V86 constructor: " +
+            (
+                typeof window.V86 === "function"
+                ? "V86"
+                : "V86Starter"
+            )
+        );
+
+
+        /* -------------------------------------------------
+           Check resources
+        ------------------------------------------------- */
+
+        setLoading(
+            true,
+            "必要ファイルを確認しています…",
+            "libv86 / v86.wasm / BIOS"
+        );
+
+        await checkLocalResource("./v86.wasm");
+
+        await checkLocalResource("./seabios.bin");
+
+        await checkLocalResource("./vgabios.bin");
+
+
+        /* -------------------------------------------------
            ISO
-        ============================================== */
+        ------------------------------------------------- */
 
-        setBootText(
-            "ISOを読み込んでいます..."
+        if(!selectedISO){
+
+            throw new Error(
+                "OSのISOファイルが選択されていません。"
+            );
+
+        }
+
+
+        /* -------------------------------------------------
+           Read files
+        ------------------------------------------------- */
+
+        setLoading(
+            true,
+            "ディスクイメージを読み込んでいます…",
+            selectedISO.name
         );
 
-
-        const iso =
-            await readFile(
-                isoFile
+        const isoBuffer =
+            await fileToArrayBuffer(
+                selectedISO
             );
 
 
-        /* =============================================
-           HDD
-        ============================================== */
+        let hddBuffer = null;
 
-        let hdd;
+        if(selectedHDD){
 
-
-        const hddFile =
-            $("hdd").files[0];
-
-
-        if(hddFile){
-
-            setBootText(
-                "HDDイメージを読み込んでいます..."
-            );
-
-
-            hdd =
-                await readFile(
-                    hddFile
-                );
-
-        }else{
-
-            setBootText(
-                "仮想HDDを作成しています..."
-            );
-
-
-            hdd =
-                createBlankDisk(
-                    Number(
-                        $("diskSize").value
-                    )
+            hddBuffer =
+                await fileToArrayBuffer(
+                    selectedHDD
                 );
 
         }
 
 
-        /* =============================================
-           FLOPPY
-        ============================================== */
+        let floppyBuffer = null;
 
-        let fda =
-            null;
+        if(selectedFloppy){
 
-
-        const fdaFile =
-            $("fda").files[0];
-
-
-        if(fdaFile){
-
-            setBootText(
-                "フロッピーを読み込んでいます..."
-            );
-
-
-            fda =
-                await readFile(
-                    fdaFile
+            floppyBuffer =
+                await fileToArrayBuffer(
+                    selectedFloppy
                 );
 
         }
 
 
-        /* =============================================
-           V86
-        ============================================== */
+        /* -------------------------------------------------
+           Configuration
+        ------------------------------------------------- */
 
-        setBootText(
-            "v86を初期化しています..."
+        const ramMB =
+            Number(ramSelect.value);
+
+        const virtualHddMB =
+            Number(hddSize.value);
+
+
+        /*
+         * Windows 2000以降ではACPIを切る。
+         * v86公式のWindows互換情報に合わせる。
+         */
+
+        const useACPI =
+            false;
+
+
+        /*
+         * Windows系では CD → HDD → floppy の
+         * 順番を使えるようにする。
+         */
+
+        const bootOrder =
+            0x213;
+
+
+        log(
+            "RAM: " +
+            ramMB +
+            " MB"
+        );
+
+        log(
+            "Virtual HDD: " +
+            virtualHddMB +
+            " MB"
+        );
+
+        log(
+            "ACPI: " +
+            useACPI
+        );
+
+        log(
+            "Boot order: 0x" +
+            bootOrder.toString(16)
         );
 
 
-        const options = {
+        /* -------------------------------------------------
+           Reset screen
+        ------------------------------------------------- */
+
+        const screenContainer =
+            $("screen_container");
+
+        /*
+         * v86公式形式:
+         *
+         * <div id=screen_container>
+         *   <div></div>
+         *   <canvas></canvas>
+         * </div>
+         */
+
+        screenContainer.innerHTML =
+            "<div></div><canvas></canvas>";
+
+
+        /* -------------------------------------------------
+           Build disk config
+        ------------------------------------------------- */
+
+        const hdaConfig =
+            hddBuffer
+            ? {
+                buffer:hddBuffer
+            }
+            : {
+                size:
+                    virtualHddMB *
+                    1024 *
+                    1024
+            };
+
+
+        const config = {
 
             /*
-             * ★ 前版の重要なバグ修正
+             * 重要:
              *
-             * これが抜けていた。
+             * 前回の
+             *
+             * autostart:false
+             * emulator.run()
+             *
+             * をやめて、
+             *
+             * autostart:true
+             *
+             * にする。
+             *
+             * これで今回発生した
+             * Q.run -> undefined.run
+             * 系の問題を回避する。
              */
+
+            autostart:true,
+
+
             wasm_path:
                 "./v86.wasm",
 
 
             memory_size:
-                profile.ram,
+                ramMB *
+                1024 *
+                1024,
 
 
             vga_memory_size:
-                8 * 1024 * 1024,
+                8 *
+                1024 *
+                1024,
 
 
-            /*
-             * 旧API互換。
-             * 現行v86でも利用可能。
-             */
             screen_container:
-                $("screen"),
+                screenContainer,
 
 
             bios:{
@@ -1413,212 +1954,213 @@ async function bootNewEmulator(){
             },
 
 
-            /*
-             * CD -> Floppy -> HDD
-             */
-            boot_order:
-                0x213,
-
-
             cdrom:{
                 buffer:
-                    iso
+                    isoBuffer
             },
 
 
-            hda:{
-                buffer:
-                    hdd
-            },
+            hda:
+                hdaConfig,
 
 
             acpi:
-                profile.acpi,
+                useACPI,
+
+
+            boot_order:
+                bootOrder,
 
 
             /*
-             * 自動起動OFF。
-             * 作成後に明示的にrun()する。
+             * 起動時のCPU負荷を抑える。
              */
-            autostart:
-                false
+
+            fastboot:false
+
         };
 
 
-        if(fda){
+        /*
+         * フロッピーがある場合だけ追加。
+         */
 
-            options.fda = {
+        if(floppyBuffer){
+
+            config.fda = {
                 buffer:
-                    fda
+                    floppyBuffer
             };
 
         }
 
 
-        /*
-         * 念のため古いインスタンスを破棄。
-         */
-
-        await destroyEmulator();
-
-
-        setBootText(
-            "仮想PCの電源を入れています..."
+        log(
+            "Creating v86 instance..."
         );
 
 
-        /*
-         * ★ ここで実際のインスタンスを作る。
-         */
+        /* -------------------------------------------------
+           Constructor
+        ------------------------------------------------- */
 
-        const instance =
-            new Constructor(
-                options
-            );
+        let Constructor = null;
+
+        if(typeof window.V86 === "function"){
+
+            Constructor =
+                window.V86;
+
+        }else{
+
+            Constructor =
+                window.V86Starter;
+
+        }
 
 
         emulator =
-            instance;
-
-
-        /*
-         * イベント
-         */
-
-        if(
-            typeof instance.add_listener ===
-            "function"
-        ){
-
-            instance.add_listener(
-                "emulator-ready",
-                ()=>{
-                    console.log(
-                        "[superEmulator] emulator-ready"
-                    );
-                }
+            new Constructor(
+                config
             );
 
 
-            instance.add_listener(
-                "emulator-started",
-                ()=>{
-                    console.log(
-                        "[superEmulator] emulator-started"
-                    );
-                }
-            );
+        if(!emulator){
 
-
-            instance.add_listener(
-                "emulator-stopped",
-                ()=>{
-                    console.log(
-                        "[superEmulator] emulator-stopped"
-                    );
-                }
-            );
-
-
-            instance.add_listener(
-                "download-error",
-                event=>{
-                    console.error(
-                        "[superEmulator] download-error",
-                        event
-                    );
-                }
+            throw new Error(
+                "v86インスタンスの作成に失敗しました。"
             );
 
         }
 
 
+        log(
+            "v86 instance created."
+        );
+
+
+        /* -------------------------------------------------
+           Event listeners
+        ------------------------------------------------- */
+
+        if(typeof emulator.add_listener === "function"){
+
+            try{
+
+                emulator.add_listener(
+                    "emulator-started",
+                    () => {
+
+                        isRunning = true;
+
+                        updatePowerButton();
+
+                        status.textContent =
+                            "起動中";
+
+                        log(
+                            "Event: emulator-started"
+                        );
+
+                    }
+                );
+
+            }catch(error){
+
+                log(
+                    "emulator-started listener unavailable: " +
+                    error.message,
+                    "WARN"
+                );
+
+            }
+
+
+            try{
+
+                emulator.add_listener(
+                    "emulator-ready",
+                    () => {
+
+                        log(
+                            "Event: emulator-ready"
+                        );
+
+                    }
+                );
+
+            }catch(error){
+
+                log(
+                    "emulator-ready listener unavailable: " +
+                    error.message,
+                    "WARN"
+                );
+
+            }
+
+        }
+
+
+        /* -------------------------------------------------
+           Do NOT call emulator.run()
+           
+           autostart:true handles it.
+        ------------------------------------------------- */
+
+        setLoading(
+            true,
+            "エミュレーターを起動しています…",
+            OS_CONFIG[currentOS].name +
+            " を起動中"
+        );
+
+
+        status.textContent =
+            "起動処理中";
+
+
+        log(
+            "autostart=true. Manual run() call skipped."
+        );
+
+
         /*
-         * ★ 実際にCPUを動かす。
+         * 少し待ってからLoadingを消す。
+         * BIOS画面が描画される前にUIを消して
+         * 真っ黒に見える問題を減らす。
          */
 
-        await instance.run();
+        setTimeout(
+            () => {
 
+                setLoading(false);
 
-        poweredOn =
-            true;
+                log(
+                    "Startup overlay hidden."
+                );
 
-        paused =
-            false;
-
-
-        setPowerState(
-            true
+            },
+            1200
         );
 
 
-        $("runPause").textContent =
-            "⏸ 一時停止";
+        isRunning = true;
 
-
-        await new Promise(
-            resolve =>
-                setTimeout(
-                    resolve,
-                    1000
-                )
-        );
-
-
-        $("bootOverlay").style.display =
-            "none";
-
-
-        setStatus(
-            "✓ 起動処理を開始しました。\n" +
-            "ISO: " +
-            isoFile.name,
-            "ok"
-        );
+        updatePowerButton();
 
 
     }catch(error){
 
-        console.error(
-            "[superEmulator]",
-            error
-        );
+        isRunning = false;
 
+        updatePowerButton();
 
-        $("bootOverlay").style.display =
-            "none";
-
-
-        poweredOn =
-            false;
-
-
-        setPowerState(
-            false
-        );
-
-
-        setStatus(
-            "❌ エミュレーターを起動できませんでした。\n\n" +
-            (error?.message || String(error)) +
-            "\n\n" +
-            "確認:\n" +
-            "・v86.wasm\n" +
-            "・seabios.bin\n" +
-            "・vgabios.bin\n" +
-            "・ISOがブート可能か\n" +
-            "・Windows 95ならブートフロッピーが必要か",
-            "error"
-        );
-
-
-        await destroyEmulator();
-
+        showStartupError(error);
 
     }finally{
 
-        $("boot").disabled =
-            false;
+        isStarting = false;
 
     }
 
@@ -1626,132 +2168,119 @@ async function bootNewEmulator(){
 
 
 /* =========================================================
-   POWER OFF
+   POWER BUTTON
 ========================================================= */
 
-async function powerOff(){
+powerButton.addEventListener(
+    "click",
+    async () => {
 
-    if(
-        !emulator
-    ){
+        if(!emulator){
 
-        setPowerState(
-            false
-        );
+            showToast(
+                "エミュレーターが起動していません"
+            );
 
-        return;
-
-    }
-
-
-    try{
-
-        /*
-         * v86公式APIのstop()を使用。
-         * stop()はエミュレーションを停止する。
-         */
-
-        if(
-            typeof emulator.stop ===
-            "function"
-        ){
-
-            await emulator.stop();
+            return;
 
         }
 
 
-    }catch(error){
+        try{
 
-        console.error(
-            "Power off:",
-            error
-        );
+            if(isRunning){
+
+                log(
+                    "Power OFF requested."
+                );
+
+                if(typeof emulator.stop === "function"){
+
+                    await emulator.stop();
+
+                    isRunning = false;
+
+                    status.textContent =
+                        "電源OFF";
+
+                    log(
+                        "Emulator stopped."
+                    );
+
+                }else{
+
+                    showToast(
+                        "このv86ビルドではstop()がありません"
+                    );
+
+                }
+
+            }else{
+
+                log(
+                    "Power ON requested."
+                );
+
+                if(typeof emulator.run === "function"){
+
+                    await emulator.run();
+
+                    isRunning = true;
+
+                    status.textContent =
+                        "起動中";
+
+                    log(
+                        "Emulator run() completed."
+                    );
+
+                }else{
+
+                    throw new Error(
+                        "このv86ビルドにはrun()がありません。"
+                    );
+
+                }
+
+            }
+
+        }catch(error){
+
+            showStartupError(error);
+
+        }
+
+        updatePowerButton();
 
     }
-
-
-    poweredOn =
-        false;
-
-    paused =
-        false;
-
-
-    setPowerState(
-        false
-    );
-
-
-    $("runPause").textContent =
-        "▶ 再開";
-
-
-    setStatus(
-        "🔴 電源OFF\n" +
-        "エミュレーターは停止しています。",
-        "warn"
-    );
-
-}
+);
 
 
 /* =========================================================
-   DESTROY
+   POWER BUTTON UI
 ========================================================= */
 
-async function destroyEmulator(){
+function updatePowerButton(){
 
-    const instance =
-        emulator;
+    if(isRunning){
 
+        powerButton.textContent =
+            "⏻ 電源OFF";
 
-    emulator =
-        null;
+        powerButton.classList.remove(
+            "off"
+        );
 
+    }else{
 
-    if(
-        !instance
-    ){
+        powerButton.textContent =
+            "⏻ 電源ON";
 
-        return;
-
-    }
-
-
-    try{
-
-        if(
-            typeof instance.destroy ===
-            "function"
-        ){
-
-            await instance.destroy();
-
-        }else if(
-            typeof instance.stop ===
-            "function"
-        ){
-
-            await instance.stop();
-
-        }
-
-    }catch(error){
-
-        console.warn(
-            "destroy:",
-            error
+        powerButton.classList.add(
+            "off"
         );
 
     }
-
-
-    poweredOn =
-        false;
-
-    paused =
-        false;
 
 }
 
@@ -1760,472 +2289,527 @@ async function destroyEmulator(){
    RESET
 ========================================================= */
 
-async function resetEmulator(){
+resetButton.addEventListener(
+    "click",
+    async () => {
 
-    /*
-     * ★ undefined.restart バグ対策
-     *
-     * まずローカル変数に取得してから確認する。
-     */
+        if(!emulator){
 
-    const instance =
-        emulator;
-
-
-    if(
-        !instance
-    ){
-
-        setStatus(
-            "⚠️ エミュレーターの電源がOFFです。\n" +
-            "先に電源ボタンを押してください。",
-            "warn"
-        );
-
-        return;
-
-    }
-
-
-    try{
-
-        /*
-         * 現在のv86 APIではrestart()は
-         * インスタンスメソッド。
-         */
-
-        if(
-            typeof instance.restart ===
-            "function"
-        ){
-
-            instance.restart();
-
-
-            poweredOn =
-                true;
-
-            paused =
-                false;
-
-
-            setPowerState(
-                true
+            showToast(
+                "エミュレーターがありません"
             );
-
-
-            $("runPause").textContent =
-                "⏸ 一時停止";
-
-
-            setStatus(
-                "🔄 リセットしました。",
-                "ok"
-            );
-
 
             return;
 
         }
 
 
-        /*
-         * restart()が存在しない古いランタイム用。
-         */
-
         if(
-            typeof instance.stop ===
-            "function"
+            !confirm(
+                "仮想PCをリセットしますか？"
+            )
         ){
 
-            await instance.stop();
+            return;
 
         }
 
 
-        if(
-            typeof instance.run ===
-            "function"
-        ){
+        try{
 
-            await instance.run();
+            log(
+                "Reset requested."
+            );
+
+
+            /*
+             * v86 APIではrestart()は同期メソッド。
+             *
+             * 前回の
+             * emulator.cpu.restart()
+             * のような内部APIは使用しない。
+             */
+
+            if(
+                typeof emulator.restart ===
+                "function"
+            ){
+
+                emulator.restart();
+
+                isRunning = true;
+
+                status.textContent =
+                    "リセット中";
+
+                log(
+                    "emulator.restart() called."
+                );
+
+
+                setTimeout(
+                    () => {
+
+                        status.textContent =
+                            "起動中";
+
+                    },
+                    1000
+                );
+
+
+            }else{
+
+                throw new Error(
+                    "このv86ビルドにはrestart()がありません。"
+                );
+
+            }
+
+
+        }catch(error){
+
+            logError(
+                "Reset failed: " +
+                error.message
+            );
+
+            showToast(
+                "リセットに失敗しました。ログを確認してください。"
+            );
 
         }
-
-
-        poweredOn =
-            true;
-
-        paused =
-            false;
-
-
-        setPowerState(
-            true
-        );
-
-
-        $("runPause").textContent =
-            "⏸ 一時停止";
-
-
-        setStatus(
-            "🔄 リセットしました。",
-            "ok"
-        );
-
-
-    }catch(error){
-
-        console.error(
-            "Reset error:",
-            error
-        );
-
-
-        setStatus(
-            "❌ リセットに失敗しました。\n\n" +
-            (error?.message || String(error)),
-            "error"
-        );
 
     }
-
-}
+);
 
 
 /* =========================================================
-   PAUSE / RESUME
+   FULLSCREEN
 ========================================================= */
 
-async function togglePause(){
+fullscreenButton.addEventListener(
+    "click",
+    async () => {
 
-    const instance =
-        emulator;
+        try{
 
+            if(!document.fullscreenElement){
 
-    if(
-        !instance
-    ){
+                await emulatorUI.requestFullscreen();
 
-        setStatus(
-            "⚠️ エミュレーターがありません。",
-            "warn"
-        );
+                log(
+                    "Browser fullscreen enabled."
+                );
 
-        return;
+            }else{
 
-    }
+                await document.exitFullscreen();
 
-
-    try{
-
-        if(
-            !paused
-        ){
-
-            if(
-                typeof instance.stop ===
-                "function"
-            ){
-
-                await instance.stop();
+                log(
+                    "Browser fullscreen disabled."
+                );
 
             }
 
+        }catch(error){
 
-            paused =
-                true;
-
-            poweredOn =
-                false;
-
-
-            setPowerState(
-                false
+            logError(
+                "Fullscreen failed: " +
+                error.message
             );
 
-
-            $("runPause").textContent =
-                "▶ 再開";
-
-
-            setStatus(
-                "⏸ 一時停止中",
-                "warn"
-            );
-
-
-        }else{
-
-            if(
-                typeof instance.run ===
-                "function"
-            ){
-
-                await instance.run();
-
-            }
-
-
-            paused =
-                false;
-
-            poweredOn =
-                true;
-
-
-            setPowerState(
-                true
-            );
-
-
-            $("runPause").textContent =
-                "⏸ 一時停止";
-
-
-            setStatus(
-                "▶ 再開しました。",
-                "ok"
+            showToast(
+                "ブラウザの全画面化が拒否されました"
             );
 
         }
 
-    }catch(error){
+    }
+);
 
-        console.error(
-            error
-        );
 
-        setStatus(
-            "❌ 状態変更に失敗しました。\n\n" +
-            (error?.message || String(error)),
-            "error"
+document.addEventListener(
+    "fullscreenchange",
+    () => {
+
+        if(document.fullscreenElement){
+
+            fullscreenButton.textContent =
+                "⛶ 全画面解除";
+
+        }else{
+
+            fullscreenButton.textContent =
+                "⛶ 全画面";
+
+        }
+
+    }
+);
+
+
+/* =========================================================
+   LOG
+========================================================= */
+
+function openLog(){
+
+    logOutput.textContent =
+        logLines.join("\n");
+
+    logOutput.scrollTop =
+        logOutput.scrollHeight;
+
+    logModal.classList.remove(
+        "hidden"
+    );
+
+}
+
+
+function closeLog(){
+
+    logModal.classList.add(
+        "hidden"
+    );
+
+}
+
+
+logButton.addEventListener(
+    "click",
+    openLog
+);
+
+
+errorLogButton.addEventListener(
+    "click",
+    openLog
+);
+
+
+closeLogButton.addEventListener(
+    "click",
+    closeLog
+);
+
+
+logModal.addEventListener(
+    "click",
+    event => {
+
+        if(event.target === logModal){
+
+            closeLog();
+
+        }
+
+    }
+);
+
+
+/* =========================================================
+   COPY LOG
+========================================================= */
+
+copyLogButton.addEventListener(
+    "click",
+    async () => {
+
+        try{
+
+            await navigator.clipboard.writeText(
+                logLines.join("\n")
+            );
+
+            showToast(
+                "ログをコピーしました"
+            );
+
+        }catch(error){
+
+            logError(
+                "Copy log failed: " +
+                error.message
+            );
+
+        }
+
+    }
+);
+
+
+/* =========================================================
+   CLEAR LOG
+========================================================= */
+
+clearLogButton.addEventListener(
+    "click",
+    () => {
+
+        logLines = [];
+
+        logOutput.textContent = "";
+
+        log(
+            "Log cleared."
         );
 
     }
-
-}
+);
 
 
 /* =========================================================
    EXIT
 ========================================================= */
 
-async function exitEmulator(){
-
-    await destroyEmulator();
-
-
-    $("emulator").style.display =
-        "none";
-
-
-    $("menu").style.display =
-        "flex";
-
-
-    setPowerState(
-        false
-    );
-
-
-    if(
-        document.fullscreenElement
-    ){
+exitButton.addEventListener(
+    "click",
+    async () => {
 
         try{
 
-            await document.exitFullscreen();
+            if(emulator){
 
-        }catch(_){}
-
-    }
-
-
-    setStatus(
-        "エミュレーターを終了しました。",
-        "warn"
-    );
-
-}
+                log(
+                    "Destroying emulator..."
+                );
 
 
-/* =========================================================
-   EVENTS
-========================================================= */
+                if(
+                    typeof emulator.destroy ===
+                    "function"
+                ){
 
-$("boot").addEventListener(
-    "click",
-    powerOn
-);
+                    await emulator.destroy();
 
+                }else if(
+                    typeof emulator.stop ===
+                    "function"
+                ){
 
-$("power").addEventListener(
-    "click",
-    async ()=>{
+                    await emulator.stop();
 
-        if(poweredOn){
+                }
 
-            await powerOff();
+            }
 
-        }else{
+        }catch(error){
 
-            await powerOn();
-
-        }
-
-    }
-);
-
-
-$("reset").addEventListener(
-    "click",
-    resetEmulator
-);
-
-
-$("runPause").addEventListener(
-    "click",
-    togglePause
-);
-
-
-$("fullscreen").addEventListener(
-    "click",
-    enterFullscreen
-);
-
-
-$("exit").addEventListener(
-    "click",
-    exitEmulator
-);
-
-
-/* =========================================================
-   PROFILE EVENTS
-========================================================= */
-
-$("architecture").addEventListener(
-    "change",
-    ()=>{
-
-        if(
-            $("architecture").value ===
-            "x64"
-        ){
-
-            setStatus(
-                "⚠️ 64-bitを選択しました。\n\n" +
-                "現在のv86バックエンドはx86-64非対応です。",
-                "warn"
+            logError(
+                "Destroy on exit failed: " +
+                error.message
             );
 
         }
 
-    }
-);
 
+        emulator = null;
 
-$("osProfile").addEventListener(
-    "change",
-    ()=>{
+        isRunning = false;
 
-        const os =
-            $("osProfile").value;
+        hideStartupError();
 
+        setLoading(false);
 
-        if(
-            os === "win10" ||
-            os === "win11"
-        ){
+        showMenu();
 
-            $("architecture").value =
-                "x64";
+        status.textContent =
+            "準備中";
 
-
-            setStatus(
-                "⚠️ Windows 10/11は64-bitバックエンドが必要です。\n" +
-                "現在のv86ではまだ起動できません。",
-                "warn"
-            );
-
-        }
+        updatePowerButton();
 
     }
 );
 
 
 /* =========================================================
-   STARTUP
+   ERROR BACK
 ========================================================= */
 
-window.addEventListener(
-    "load",
-    async ()=>{
+errorBackButton.addEventListener(
+    "click",
+    async () => {
 
-        setPowerState(
-            false
-        );
+        try{
 
+            if(emulator){
 
-        await runDiagnostics();
+                if(
+                    typeof emulator.destroy ===
+                    "function"
+                ){
 
+                    await emulator.destroy();
 
-        if(
-            getV86Constructor()
-        ){
+                }else if(
+                    typeof emulator.stop ===
+                    "function"
+                ){
 
-            setStatus(
-                "✓ v86を検出しました。\n" +
-                "ISOを選択して起動してください。",
-                "ok"
-            );
+                    await emulator.stop();
 
-        }else{
+                }
 
-            setStatus(
-                "❌ libv86.jsを読み込めません。",
-                "error"
+            }
+
+        }catch(error){
+
+            logError(
+                "Error screen cleanup failed: " +
+                error.message
             );
 
         }
+
+        emulator = null;
+
+        isRunning = false;
+
+        hideStartupError();
+
+        showMenu();
+
+        updatePowerButton();
 
     }
 );
 
 
 /* =========================================================
-   KEYBOARD
+   START
 ========================================================= */
 
-window.addEventListener(
-    "keydown",
-    event=>{
+startButton.addEventListener(
+    "click",
+    async () => {
 
-        if(
-            $("emulator").style.display !==
-            "block"
-        ){
+        if(!selectedISO){
+
+            alert(
+                "まずOSのISOファイルを選択してください。"
+            );
 
             return;
 
         }
 
+        startButton.disabled = true;
 
-        if(
-            event.key ===
-            "F11"
-        ){
+        startButton.textContent =
+            "⏳ 起動準備中…";
 
-            event.preventDefault();
+        try{
 
-            enterFullscreen();
+            await createEmulator();
+
+        }finally{
+
+            startButton.disabled = false;
+
+            startButton.textContent =
+                "▶ エミュレーターを起動";
 
         }
 
     }
+);
+
+
+/* =========================================================
+   KEYBOARD SHORTCUTS
+========================================================= */
+
+document.addEventListener(
+    "keydown",
+    event => {
+
+        /*
+         * Ctrl + Alt + L
+         * 詳細ログ
+         */
+
+        if(
+            event.ctrlKey &&
+            event.altKey &&
+            event.key.toLowerCase() === "l"
+        ){
+
+            event.preventDefault();
+
+            openLog();
+
+        }
+
+
+        /*
+         * Escape
+         * ログを閉じる
+         */
+
+        if(
+            event.key === "Escape" &&
+            !logModal.classList.contains("hidden")
+        ){
+
+            closeLog();
+
+        }
+
+    }
+);
+
+
+/* =========================================================
+   INITIAL LOG
+========================================================= */
+
+log(
+    "superEmulator initialized."
+);
+
+log(
+    "v86 compatibility target: Windows 95 - Windows 8 32-bit."
+);
+
+log(
+    "Manual emulator.run() is disabled during startup."
+);
+
+log(
+    "Startup mode: autostart=true."
+);
+
+log(
+    "If boot fails, open 🛠 ログ."
+);
+
+
+/* =========================================================
+   DEBUG INFO
+========================================================= */
+
+log(
+    "User agent: " +
+    navigator.userAgent
+);
+
+log(
+    "Hardware concurrency: " +
+    (
+        navigator.hardwareConcurrency ||
+        "unknown"
+    )
+);
+
+log(
+    "Device memory: " +
+    (
+        navigator.deviceMemory
+        ? navigator.deviceMemory + " GB"
+        : "unknown"
+    )
 );
 
 </script>
