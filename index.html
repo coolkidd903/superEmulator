@@ -515,27 +515,31 @@ button{
   min-height:0;
   position:relative;
   display:flex;
-  align-items:center;
-  justify-content:center;
+  align-items:flex-start;
+  justify-content:flex-start;
   background:
     radial-gradient(circle at center,#111925,#030509 70%);
-  overflow:hidden;
+  overflow:auto;
+  overscroll-behavior:contain;
 }
 
 #screen{
-  width:100%;
-  height:100%;
+  min-width:100%;
+  min-height:100%;
+  width:max-content;
+  height:max-content;
   display:flex;
-  align-items:center;
-  justify-content:center;
-  overflow:hidden;
+  align-items:flex-start;
+  justify-content:flex-start;
+  overflow:visible;
+  padding:18px;
   position:relative;
 }
 
 #screen canvas{
   display:block;
-  max-width:100%;
-  max-height:100%;
+  max-width:none;
+  max-height:none;
   width:auto;
   height:auto;
   image-rendering:auto;
@@ -795,9 +799,16 @@ progress{
   font-size:13px;
 }
 
-code{
-  color:#8fc3ff;
-}
+code{color:#8fc3ff;}
+.settings-section{padding:14px 0;border-top:1px solid rgba(255,255,255,.08)}
+.settings-section:first-of-type{border-top:0}
+.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.setting-card{padding:12px;border:1px solid rgba(255,255,255,.08);background:#0a0f17;border-radius:12px}
+.setting-card strong{display:block;margin-bottom:5px;font-size:13px}
+.setting-card small{display:block;color:#8290a4;line-height:1.5;font-size:11px}
+.debug-output{width:100%;min-height:120px;background:#05070a;color:#a9c5e8;border:1px solid #263243;border-radius:10px;padding:10px;font:11px ui-monospace,SFMono-Regular,Menlo,monospace}
+.storage-note{font-size:11px;color:#8290a4;line-height:1.6;margin:8px 0}
+@media(max-width:700px){.settings-grid{grid-template-columns:1fr}}
 </style>
 </head>
 
@@ -953,6 +964,7 @@ code{
             <span class="os-tag">Windows Vista</span>
             <span class="os-tag">Windows 7</span>
             <span class="os-tag">Windows 8</span>
+            <span class="os-tag">Windows 10 (32bit)</span>
           </div>
         </div>
 
@@ -1079,40 +1091,6 @@ code{
 
       </div>
 
-      <div class="side-group">
-
-        <div class="side-title">SYSTEM</div>
-
-        <button class="side-btn" id="debugLinuxBtn">
-          🐧 Debug Linux
-        </button>
-
-        <button class="side-btn" id="repairBtn">
-          🧰 修復Bash
-        </button>
-
-      </div>
-
-      <div class="side-group">
-
-        <div class="side-title">ACCOUNT</div>
-
-        <button class="side-btn" id="sideMicrosoft">
-          Microsoftログイン
-        </button>
-      </div>
-
-      <div class="side-group">
-
-        <div class="side-title">ABOUT</div>
-
-        <button class="side-btn" id="backLanding">
-          ← トップページへ
-        </button>
-
-      </div>
-
-    </div>
 
   </aside>
 
@@ -1272,6 +1250,7 @@ code{
               <option value="winvista">Windows Vista</option>
               <option value="win7">Windows 7</option>
               <option value="win8">Windows 8</option>
+              <option value="win10">Windows 10 (32bit)</option>
               <option value="linux">Linux</option>
               <option value="freedos">FreeDOS</option>
               <option value="msdos">MS-DOS</option>
@@ -1301,137 +1280,20 @@ code{
           </div>
 
         </div>
-
-
         <div class="panel">
-
-          <h3>🐧 Debug Linux</h3>
-
-          <div
-            style="
-              font-size:11px;
-              color:#8290a4;
-              line-height:1.6;
-              margin-bottom:9px;
-            "
-          >
-            標準パス:<br>
-            <code>./debug-linux/debian.iso</code>
-          </div>
-
-          <button class="ctrl-btn" id="debugPathBtn">
-            Debug Linuxを読み込む
-          </button>
-
-          <div style="height:8px"></div>
-
-          <input
-            class="field"
-            id="debugIsoFile"
-            type="file"
-            accept=".iso,.img,.bin"
-          >
-
-          <button class="ctrl-btn" id="debugUploadBtn">
-            選択したISOでDebug Linux
-          </button>
-
-        </div>
-
-
-        <div class="panel">
-
-          <h3>💾 仮想ストレージ</h3>
-
+          <h3>💾 ストレージ</h3>
           <div class="disk-status">
-
-            <div class="disk-box">
-              <strong>HDD</strong>
-              <span id="diskStatus">
-                接続準備中
-              </span>
-            </div>
-
-            <div class="disk-box">
-              <strong>CD-ROM</strong>
-              <span id="cdStatus">
-                未接続
-              </span>
-            </div>
-
+            <div class="disk-box"><strong id="storageTypeLabel">HDD</strong><span id="diskStatus">未作成</span></div>
+            <div class="disk-box"><strong>CD-ROM</strong><span id="cdStatus">未接続</span></div>
           </div>
-
-          <div style="height:10px"></div>
-
-          <label class="label">
-            仮想HDD容量
-          </label>
-
-          <select class="field" id="diskSize">
-
-            <option value="64">64 MB</option>
-            <option value="128" selected>128 MB</option>
-            <option value="256">256 MB</option>
-            <option value="512">512 MB</option>
-
-          </select>
-
-          <button class="ctrl-btn" id="rebuildDiskBtn">
-            仮想HDDを再作成
-          </button>
-
+          <div style="height:8px"></div>
+          <div class="help">容量・HDD/SSD方式は設定から変更できます。</div>
         </div>
 
-
         <div class="panel">
-
-          <h3>⌨️ Bash / コマンド</h3>
-
-          <input
-            class="field"
-            id="commandInput"
-            placeholder="例: uname -a"
-          >
-
-          <button class="ctrl-btn primary" id="sendCommand">
-            ゲストへ送信
-          </button>
-
-          <div style="height:8px"></div>
-
-          <div class="row">
-            <button class="ctrl-btn command" data-command="uname -a">
-              uname
-            </button>
-            <button class="ctrl-btn command" data-command="ls">
-              ls
-            </button>
-          </div>
-
-          <div class="row">
-            <button class="ctrl-btn command" data-command="pwd">
-              pwd
-            </button>
-            <button class="ctrl-btn command" data-command="free -h">
-              free
-            </button>
-          </div>
-
-        </div>
-
-
-        <div class="panel">
-
-          <h3>📋 ログ</h3>
-
-          <div id="logs"></div>
-
-          <div style="height:8px"></div>
-
-          <button class="ctrl-btn" id="clearLogs">
-            ログ消去
-          </button>
-
+          <h3>⚙️ 詳細設定</h3>
+          <div class="help" style="margin-bottom:10px">デバッグ、ログ、Debug Linux、修復、画面倍率は設定にまとめています。</div>
+          <button class="ctrl-btn primary" id="openSettingsMain">設定を開く</button>
         </div>
 
       </aside>
@@ -1448,57 +1310,64 @@ code{
 ========================================================= -->
 
 <div class="modal" id="settingsModal">
-
   <div class="modal-card">
-
-    <button class="close-modal" id="closeSettings">
-      ×
-    </button>
-
+    <button class="close-modal" id="closeSettings">×</button>
     <h2>⚙️ 設定</h2>
 
-    <label class="label">
-      Microsoft Client ID
-    </label>
-
-    <input
-      class="field"
-      id="clientIdInput"
-      placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-    >
-
-    <button class="ctrl-btn primary" id="saveClientId">
-      保存
-    </button>
-
-    <div style="height:20px"></div>
-
-    <div class="help">
-
-      <strong>Microsoftログインについて</strong>
-
-      <p>
-        テナントは <code>common</code> 固定です。
-      </p>
-
-      <p>
-        Client IDはMicrosoft Entraのアプリ登録で取得してください。
-      </p>
-
-      <p>
-        GitHub Pagesで使う場合は、現在のページURLを
-        「シングルページアプリケーション」のリダイレクトURIとして登録する必要があります。
-      </p>
-
-      <p>
-        例:
-        <code>https://coolkidd903.github.io/superEmulator/</code>
-      </p>
-
+    <div class="settings-section">
+      <h3>💾 仮想ストレージ</h3>
+      <label class="label">接続方式</label>
+      <select class="field" id="storageType"><option value="hdd">HDD（IDE互換）</option><option value="ssd">SSD（高速ストレージ相当）</option></select>
+      <label class="label">新規仮想ディスク容量</label>
+      <select class="field" id="diskSize">
+        <option value="1024">1 GB</option><option value="2048" selected>2 GB</option><option value="4096">4 GB</option><option value="8192">8 GB</option><option value="16384">16 GB</option><option value="32768">32 GB</option>
+      </select>
+      <div class="storage-note">16～32GBは巨大なメモリ確保を避けるため、新規空ディスクではなく既存ディスクイメージの使用を推奨します。Windows 10 32bitのような大きなOSでは十分な容量のディスクイメージを選択してください。</div>
+      <label class="label">既存ディスクイメージ（任意）</label>
+      <input class="field" id="diskImageFile" type="file" accept=".img,.vhd,.bin">
+      <button class="ctrl-btn" id="rebuildDiskBtn">仮想ディスクを再作成</button>
+      <div style="height:8px"></div><button class="ctrl-btn" id="clearDiskImageBtn">選択ディスクを解除</button>
     </div>
 
-  </div>
+    <div class="settings-section">
+      <h3>🖥️ 画面</h3>
+      <label class="label">画面倍率</label>
+      <select class="field" id="screenScale"><option value="0.75">75%</option><option value="1" selected>100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option><option value="3">300%</option></select>
+      <div class="help">画面はスクロール可能です。大きな解像度でも画面外へスクロールできます。</div>
+    </div>
 
+    <div class="settings-section">
+      <h3>🐧 Debug Linux</h3>
+      <div class="help" style="margin-bottom:9px">標準パス: <code>./debug-linux/debian.iso</code></div>
+      <button class="ctrl-btn" id="debugPathBtn">Debug Linuxを読み込む</button>
+      <div style="height:8px"></div><input class="field" id="debugIsoFile" type="file" accept=".iso,.img,.bin">
+      <button class="ctrl-btn" id="debugUploadBtn">選択ISOでDebug Linux</button>
+    </div>
+
+    <div class="settings-section">
+      <h3>🧰 デバッグ / ログ</h3>
+      <div class="settings-grid"><div class="setting-card"><strong>起動診断</strong><small>WASM、BIOS、仮想ディスプレイ、v86の状態を確認。</small></div><div class="setting-card"><strong>詳細ログ</strong><small>起動・停止・ディスク・v86イベントを記録。</small></div></div>
+      <div style="height:10px"></div><button class="ctrl-btn" id="showLogsBtn">ログ位置へ</button>
+      <div style="height:8px"></div><button class="ctrl-btn" id="repairBtn">修復Bashを生成</button>
+      <div style="height:8px"></div><button class="ctrl-btn" id="clearLogs">ログ消去</button>
+      <div style="height:8px"></div><textarea class="debug-output" id="debugInfo" readonly>診断情報はここに表示されます。</textarea>
+      <div style="height:8px"></div><button class="ctrl-btn" id="refreshDebugInfo">診断情報を更新</button>
+      <div style="height:8px"></div><div id="logs" style="height:180px;overflow:auto;font:10px ui-monospace,SFMono-Regular,Menlo,monospace;background:#05070a;color:#9facbf;padding:9px;border-radius:8px;white-space:pre-wrap"></div>
+    </div>
+
+    <div class="settings-section">
+      <h3>⌨️ Bash / コマンド</h3>
+      <input class="field" id="commandInput" placeholder="例: uname -a"><button class="ctrl-btn primary" id="sendCommand">ゲストへ送信</button>
+      <div style="height:8px"></div><div class="row"><button class="ctrl-btn command" data-command="uname -a">uname</button><button class="ctrl-btn command" data-command="ls">ls</button></div>
+      <div class="row"><button class="ctrl-btn command" data-command="pwd">pwd</button><button class="ctrl-btn command" data-command="free -h">free</button></div>
+    </div>
+
+    <div class="settings-section">
+      <h3>🔐 Microsoft</h3>
+      <label class="label">Microsoft Client ID</label><input class="field" id="clientIdInput" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"><button class="ctrl-btn primary" id="saveClientId">保存</button>
+      <div class="help" style="margin-top:10px">テナントは <code>common</code> 固定。GitHub Pagesで使う場合は現在のページURLをリダイレクトURIに登録してください。</div>
+    </div>
+  </div>
 </div>
 
 
@@ -1561,6 +1430,10 @@ const DEBUG_LINUX_PATH =
 let emulator = null;
 let emulatorStarting = false;
 let virtualDisk = null;
+let selectedDiskFile = null;
+let selectedDiskName = "";
+let storageType = localStorage.getItem("superEmulator.storageType") || "hdd";
+let screenScale = Number(localStorage.getItem("superEmulator.screenScale") || "1");
 let selectedISO = null;
 let selectedISOName = "";
 let selectedOS = "winxp";
@@ -1626,8 +1499,13 @@ const isoFile =
 const debugIsoFile =
   document.getElementById("debugIsoFile");
 
-const diskSize =
-  document.getElementById("diskSize");
+const diskSize = document.getElementById("diskSize");
+const storageTypeSelect = document.getElementById("storageType");
+const storageTypeLabel = document.getElementById("storageTypeLabel");
+const diskImageFile = document.getElementById("diskImageFile");
+const clearDiskImageBtn = document.getElementById("clearDiskImageBtn");
+const screenScaleSelect = document.getElementById("screenScale");
+const debugInfo = document.getElementById("debugInfo");
 
 const diskStatus =
   document.getElementById("diskStatus");
@@ -1963,6 +1841,10 @@ document.getElementById("saveClientId")
 };
 
 
+document.getElementById("openSettingsMain").onclick=()=>{document.getElementById("clientIdInput").value=MICROSOFT_CLIENT_ID;settingsModal.classList.add("show");};
+document.getElementById("showLogsBtn").onclick=()=>{const el=document.getElementById("logs");if(el)el.scrollIntoView({behavior:"smooth"});};
+document.getElementById("refreshDebugInfo").onclick=()=>{debugInfo.value=[`protocol=${location.protocol}`,`viewport=${innerWidth}x${innerHeight}`,`devicePixelRatio=${devicePixelRatio}`,`hardwareConcurrency=${navigator.hardwareConcurrency||"unknown"}`,`deviceMemory=${navigator.deviceMemory||"unknown"}GB`,`OS=${getOSName(selectedOS)}`,`storage=${storageType.toUpperCase()}`,`disk=${selectedDiskFile?selectedDiskName:(Number(diskSize.value)/1024)+"GB blank"}`,`emulator=${!!emulator}`,`canvas=${screen.querySelector("canvas")?"OK":"not yet"}`].join("\n");log("デバッグ診断情報を更新");};
+
 /* =========================================================
    LOAD SCRIPT
 ========================================================= */
@@ -2061,6 +1943,7 @@ async function fetchBuffer(
   name
 )
 {
+  if(location.protocol === "file:") throw new Error("file://ではWASM/BIOSをfetchできません。python3 -m http.server 8080 でHTTP経由で開いてください。");
   let lastError = null;
 
   for(const path of paths)
@@ -2216,46 +2099,24 @@ function resolveV86Constructor()
    VIRTUAL HDD
 ========================================================= */
 
-function createVirtualDisk()
-{
-  const mb =
-    Number(
-      diskSize.value
-    );
-
-  const bytes =
-    mb *
-    1024 *
-    1024;
-
-  try
-  {
-    virtualDisk =
-      new ArrayBuffer(bytes);
-
-    diskStatus.textContent =
-      `${mb} MB / 接続予定`;
-
-    log(
-      `仮想HDD作成: ${mb} MB`
-    );
-  }
-  catch(e)
-  {
-    virtualDisk = null;
-
-    diskStatus.textContent =
-      "作成失敗";
-
-    log(
-      "仮想HDD作成失敗: " + e,
-      "ERROR"
-    );
-
-    errorSound();
-  }
+function createVirtualDisk(){
+  const mb=Number(diskSize.value), bytes=mb*1024*1024;
+  if(selectedDiskFile){ virtualDisk=null; diskStatus.textContent=`${selectedDiskName} / ${formatBytes(selectedDiskFile.size)}`; log(`既存ディスクイメージ: ${selectedDiskName}`); return; }
+  try{
+    const maxBlankMB=4096;
+    if(mb>maxBlankMB){ virtualDisk=null; diskStatus.textContent=`${mb/1024} GB / イメージ推奨`; log(`新規${mb/1024}GB空ディスクはブラウザのメモリ確保を避けるため既存イメージを推奨`,"WARN"); return; }
+    virtualDisk=new ArrayBuffer(bytes); diskStatus.textContent=`${mb>=1024?mb/1024+" GB":mb+" MB"} / 接続予定`; log(`仮想${storageType.toUpperCase()}作成: ${formatBytes(bytes)}`);
+  }catch(e){ virtualDisk=null; diskStatus.textContent="作成失敗"; log("仮想ディスク作成失敗: "+e,"ERROR"); errorSound(); }
 }
 
+storageTypeSelect.value=storageType; storageTypeLabel.textContent=storageType.toUpperCase();
+screenScaleSelect.value=String(screenScale);
+diskSize.value=localStorage.getItem("superEmulator.diskSize")||diskSize.value;
+diskSize.addEventListener("change",()=>{localStorage.setItem("superEmulator.diskSize",diskSize.value); if(!emulator) createVirtualDisk();});
+storageTypeSelect.addEventListener("change",()=>{storageType=storageTypeSelect.value; localStorage.setItem("superEmulator.storageType",storageType); storageTypeLabel.textContent=storageType.toUpperCase(); log(`ストレージ方式: ${storageType.toUpperCase()}`);});
+screenScaleSelect.addEventListener("change",()=>{screenScale=Number(screenScaleSelect.value); localStorage.setItem("superEmulator.screenScale",String(screenScale)); applyScreenScale();});
+diskImageFile.addEventListener("change",()=>{selectedDiskFile=diskImageFile.files[0]||null; selectedDiskName=selectedDiskFile?selectedDiskFile.name:""; if(selectedDiskFile){virtualDisk=null; diskStatus.textContent=`${selectedDiskName} / ${formatBytes(selectedDiskFile.size)}`; log(`ディスクイメージ選択: ${selectedDiskName}`);}});
+clearDiskImageBtn.addEventListener("click",()=>{selectedDiskFile=null; selectedDiskName=""; diskImageFile.value=""; createVirtualDisk();});
 
 document.getElementById("rebuildDiskBtn")
   .onclick = () =>
@@ -2314,10 +2175,9 @@ const OS_CONFIG = {
     acpi:true
   },
 
-  win8:{
-    memory:512,
-    acpi:true
-  },
+  win8:{memory:512,acpi:true},
+
+  win10:{memory:1024,acpi:true},
 
   linux:{
     memory:256,
@@ -2490,6 +2350,9 @@ async function detectISOFile(file)
     if(containsText(bytes,"WINNT"))
       score.win2000 += 50;
 
+    if(containsText(bytes,"WIN10")) score.win10 += 120;
+    if(containsText(bytes,"10240")) score.win10 += 20;
+
 
     /*
      * DOS
@@ -2612,6 +2475,7 @@ function getOSName(key)
     winvista:"Windows Vista",
     win7:"Windows 7",
     win8:"Windows 8",
+    win10:"Windows 10 (32bit)",
     linux:"Linux",
     freedos:"FreeDOS",
     msdos:"MS-DOS",
@@ -2854,17 +2718,8 @@ async function startEmulator(options={})
     /*
      * 2. 仮想ディスク
      */
-    if(!virtualDisk)
-    {
-      createVirtualDisk();
-    }
-
-    if(!virtualDisk)
-    {
-      throw new Error(
-        "仮想HDDを作成できませんでした"
-      );
-    }
+    if(!virtualDisk && !selectedDiskFile) createVirtualDisk();
+    if(!virtualDisk && !selectedDiskFile) throw new Error("仮想ディスクを作成できませんでした。設定から容量を下げるか、既存ディスクイメージを選択してください。");
 
     setBoot(
       25,
@@ -3024,9 +2879,7 @@ async function startEmulator(options={})
       /*
        * ★ 仮想HDD
        */
-      hda:{
-        buffer:virtualDisk
-      },
+      hda:selectedDiskFile ? {buffer:await selectedDiskFile.arrayBuffer()} : {buffer:virtualDisk},
 
       /*
        * CD-ROM
@@ -3290,10 +3143,8 @@ function waitForVirtualDisplay()
             "ok"
           );
 
-          log(
-            `仮想ディスプレイ生成成功: ` +
-            `${canvas.width}x${canvas.height}`
-          );
+          applyScreenScale();
+          log(`仮想ディスプレイ生成成功: ${canvas.width}x${canvas.height}`);
 
           return;
         }
@@ -3538,47 +3389,24 @@ document.getElementById("resetBtn")
 };
 
 
+function applyScreenScale(){
+  const canvas=screen.querySelector("canvas");
+  if(canvas){canvas.style.width=`${canvas.width*screenScale}px`;canvas.style.height=`${canvas.height*screenScale}px`;}
+  if(emulator && typeof emulator.screen_set_scale==="function"){try{emulator.screen_set_scale(screenScale,screenScale);}catch(e){}}
+}
+
 /* =========================================================
    FULLSCREEN
 ========================================================= */
 
-document.getElementById("fullscreenBtn")
-  .onclick = () =>
-{
-  if(!emulator)
-  {
-    alert(
-      "先にエミュレーターを起動してください。"
-    );
-
-    return;
-  }
-
-  try
-  {
-    if(
-      typeof emulator.screen_go_fullscreen ===
-      "function"
-    )
-    {
-      emulator.screen_go_fullscreen();
-      return;
-    }
-  }
-  catch(e)
-  {
-    log(
-      "v86 fullscreen失敗: " + e,
-      "WARN"
-    );
-  }
-
-
-  if(screen.requestFullscreen)
-  {
-    screen.requestFullscreen();
-  }
+document.getElementById("fullscreenBtn").onclick=async()=>{
+  if(!emulator){alert("先にエミュレーターを起動してください。");return;}
+  try{if(typeof emulator.screen_go_fullscreen==="function"){emulator.screen_go_fullscreen();log("v86全画面を要求");return;}}catch(e){log("v86 fullscreen失敗: "+e,"WARN");}
+  try{const target=document.getElementById("screenArea"); if(document.fullscreenElement) await document.exitFullscreen(); else if(target.requestFullscreen) await target.requestFullscreen({navigationUI:"hide"});}catch(e){log("ブラウザ全画面失敗: "+e,"ERROR");}
 };
+screen.addEventListener("dblclick",()=>{if(emulator)document.getElementById("fullscreenBtn").click();});
+screen.addEventListener("click",()=>{if(emulator&&typeof emulator.lock_mouse==="function"){try{emulator.lock_mouse();}catch(e){}}});
+screen.tabIndex=0;
 
 
 /* =========================================================
