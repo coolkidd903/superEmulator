@@ -809,6 +809,11 @@ code{color:#8fc3ff;}
 .debug-output{width:100%;min-height:120px;background:#05070a;color:#a9c5e8;border:1px solid #263243;border-radius:10px;padding:10px;font:11px ui-monospace,SFMono-Regular,Menlo,monospace}
 .storage-note{font-size:11px;color:#8290a4;line-height:1.6;margin:8px 0}
 @media(max-width:700px){.settings-grid{grid-template-columns:1fr}}
+
+/* SUPER CURSOR: landing全体に確実に適用 */
+#landing, #landing * {
+  cursor: var(--super-cursor, auto) !important;
+}
 </style>
 </head>
 
@@ -1370,10 +1375,65 @@ code{color:#8fc3ff;}
   </div>
 </div>
 
+<!-- 設定ボタンの独立ハンドラ。メインスクリプトの他のエラーに影響されないようにする。 -->
+<script>
+(function(){
+  function openSuperEmulatorSettings(e){
+    if(e) e.preventDefault();
+    var modal=document.getElementById("settingsModal");
+    if(!modal) return;
+    var input=document.getElementById("clientIdInput");
+    if(input){
+      try{ input.value=localStorage.getItem("superEmulator.microsoftClientId")||""; }catch(_){}
+    }
+    modal.classList.add("show");
+    modal.style.display="flex";
+  }
+  window.openSuperEmulatorSettings=openSuperEmulatorSettings;
+  document.addEventListener("click",function(e){
+    var btn=e.target.closest && e.target.closest('[data-panel="settings"],#openSettingsMain');
+    if(btn) openSuperEmulatorSettings(e);
+    if(e.target.id==="closeSettings" || (e.target.closest && e.target.closest("#closeSettings"))) {
+      var modal=document.getElementById("settingsModal");
+      if(modal){ modal.classList.remove("show"); modal.style.display="none"; }
+    }
+  },true);
+})();
+</script>
+
 
 <!-- =========================================================
      SCRIPT
 ========================================================= -->
+
+<script>
+/* SUPEREMULATOR SAFE UI BRIDGE
+   メイン処理で一部エラーが発生しても基本UIを死なせない */
+(function(){
+  function showSettings(){
+    const m=document.getElementById("settingsModal");
+    if(m){m.classList.add("show");m.style.display="flex";}
+  }
+  function hideSettings(){
+    const m=document.getElementById("settingsModal");
+    if(m){m.classList.remove("show");m.style.display="none";}
+  }
+  document.addEventListener("click",function(e){
+    const b=e.target.closest?.('[data-panel="settings"],#openSettingsMain');
+    if(b){e.preventDefault();showSettings();return;}
+    if(e.target.closest?.("#closeSettings")){e.preventDefault();hideSettings();return;}
+    const lb=e.target.closest?.('[data-panel="logs"]');
+    if(lb){e.preventDefault();const l=document.getElementById("logs");if(l)l.scrollIntoView({behavior:"smooth",block:"nearest"});return;}
+    const cb=e.target.closest?.("#clearLogs");
+    if(cb){e.preventDefault();const l=document.getElementById("logs");if(l)l.textContent="";return;}
+    const rb=e.target.closest?.("#rebuildDiskBtn");
+    if(rb){e.preventDefault();if(typeof window.createVirtualDisk==="function")window.createVirtualDisk();return;}
+    const sb=e.target.closest?.("#startBtn");
+    if(sb){e.preventDefault();if(typeof window.startEmulator==="function"){Promise.resolve(window.startEmulator()).catch(err=>{console.error(err);alert("起動に失敗しました\n\n"+(err?.message||err));});}else alert("起動処理が読み込まれていません。ページを再読み込みしてください。");return;}
+  },true);
+  window.addEventListener("resize",()=>{if(typeof window.updateCursor==="function")window.updateCursor();});
+})();
+</script>
 
 <script>
 "use strict";
@@ -1731,35 +1791,18 @@ function makeCursor(stage)
 
 function updateCursor()
 {
-  if(landing.style.display === "none")
-    return;
+  if(!landing || landing.style.display === "none") return;
 
-  const max =
-    Math.max(
-      1,
-      document.documentElement.scrollHeight -
-      window.innerHeight
-    );
+  const max=Math.max(1,document.documentElement.scrollHeight-window.innerHeight);
+  const ratio=Math.max(0,Math.min(0.999999,window.scrollY/max));
+  let index=Math.floor(ratio*cursorStages.length);
+  if(index>=cursorStages.length) index=cursorStages.length-1;
 
-  const ratio =
-    window.scrollY / max;
-
-  let index =
-    Math.floor(
-      ratio * cursorStages.length
-    );
-
-  if(index >= cursorStages.length)
-    index = cursorStages.length - 1;
-
-  const stage =
-    cursorStages[index];
-
-  document.documentElement.style.cursor =
-    makeCursor(stage);
-
-  cursorStatus.textContent =
-    "カーソル: " + stage.name;
+  const stage=cursorStages[index];
+  const cursor=makeCursor(stage);
+  document.documentElement.style.setProperty("--super-cursor",cursor);
+  landing.style.setProperty("--super-cursor",cursor);
+  cursorStatus.textContent="カーソル: "+stage.name;
 }
 
 
@@ -1769,6 +1812,9 @@ window.addEventListener(
   {passive:true}
 );
 
+/* スクロール対象や表示切替後にも確実に再計算 */
+window.addEventListener("resize", updateCursor, {passive:true});
+landing.addEventListener("wheel", () => requestAnimationFrame(updateCursor), {passive:true});
 updateCursor();
 
 
@@ -1819,6 +1865,7 @@ document.getElementById("closeSettings")
   .onclick = () =>
 {
   settingsModal.classList.remove("show");
+  settingsModal.style.display = "none";
 };
 
 
@@ -2100,20 +2147,43 @@ function resolveV86Constructor()
 ========================================================= */
 
 function createVirtualDisk(){
-  const mb=Number(diskSize.value), bytes=mb*1024*1024;
-  if(selectedDiskFile){ virtualDisk=null; diskStatus.textContent=`${selectedDiskName} / ${formatBytes(selectedDiskFile.size)}`; log(`既存ディスクイメージ: ${selectedDiskName}`); return; }
+  const mb=Math.max(16,Number(diskSize?.value)||512);
+  const bytes=mb*1024*1024;
+
+  if(selectedDiskFile){
+    virtualDisk=null;
+    diskStatus.textContent=`${selectedDiskName} / ${formatBytes(selectedDiskFile.size)}`;
+    log(`既存ディスクイメージを使用: ${selectedDiskName}`);
+    return;
+  }
+
+  /* 4GBを超えるArrayBufferはChromebook等で失敗しやすい。
+     起動用の新規空ディスクは512MBを基準にし、容量を大きくしたい場合は
+     実ディスクイメージを読み込む方式にする。 */
+  const safeLimitMB=512;
+  const allocMB=Math.min(mb,safeLimitMB);
   try{
-    const maxBlankMB=4096;
-    if(mb>maxBlankMB){ virtualDisk=null; diskStatus.textContent=`${mb/1024} GB / イメージ推奨`; log(`新規${mb/1024}GB空ディスクはブラウザのメモリ確保を避けるため既存イメージを推奨`,"WARN"); return; }
-    virtualDisk=new ArrayBuffer(bytes); diskStatus.textContent=`${mb>=1024?mb/1024+" GB":mb+" MB"} / 接続予定`; log(`仮想${storageType.toUpperCase()}作成: ${formatBytes(bytes)}`);
-  }catch(e){ virtualDisk=null; diskStatus.textContent="作成失敗"; log("仮想ディスク作成失敗: "+e,"ERROR"); errorSound(); }
+    virtualDisk=new ArrayBuffer(allocMB*1024*1024);
+    diskStatus.textContent=`${allocMB} MB / 新規仮想ディスク`;
+    if(mb>safeLimitMB){
+      log(`要求容量 ${mb} MB はブラウザの連続メモリ確保を避けるため ${allocMB} MB で作成。大容量は既存IMG/VHDを使用してください。`,"WARN");
+    }else{
+      log(`新規仮想${storageType.toUpperCase()}作成: ${formatBytes(allocMB*1024*1024)}`);
+    }
+  }catch(e){
+    virtualDisk=null;
+    diskStatus.textContent="作成失敗";
+    log("仮想ディスク作成失敗: "+(e?.message||e),"ERROR");
+  }
 }
+
 
 storageTypeSelect.value=storageType; storageTypeLabel.textContent=storageType.toUpperCase();
 screenScaleSelect.value=String(screenScale);
 diskSize.value=localStorage.getItem("superEmulator.diskSize")||diskSize.value;
+localStorage.setItem("superEmulator.diskSize",diskSize.value);
 diskSize.addEventListener("change",()=>{localStorage.setItem("superEmulator.diskSize",diskSize.value); if(!emulator) createVirtualDisk();});
-storageTypeSelect.addEventListener("change",()=>{storageType=storageTypeSelect.value; localStorage.setItem("superEmulator.storageType",storageType); storageTypeLabel.textContent=storageType.toUpperCase(); log(`ストレージ方式: ${storageType.toUpperCase()}`);});
+storageTypeSelect.addEventListener("change",()=>{storageType=storageTypeSelect.value; localStorage.setItem("superEmulator.storageType",storageType); storageTypeLabel.textContent=storageType.toUpperCase(); log(`ストレージ方式: ${storageType.toUpperCase()}`); if(!emulator&&!selectedDiskFile) createVirtualDisk();});
 screenScaleSelect.addEventListener("change",()=>{screenScale=Number(screenScaleSelect.value); localStorage.setItem("superEmulator.screenScale",String(screenScale)); applyScreenScale();});
 diskImageFile.addEventListener("change",()=>{selectedDiskFile=diskImageFile.files[0]||null; selectedDiskName=selectedDiskFile?selectedDiskFile.name:""; if(selectedDiskFile){virtualDisk=null; diskStatus.textContent=`${selectedDiskName} / ${formatBytes(selectedDiskFile.size)}`; log(`ディスクイメージ選択: ${selectedDiskName}`);}});
 clearDiskImageBtn.addEventListener("click",()=>{selectedDiskFile=null; selectedDiskName=""; diskImageFile.value=""; createVirtualDisk();});
@@ -4222,6 +4292,11 @@ function formatBytes(bytes)
   );
 }
 
+
+/* 外部UIブリッジ用API */
+window.updateCursor=updateCursor;
+window.createVirtualDisk=createVirtualDisk;
+window.startEmulator=startEmulator;
 
 /* =========================================================
    STARTUP
