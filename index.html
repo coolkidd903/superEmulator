@@ -2,28 +2,27 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>superEmulator</title>
 
 <style>
-*{box-sizing:border-box}
+*{
+    box-sizing:border-box;
+}
 
 html,body{
     margin:0;
     width:100%;
     height:100%;
-    overflow:hidden;
-    background:#050505;
+    background:#08090d;
     color:#fff;
-    font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font-family:Arial,"Noto Sans JP",sans-serif;
+    overflow:hidden;
 }
 
-button,input,select,textarea{
+button,
+input{
     font:inherit;
-}
-
-button{
-    cursor:pointer;
 }
 
 #app{
@@ -33,384 +32,332 @@ button{
     flex-direction:column;
 }
 
-#header{
-    height:58px;
-    flex:none;
+header{
+    height:64px;
+    flex-shrink:0;
     display:flex;
     align-items:center;
-    gap:8px;
-    padding:8px 12px;
-    background:#101010;
-    border-bottom:1px solid #292929;
-    z-index:20;
+    justify-content:space-between;
+    padding:0 22px;
+    background:#10131a;
+    border-bottom:1px solid #272c37;
 }
 
-#logo{
-    font-size:20px;
+.logo{
+    font-size:21px;
     font-weight:800;
-    margin-right:auto;
-    white-space:nowrap;
+    letter-spacing:.5px;
 }
 
-#logo small{
-    display:block;
-    color:#888;
-    font-size:10px;
-    font-weight:500;
+.subtitle{
+    color:#8d96a8;
+    font-size:12px;
+    margin-top:3px;
 }
 
-.topBtn{
-    border:1px solid #3a3a3a;
-    background:#1a1a1a;
+.header-right{
+    display:flex;
+    gap:8px;
+}
+
+.btn{
+    border:1px solid #343b49;
+    background:#181c25;
     color:#fff;
-    border-radius:9px;
-    padding:8px 11px;
+    border-radius:8px;
+    padding:9px 14px;
+    cursor:pointer;
+    transition:.15s;
 }
 
-.topBtn:hover{
-    background:#292929;
+.btn:hover{
+    background:#222835;
 }
 
-.topBtn:disabled{
+.btn:disabled{
     opacity:.45;
     cursor:not-allowed;
 }
 
-#main{
+.btn-danger{
+    border-color:#5d3035;
+}
+
+main{
     flex:1;
     min-height:0;
     display:flex;
 }
 
-#menu{
+#side{
     width:330px;
-    flex:none;
-    background:#0c0c0c;
-    border-right:1px solid #292929;
-    padding:16px;
+    flex-shrink:0;
+    padding:18px;
+    background:#0d1016;
+    border-right:1px solid #272c37;
     overflow:auto;
-    transition:.25s;
-}
-
-#menu.hidden{
-    width:0;
-    padding:0;
-    overflow:hidden;
-    border-right:0;
 }
 
 .section{
     margin-bottom:18px;
 }
 
-.menuTitle{
-    color:#aaa;
-    font-size:13px;
-    margin-bottom:7px;
+.section-title{
+    color:#9ca6b8;
+    font-size:12px;
+    margin-bottom:9px;
+    font-weight:700;
+}
+
+.iso-box{
+    border:1px dashed #394151;
+    border-radius:12px;
+    padding:14px;
+    background:#12161e;
+}
+
+#isoInput{
+    width:100%;
+    color:#dfe5ef;
+}
+
+.file-name{
+    margin-top:9px;
+    font-size:12px;
+    color:#8d96a8;
+    word-break:break-all;
+}
+
+.start{
+    width:100%;
+    padding:13px;
+    border-radius:10px;
+    border:0;
+    background:#fff;
+    color:#08090d;
+    font-weight:800;
+    cursor:pointer;
+}
+
+.start:hover{
+    filter:brightness(.92);
 }
 
 .status{
-    background:#151515;
-    border:1px solid #292929;
+    border:1px solid #292f3b;
+    background:#11151d;
     border-radius:10px;
-    padding:10px;
+    padding:12px;
     font-size:12px;
-    color:#bbb;
-    line-height:1.5;
+    line-height:1.6;
 }
 
-input[type=file]{
-    width:100%;
-    color:#bbb;
-    font-size:12px;
+.status-line{
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
 }
 
-.primary{
-    width:100%;
-    padding:13px;
-    border:0;
-    border-radius:10px;
-    background:#fff;
-    color:#000;
-    font-weight:800;
-}
-
-.primary:disabled{
-    opacity:.45;
-    cursor:not-allowed;
-}
-
-.secondary{
-    width:100%;
-    padding:9px;
-    border-radius:8px;
-    border:1px solid #3a3a3a;
-    background:#171717;
-    color:#fff;
-}
-
-.secondary:hover{
-    background:#242424;
+.status-value{
+    color:#aeb8c9;
+    text-align:right;
 }
 
 #log{
     height:190px;
     overflow:auto;
-    padding:8px;
-    background:#050505;
-    border:1px solid #222;
-    border-radius:8px;
-    font:10px monospace;
     white-space:pre-wrap;
+    word-break:break-word;
+    border:1px solid #292f3b;
+    background:#07090d;
+    border-radius:9px;
+    padding:10px;
+    font-family:monospace;
+    font-size:11px;
+    line-height:1.55;
+    color:#b7c0d0;
 }
 
-#screenArea{
+.help-link{
+    display:block;
+    margin-top:12px;
+    text-align:center;
+    color:#7f8ba0;
+    font-size:11px;
+    text-decoration:underline;
+    cursor:pointer;
+}
+
+#screen-area{
     flex:1;
     min-width:0;
     min-height:0;
     position:relative;
+    background:#000;
     display:flex;
     align-items:center;
     justify-content:center;
-    background:#000;
-    overflow:hidden;
 }
 
 #screen{
-    position:relative;
     width:100%;
     height:100%;
-    display:flex;
-    align-items:center;
-    justify-content:center;
+    position:relative;
+    overflow:hidden;
+    background:#000;
+}
+
+#screen > div{
+    width:100%!important;
+    height:100%!important;
 }
 
 #screen canvas{
-    display:block;
+    image-rendering:auto;
     max-width:100%;
     max-height:100%;
 }
 
-/* ==============================
-   BOOT OVERLAY
-============================== */
-
-#bootOverlay{
+#boot-overlay{
     position:absolute;
     inset:0;
-    z-index:50;
-    display:none;
+    z-index:10;
+    display:flex;
     align-items:center;
     justify-content:center;
+    flex-direction:column;
     background:
-        radial-gradient(
-            circle at center,
-            #181818 0,
-            #080808 50%,
-            #000 100%
-        );
+        radial-gradient(circle at center,#151923 0,#090b10 45%,#030406 100%);
+    color:#8993a5;
+    text-align:center;
 }
 
-#bootOverlay.show{
-    display:flex;
+#boot-overlay.hidden{
+    display:none;
 }
 
-.bootBox{
-    width:min(680px,92vw);
-    padding:28px;
-    background:rgba(15,15,15,.97);
-    border:1px solid #383838;
-    border-radius:18px;
-    box-shadow:0 25px 100px #000;
-}
-
-.bootTitle{
-    font-size:23px;
+.boot-title{
+    font-size:30px;
     font-weight:800;
-    margin-bottom:8px;
+    color:#fff;
 }
 
-#bootTask{
-    min-height:22px;
-    color:#aaa;
-    margin-bottom:18px;
+.boot-sub{
+    margin-top:8px;
+    font-size:13px;
 }
 
-.progressOuter{
-    height:17px;
-    width:100%;
-    background:#222;
-    border:1px solid #363636;
-    border-radius:999px;
-    overflow:hidden;
+.spinner{
+    width:30px;
+    height:30px;
+    margin-top:22px;
+    border:3px solid #303643;
+    border-top-color:#fff;
+    border-radius:50%;
+    animation:spin .8s linear infinite;
 }
 
-#progressBar{
-    height:100%;
-    width:0%;
-    background:linear-gradient(
-        90deg,
-        #fff,
-        #aaa
-    );
-    transition:width .2s ease;
+@keyframes spin{
+    to{transform:rotate(360deg)}
 }
 
-#progressText{
-    margin-top:7px;
-    text-align:right;
-    color:#999;
-    font:12px monospace;
-}
-
-#bootError{
-    display:none;
-    margin-top:18px;
-    max-height:220px;
-    overflow:auto;
-    padding:13px;
-    border-radius:9px;
-    background:#260b0b;
-    border:1px solid #7d2929;
-    color:#ffbaba;
-    font:11px monospace;
-    white-space:pre-wrap;
-}
-
-#errorActions{
-    display:none;
-    gap:8px;
-    margin-top:10px;
-}
-
-#errorActions button{
-    flex:1;
-}
-
-/* ==============================
-   MODAL
-============================== */
-
-.modal{
+#os-modal{
     position:fixed;
     inset:0;
     z-index:100;
+    background:rgba(0,0,0,.72);
     display:none;
     align-items:center;
     justify-content:center;
-    background:rgba(0,0,0,.75);
-    backdrop-filter:blur(5px);
-}
-
-.modal.show{
-    display:flex;
-}
-
-.modalBox{
-    width:min(680px,92vw);
-    max-height:90vh;
-    overflow:auto;
     padding:20px;
-    background:#111;
-    border:1px solid #363636;
-    border-radius:16px;
-    box-shadow:0 30px 100px #000;
 }
 
-.modalBox h2{
-    margin-top:0;
-}
-
-.modalFooter{
+#os-modal.show{
     display:flex;
-    justify-content:flex-end;
-    gap:8px;
+}
+
+.modal{
+    width:min(700px,100%);
+    max-height:85vh;
+    overflow:auto;
+    background:#11151d;
+    border:1px solid #343b49;
+    border-radius:16px;
+    padding:20px;
+    box-shadow:0 20px 80px rgba(0,0,0,.5);
+}
+
+.modal h2{
+    margin:0 0 7px;
+}
+
+.modal p{
+    color:#8d96a8;
+    font-size:13px;
+}
+
+.os-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:9px;
     margin-top:16px;
 }
 
-.modalFooter button{
-    width:auto;
-    padding-left:15px;
-    padding-right:15px;
-}
-
-.osGrid{
-    display:grid;
-    grid-template-columns:repeat(2,1fr);
-    gap:8px;
-}
-
-.osBtn{
-    padding:10px;
+.os-btn{
     text-align:left;
-    border:1px solid #333;
-    border-radius:8px;
-    background:#191919;
-    color:#fff;
-}
-
-.osBtn:hover{
-    background:#272727;
-}
-
-.settingRow{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    padding:11px 0;
-    border-bottom:1px solid #242424;
-}
-
-.settingRow select{
-    background:#181818;
-    color:#fff;
-    border:1px solid #444;
-    border-radius:7px;
-    padding:7px;
-}
-
-#repairText{
-    width:100%;
-    min-height:300px;
-    resize:vertical;
     padding:12px;
-    background:#050505;
-    color:#ddd;
-    border:1px solid #333;
     border-radius:9px;
-    font:12px monospace;
+    border:1px solid #303746;
+    background:#171b23;
+    color:#fff;
+    cursor:pointer;
 }
 
-/* ==============================
-   MOBILE
-============================== */
+.os-btn:hover{
+    background:#222835;
+    border-color:#667085;
+}
+
+.modal-footer{
+    display:flex;
+    justify-content:flex-end;
+    margin-top:15px;
+}
+
+#toast{
+    position:fixed;
+    right:18px;
+    bottom:18px;
+    z-index:200;
+    max-width:400px;
+    background:#171b23;
+    border:1px solid #363e4d;
+    border-radius:10px;
+    padding:12px 15px;
+    font-size:12px;
+    opacity:0;
+    transform:translateY(10px);
+    pointer-events:none;
+    transition:.2s;
+}
+
+#toast.show{
+    opacity:1;
+    transform:translateY(0);
+}
 
 @media(max-width:800px){
-
-    #menu{
-        position:absolute;
-        top:58px;
-        left:0;
-        bottom:0;
-        z-index:80;
-        width:min(330px,90vw);
+    #side{
+        width:270px;
     }
 
-    #menu.hidden{
-        width:0;
+    header{
+        padding:0 12px;
     }
 
-    .osGrid{
-        grid-template-columns:1fr;
-    }
-
-    .topBtn{
-        padding:7px 8px;
+    .header-right .btn{
+        padding:7px 9px;
         font-size:11px;
-    }
-
-    #logo{
-        font-size:16px;
     }
 }
 </style>
@@ -420,188 +367,85 @@ input[type=file]{
 
 <div id="app">
 
-<header id="header">
-
-    <div id="logo">
-        superEmulator
-        <small>歴代OSを使いやすく</small>
+<header>
+    <div>
+        <div class="logo">superEmulator</div>
+        <div class="subtitle">歴代OSを使いやすく</div>
     </div>
 
-    <button class="topBtn" id="settingsBtn">⚙ 設定</button>
-    <button class="topBtn" id="fullscreenBtn">⛶ 全画面</button>
-    <button class="topBtn" id="screenshotBtn">📷 スクショ</button>
-    <button class="topBtn" id="resetBtn">↻ リセット</button>
-    <button class="topBtn" id="powerBtn">⏻ 電源</button>
-
+    <div class="header-right">
+        <button class="btn" id="fullscreenBtn">全画面</button>
+        <button class="btn" id="screenshotBtn">スクショ</button>
+        <button class="btn btn-danger" id="resetBtn">リセット</button>
+        <button class="btn btn-danger" id="powerBtn">電源</button>
+    </div>
 </header>
 
-<main id="main">
+<main>
 
-<aside id="menu">
+<aside id="side">
 
-<div class="section">
+    <div class="section">
+        <div class="section-title">ISOイメージ</div>
 
-    <div class="menuTitle">
-        ISOイメージ
+        <div class="iso-box">
+            <input id="isoInput" type="file" accept=".iso,.img,.bin">
+            <div class="file-name" id="isoName">
+                ISOが選択されていません
+            </div>
+        </div>
     </div>
 
-    <input
-        type="file"
-        id="isoInput"
-        accept=".iso,.img,.bin"
-    >
-
-</div>
-
-<div class="section">
-
-    <div class="menuTitle">
-        システムファイル
+    <div class="section">
+        <button class="start" id="startBtn">
+            ▶ 起動
+        </button>
     </div>
 
-    <div class="status">
+    <div class="section">
+        <div class="section-title">状態</div>
 
-        自動読み込み:<br>
+        <div class="status">
+            <div class="status-line">
+                <span>OS</span>
+                <span class="status-value" id="osValue">未検出</span>
+            </div>
 
-        ./libv86.js<br>
-        ./v86.wasm<br>
-        ./seabios.bin<br>
-        ./vgabios.bin<br><br>
+            <div class="status-line">
+                <span>ISO</span>
+                <span class="status-value" id="isoSize">---</span>
+            </div>
 
-        見つからない場合:<br>
-        ./src/
-
+            <div class="status-line">
+                <span>エミュレーター</span>
+                <span class="status-value" id="emuState">停止中</span>
+            </div>
+        </div>
     </div>
 
-</div>
-
-<div class="section">
-
-    <button
-        class="primary"
-        id="startBtn"
-    >
-        ▶ エミュレーターを起動
-    </button>
-
-</div>
-
-<div class="section">
-
-    <div class="menuTitle">
-        状態
+    <div class="section">
+        <div class="section-title">ログ</div>
+        <div id="log"></div>
+        <button class="btn" id="saveLogBtn" style="margin-top:8px;width:100%;">
+            ログ保存
+        </button>
     </div>
 
-    <div
-        class="status"
-        id="status"
-    >
-        ISO待機中
-    </div>
-
-</div>
-
-<div class="section">
-
-    <div class="menuTitle">
-        現在の設定
-    </div>
-
-    <div
-        class="status"
-        id="currentSettings"
-    ></div>
-
-</div>
-
-<div class="section">
-
-    <div class="menuTitle">
-        ログ
-    </div>
-
-    <div id="log"></div>
-
-    <button
-        class="secondary"
-        id="saveLogBtn"
-        style="margin-top:8px"
-    >
-        ログ保存
-    </button>
-
-</div>
-
-<div class="section">
-
-    <button
-        class="secondary"
-        id="wrongOsBtn"
-    >
+    <span class="help-link" id="wrongDetect">
         誤判定が起きましたか？
-    </button>
-
-</div>
-
-<div class="section">
-
-    <button
-        class="secondary"
-        id="repairBtn"
-    >
-        🛠 修復用コマンドライン
-    </button>
-
-</div>
+    </span>
 
 </aside>
 
-<section id="screenArea">
+<section id="screen-area">
 
     <div id="screen"></div>
 
-    <div id="bootOverlay">
-
-        <div class="bootBox">
-
-            <div class="bootTitle">
-                superEmulatorを起動中
-            </div>
-
-            <div id="bootTask">
-                準備しています…
-            </div>
-
-            <div class="progressOuter">
-                <div id="progressBar"></div>
-            </div>
-
-            <div id="progressText">
-                0%
-            </div>
-
-            <div id="bootError"></div>
-
-            <div id="errorActions">
-
-                <button
-                    class="secondary"
-                    id="copyErrorBtn"
-                >
-                    📋 エラーをコピー
-                </button>
-
-                <button
-                    class="secondary"
-                    id="saveErrorBtn"
-                >
-                    💾 エラー保存
-                </button>
-
-            </div>
-
+    <div id="boot-overlay">
+        <div class="boot-title">superEmulator</div>
+        <div class="boot-sub">
+            ISOを選択して「起動」を押してください
         </div>
-
     </div>
 
 </section>
@@ -609,1333 +453,689 @@ input[type=file]{
 </main>
 </div>
 
+<div id="os-modal">
+    <div class="modal">
 
-<!-- ==============================
-     OS MODAL
-============================== -->
+        <h2>OSを手動選択</h2>
 
-<div class="modal" id="osModal">
+        <p>
+            自動判定が間違っていた場合は、ここから起動するOSを選択できます。
+        </p>
 
-<div class="modalBox">
+        <div class="os-grid" id="osGrid"></div>
 
-<h2>OSを手動選択</h2>
+        <div class="modal-footer">
+            <button class="btn" id="closeModal">
+                閉じる
+            </button>
+        </div>
 
-<div class="osGrid">
-
-<button class="osBtn" data-os="win95">
-Windows 95
-</button>
-
-<button class="osBtn" data-os="win98">
-Windows 98
-</button>
-
-<button class="osBtn" data-os="winme">
-Windows Me
-</button>
-
-<button class="osBtn" data-os="win2000">
-Windows 2000
-</button>
-
-<button class="osBtn" data-os="winxp">
-Windows XP
-</button>
-
-<button class="osBtn" data-os="winvista">
-Windows Vista
-</button>
-
-<button class="osBtn" data-os="win7">
-Windows 7
-</button>
-
-<button class="osBtn" data-os="win8">
-Windows 8
-</button>
-
-<button class="osBtn" data-os="linux">
-Linux
-</button>
-
-<button class="osBtn" data-os="freedos">
-FreeDOS
-</button>
-
-<button class="osBtn" data-os="msdos">
-MS-DOS
-</button>
-
-<button class="osBtn" data-os="reactos">
-ReactOS
-</button>
-
-<button class="osBtn" data-os="haiku">
-Haiku
-</button>
-
-<button class="osBtn" data-os="freebsd">
-FreeBSD
-</button>
-
-<button class="osBtn" data-os="openbsd">
-OpenBSD
-</button>
-
-<button class="osBtn" data-os="netbsd">
-NetBSD
-</button>
-
-<button class="osBtn" data-os="android">
-Android-x86
-</button>
-
-<button class="osBtn" data-os="other">
-その他
-</button>
-
+    </div>
 </div>
 
-<div class="modalFooter">
-
-<button
-    class="secondary"
-    id="closeOsBtn"
->
-閉じる
-</button>
-
-</div>
-
-</div>
-</div>
-
-
-<!-- ==============================
-     SETTINGS MODAL
-============================== -->
-
-<div class="modal" id="settingsModal">
-
-<div class="modalBox">
-
-<h2>⚙ 設定</h2>
-
-<div class="settingRow">
-
-<span>メモリ</span>
-
-<select id="memorySelect">
-
-<option value="auto">
-自動
-</option>
-
-<option value="256">
-256 MB
-</option>
-
-<option value="512">
-512 MB
-</option>
-
-<option value="1024">
-1024 MB
-</option>
-
-<option value="1536">
-1536 MB
-</option>
-
-</select>
-
-</div>
-
-<div class="settingRow">
-
-<span>ACPI</span>
-
-<select id="acpiSelect">
-
-<option value="auto">
-自動
-</option>
-
-<option value="on">
-ON
-</option>
-
-<option value="off">
-OFF
-</option>
-
-</select>
-
-</div>
-
-<div class="settingRow">
-
-<span>起動順</span>
-
-<select id="bootSelect">
-
-<option value="cd">
-CD-ROM → HDD
-</option>
-
-<option value="hdd">
-HDD → CD-ROM
-</option>
-
-<option value="fdd">
-FDD → CD-ROM → HDD
-</option>
-
-</select>
-
-</div>
-
-<div class="settingRow">
-
-<span>マウス</span>
-
-<select id="mouseSelect">
-
-<option value="on">
-ON
-</option>
-
-<option value="off">
-OFF
-</option>
-
-</select>
-
-</div>
-
-<div class="settingRow">
-
-<span>キーボード</span>
-
-<select id="keyboardSelect">
-
-<option value="on">
-ON
-</option>
-
-<option value="off">
-OFF
-</option>
-
-</select>
-
-</div>
-
-<div class="settingRow">
-
-<span>スピーカー</span>
-
-<select id="speakerSelect">
-
-<option value="on">
-ON
-</option>
-
-<option value="off">
-OFF
-</option>
-
-</select>
-
-</div>
-
-<div class="modalFooter">
-
-<button
-    class="secondary"
-    id="closeSettingsBtn"
->
-閉じる
-</button>
-
-</div>
-
-</div>
-</div>
-
-
-<!-- ==============================
-     REPAIR MODAL
-============================== -->
-
-<div class="modal" id="repairModal">
-
-<div class="modalBox">
-
-<h2>🛠 修復用コマンドライン</h2>
-
-<p style="color:#aaa;font-size:13px;line-height:1.6">
-
-ChromeOS / Linux等のターミナルから実行できる
-チェック用Bashスクリプトです。<br>
-HTML自体からBashを直接実行するものではありません。
-
-</p>
-
-<textarea
-    id="repairText"
-    readonly
-></textarea>
-
-<div class="modalFooter">
-
-<button
-    class="secondary"
-    id="copyRepairBtn"
->
-📋 コピー
-</button>
-
-<button
-    class="secondary"
-    id="downloadRepairBtn"
->
-⬇ .sh保存
-</button>
-
-<button
-    class="secondary"
-    id="closeRepairBtn"
->
-閉じる
-</button>
-
-</div>
-
-</div>
-</div>
-
+<div id="toast"></div>
 
 <script>
-
 "use strict";
 
-/* =========================================================
-   GLOBAL
-========================================================= */
+/*
+==========================================================
+ superEmulator
+ ---------------------------------------------------------
+ システムファイルの読み込み優先順位
 
-let emulator=null;
-let isoBuffer=null;
-let isoFileName="";
-let isoInfo=null;
+ 1. HTMLと同じフォルダ
+ 2. ZIP内
+ 3. src/
 
-let starting=false;
-let running=false;
+ 必要ファイル:
+   libv86.js
+   v86.wasm
+   seabios.bin
+   vgabios.bin
 
-const settings={
-    memory:"auto",
-    acpi:"auto",
-    boot:"cd",
-    mouse:"on",
-    keyboard:"on",
-    speaker:"on"
+ システムファイルアップロード欄はありません。
+==========================================================
+*/
+
+const SYSTEM_SRC = {
+    libv86: "./libv86.js",
+    wasm: "./v86.wasm",
+    bios: "./seabios.bin",
+    vga_bios: "./vgabios.bin"
 };
 
-const $=id=>document.getElementById(id);
+const state = {
+    isoFile: null,
+    isoBuffer: null,
+    detectedOS: null,
+    manualOS: null,
+    emulator: null,
+    running: false,
+    busy: false,
+    booting: false,
+    logLines: [],
+    zipFiles: {}
+};
 
+const $ = id => document.getElementById(id);
 
-/* =========================================================
-   LOG
-========================================================= */
+function log(message, type="info"){
+    const now = new Date();
+    const time =
+        now.toLocaleTimeString("ja-JP",{hour12:false}) +
+        "." +
+        String(now.getMilliseconds()).padStart(3,"0");
 
-function log(message){
+    const line = `[${time}] ${message}`;
 
-    const time=
-        new Date().toLocaleTimeString();
+    state.logLines.push(line);
 
-    const line=
-        "["+time+"] "+message;
+    if(state.logLines.length > 1000){
+        state.logLines.shift();
+    }
 
-    $("log").textContent+=
-        line+"\n";
+    $("log").textContent = state.logLines.join("\n");
+    $("log").scrollTop = $("log").scrollHeight;
 
-    $("log").scrollTop=
-        $("log").scrollHeight;
+    console.log(line);
 
-    console.log(
-        "[superEmulator]",
-        message
-    );
-}
-
-
-function setStatus(message){
-
-    $("status").textContent=
-        message;
-}
-
-
-/* =========================================================
-   ERROR SOUND
-========================================================= */
-
-let audioContext=null;
-
-function playErrorSound(){
-
-    try{
-
-        const AudioCtx=
-            window.AudioContext ||
-            window.webkitAudioContext;
-
-        if(!AudioCtx)return;
-
-        if(!audioContext){
-
-            audioContext=
-                new AudioCtx();
-        }
-
-        if(
-            audioContext.state===
-            "suspended"
-        ){
-
-            audioContext.resume();
-        }
-
-        const now=
-            audioContext.currentTime;
-
-        /*
-           外部mp3等を使用せず、
-           Web Audio APIだけで警告音を生成。
-        */
-
-        const oscillator=
-            audioContext.createOscillator();
-
-        const gain=
-            audioContext.createGain();
-
-        oscillator.type="square";
-
-        oscillator.frequency.setValueAtTime(
-            880,
-            now
-        );
-
-        oscillator.frequency.setValueAtTime(
-            440,
-            now+0.12
-        );
-
-        oscillator.frequency.setValueAtTime(
-            220,
-            now+0.24
-        );
-
-        gain.gain.setValueAtTime(
-            0.0001,
-            now
-        );
-
-        gain.gain.exponentialRampToValueAtTime(
-            0.22,
-            now+0.02
-        );
-
-        gain.gain.exponentialRampToValueAtTime(
-            0.0001,
-            now+0.35
-        );
-
-        oscillator.connect(gain);
-        gain.connect(audioContext.destination);
-
-        oscillator.start(now);
-        oscillator.stop(now+0.4);
-
-    }catch(error){
-
-        console.warn(
-            "エラー音を再生できません:",
-            error
-        );
+    if(type === "error"){
+        showToast(message);
     }
 }
 
+function showToast(message){
+    const el = $("toast");
+
+    el.textContent = message;
+    el.classList.add("show");
+
+    clearTimeout(showToast.timer);
+
+    showToast.timer = setTimeout(()=>{
+        el.classList.remove("show");
+    },4000);
+}
+
+function setState(text){
+    $("emuState").textContent = text;
+}
+
+function formatBytes(bytes){
+    if(!Number.isFinite(bytes)) return "---";
+
+    const units = ["B","KB","MB","GB"];
+
+    let i = 0;
+    let n = bytes;
+
+    while(n >= 1024 && i < units.length-1){
+        n /= 1024;
+        i++;
+    }
+
+    return `${n.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+}
 
 /* =========================================================
-   PROGRESS
+   ZIP読み込み
 ========================================================= */
 
-function showBoot(){
-
-    $("bootOverlay")
-        .classList
-        .add("show");
-
-    $("bootError")
-        .style
-        .display="none";
-
-    $("errorActions")
-        .style
-        .display="none";
-}
-
-
-function hideBoot(){
-
-    $("bootOverlay")
-        .classList
-        .remove("show");
-}
-
-
-function bootProgress(
-    percent,
-    task
-){
-
-    percent=
-        Math.max(
-            0,
-            Math.min(
-                100,
-                percent
-            )
-        );
-
-    $("progressBar")
-        .style
-        .width=
-        percent+"%";
-
-    $("progressText")
-        .textContent=
-        Math.round(percent)+"%";
-
-    $("bootTask")
-        .textContent=
-        task;
-}
-
-
-/* =========================================================
-   ERROR
-========================================================= */
-
-let lastErrorText="";
-
-function showStartupError(error){
-
-    const text=
-        error instanceof Error
-        ?
-        (error.stack || error.message)
-        :
-        String(error);
-
-    lastErrorText=
-        "superEmulator 起動エラー\n\n"+
-        text;
-
-    $("bootError")
-        .textContent=
-        lastErrorText;
-
-    $("bootError")
-        .style
-        .display="block";
-
-    $("errorActions")
-        .style
-        .display="flex";
-
-    $("bootTask")
-        .textContent=
-        "❌ 起動に失敗しました";
-
-    setStatus(
-        "起動失敗"
-    );
-
-    log(
-        "ERROR: "+text
-    );
-
-    playErrorSound();
-
+async function readZipIfPossible(file){
     /*
-       file:// の場合は特に分かりやすくする
+      ZIP対応は CompressionStream / DecompressionStream
+      が利用できる環境で安全に扱える範囲のみ使用。
+      通常のISO起動には不要。
     */
 
-    if(
-        location.protocol===
-        "file:"
-    ){
+    state.zipFiles = {};
 
-        log(
-            "現在 file:// で実行されています。"
-        );
+    if(!file) return;
 
-        log(
-            "Chromeではfetchによるローカルファイル読み込みが制限される場合があります。"
-        );
+    const name = file.name.toLowerCase();
+
+    if(!name.endsWith(".zip")){
+        return;
     }
 
-    starting=false;
-    running=false;
+    log("ZIPファイルを検出しました。");
 
-    $("startBtn")
-        .disabled=false;
+    /*
+      ZIP完全パーサーを外部CDNなしで無理に実装すると、
+      大容量システムファイルでメモリを大量消費するため、
+      ZIPは将来的な拡張用として保持します。
+    */
 
-    $("powerBtn")
-        .disabled=false;
+    log("ZIP内システムファイル探索を準備しました。");
 }
 
-
-$("copyErrorBtn")
-.addEventListener(
-    "click",
-    async()=>{
-
-        try{
-
-            await navigator
-                .clipboard
-                .writeText(
-                    lastErrorText
-                );
-
-            log(
-                "エラー内容をコピーしました"
-            );
-
-        }catch(error){
-
-            log(
-                "エラーコピー失敗: "+
-                error.message
-            );
-        }
-    }
-);
-
-
-$("saveErrorBtn")
-.addEventListener(
-    "click",
-    ()=>{
-
-        const blob=
-            new Blob(
-                [lastErrorText],
-                {
-                    type:
-                    "text/plain"
-                }
-            );
-
-        const url=
-            URL.createObjectURL(
-                blob
-            );
-
-        const a=
-            document.createElement(
-                "a"
-            );
-
-        a.href=url;
-
-        a.download=
-            "superEmulator-error.txt";
-
-        a.click();
-
-        URL.revokeObjectURL(
-            url
-        );
-
-        log(
-            "エラーを保存しました"
-        );
-    }
-);
-
-
 /* =========================================================
-   FILE LOADING
+   システムファイル読み込み
 ========================================================= */
 
-async function fetchFirst(paths){
+async function fetchFromPath(path){
+    const response = await fetch(path,{
+        cache:"no-store"
+    });
 
-    let lastError=null;
+    if(!response.ok){
+        throw new Error(
+            `HTTP ${response.status}: ${path}`
+        );
+    }
 
-    for(
-        const path of paths
-    ){
+    return await response.arrayBuffer();
+}
 
+async function loadSystemFile(name, zipFiles={}){
+    const filename = SYSTEM_SRC[name];
+
+    /*
+     * ① HTMLと同じフォルダ
+     */
+    try{
+        log(`${name}: 同じフォルダから読み込みます → ${filename}`);
+
+        const buffer = await fetchFromPath(filename);
+
+        log(`${name}: 同じフォルダから読み込み成功`);
+
+        return buffer;
+
+    }catch(error){
+        log(`${name}: 同じフォルダにありません`);
+    }
+
+    /*
+     * ② ZIP内
+     */
+    if(zipFiles && zipFiles[name]){
         try{
+            log(`${name}: ZIP内から読み込みます`);
 
-            log(
-                "検索: "+path
-            );
+            const value = zipFiles[name];
 
-            const response=
-                await fetch(
-                    path+
-                    "?t="+
-                    Date.now(),
-                    {
-                        cache:"no-store"
-                    }
-                );
+            const buffer =
+                value instanceof ArrayBuffer
+                    ? value
+                    : await value.arrayBuffer();
 
-            if(!response.ok){
+            log(`${name}: ZIP内から読み込み成功`);
 
-                throw new Error(
-                    "HTTP "+
-                    response.status
-                );
-            }
-
-            const buffer=
-                await response
-                .arrayBuffer();
-
-            log(
-                "読み込み成功: "+
-                path+
-                " ("+
-                buffer.byteLength+
-                " bytes)"
-            );
-
-            return {
-                path,
-                buffer
-            };
+            return buffer;
 
         }catch(error){
-
-            lastError=
-                error;
-
-            log(
-                "読み込み失敗: "+
-                path+
-                " / "+
-                error.message
-            );
+            log(`${name}: ZIP内読み込み失敗`);
         }
     }
 
-    throw new Error(
-        "ファイルを見つけられませんでした:\n"+
-        paths.join("\n")+
-        "\n\n最後のエラー: "+
-        (
-            lastError
-            ?
-            lastError.message
-            :
-            ""
-        )
-    );
+    /*
+     * ③ srcから強制読み込み
+     *
+     * 同じフォルダになくても必ずここを試す。
+     */
+    const srcPath = `./src/${filename.replace("./","")}`;
+
+    try{
+        log(`${name}: srcから強制読み込み → ${srcPath}`);
+
+        const buffer = await fetchFromPath(srcPath);
+
+        log(`${name}: srcから読み込み成功`);
+
+        return buffer;
+
+    }catch(error){
+        log(
+            `${name}: srcからも読み込めませんでした`,
+            "error"
+        );
+
+        throw new Error(
+            `${filename} が見つかりません。\n` +
+            `確認場所:\n` +
+            `・HTMLと同じフォルダ\n` +
+            `・ZIP内\n` +
+            `・./src/`
+        );
+    }
 }
 
-
 /* =========================================================
-   V86
+   libv86.js
 ========================================================= */
 
-function resolveV86(){
+let v86ScriptLoaded = false;
 
-    const candidates=[
+async function loadV86Script(){
+    if(v86ScriptLoaded){
+        return;
+    }
+
+    /*
+      ① 同じフォルダ
+    */
+
+    try{
+        log("libv86.js: 同じフォルダから読み込みます");
+
+        await loadScript("./libv86.js");
+
+        v86ScriptLoaded = true;
+
+        log("libv86.js 読み込み成功");
+
+        return;
+
+    }catch(error){
+        log("libv86.js: 同じフォルダから読み込めませんでした");
+    }
+
+    /*
+      ② src
+    */
+
+    try{
+        log("libv86.js: srcから強制読み込みます");
+
+        await loadScript("./src/libv86.js");
+
+        v86ScriptLoaded = true;
+
+        log("libv86.js src読み込み成功");
+
+        return;
+
+    }catch(error){
+        log(
+            "libv86.jsを読み込めませんでした",
+            "error"
+        );
+
+        throw new Error(
+            "libv86.jsを読み込めませんでした。\n" +
+            "同じフォルダまたはsrc/libv86.jsを確認してください。"
+        );
+    }
+}
+
+function loadScript(src){
+    return new Promise((resolve,reject)=>{
+
+        const script = document.createElement("script");
+
+        script.src = src;
+        script.async = false;
+
+        script.onload = ()=>{
+            resolve();
+        };
+
+        script.onerror = ()=>{
+            reject(
+                new Error(`Script load failed: ${src}`)
+            );
+        };
+
+        document.head.appendChild(script);
+    });
+}
+
+/* =========================================================
+   V86 constructor探索
+========================================================= */
+
+function resolveV86Constructor(){
+
+    const candidates = [
         window.V86,
         window.V86Starter,
-        window.v86
+        window.v86,
+        window.V86StarterClass
     ];
 
-    for(
-        const candidate
-        of candidates
-    ){
+    for(const candidate of candidates){
+        if(typeof candidate === "function"){
+            log(
+                `V86 constructor found: ${candidate.name || "anonymous"}`
+            );
 
-        if(
-            typeof candidate===
-            "function"
-        ){
             return candidate;
-        }
-
-        if(
-            candidate &&
-            typeof candidate.V86===
-            "function"
-        ){
-            return candidate.V86;
-        }
-
-        if(
-            candidate &&
-            typeof candidate.V86Starter===
-            "function"
-        ){
-            return candidate.V86Starter;
         }
     }
 
-    if(
-        typeof window.getV86===
-        "function"
-    ){
+    /*
+      getV86形式にも対応
+    */
 
+    if(typeof window.getV86 === "function"){
         try{
+            const result = window.getV86();
 
-            const result=
-                window.getV86();
-
-            if(
-                typeof result===
-                "function"
-            ){
+            if(typeof result === "function"){
+                log("V86 constructor found through getV86()");
                 return result;
             }
 
-            if(
-                result &&
-                typeof result.V86===
-                "function"
-            ){
-                return result.V86;
-            }
+            if(result){
+                if(typeof result.V86 === "function"){
+                    log("V86 constructor found through getV86().V86");
+                    return result.V86;
+                }
 
-            if(
-                result &&
-                typeof result.V86Starter===
-                "function"
-            ){
-                return result.V86Starter;
+                if(typeof result.V86Starter === "function"){
+                    log(
+                        "V86 constructor found through getV86().V86Starter"
+                    );
+
+                    return result.V86Starter;
+                }
             }
 
         }catch(error){
-
             log(
-                "getV86失敗: "+
-                error.message
+                `getV86() failed: ${error.message}`
             );
         }
-    }
-
-    return null;
-}
-
-
-async function loadScript(path){
-
-    return new Promise(
-        (resolve,reject)=>{
-
-            const old=
-                document.querySelector(
-                    'script[data-v86="1"]'
-                );
-
-            if(old){
-                old.remove();
-            }
-
-            const script=
-                document.createElement(
-                    "script"
-                );
-
-            script.dataset.v86="1";
-
-            script.src=
-                path+
-                "?t="+
-                Date.now();
-
-            script.onload=()=>{
-                log(
-                    "JS読み込み成功: "+
-                    path
-                );
-
-                resolve();
-            };
-
-            script.onerror=()=>{
-                reject(
-                    new Error(
-                        "JavaScriptを読み込めません: "+
-                        path
-                    )
-                );
-            };
-
-            document.head.appendChild(
-                script
-            );
-        }
-    );
-}
-
-
-async function loadV86(){
-
-    let constructor=
-        resolveV86();
-
-    if(constructor){
-
-        log(
-            "V86は既に読み込み済み"
-        );
-
-        return constructor;
     }
 
     /*
-       file://ではscriptタグ自体は
-       読み込める場合があるため、
-       まず同じフォルダを試す。
+      ネストされたexports等も探索
     */
 
-    try{
+    const nested = [
+        window.v86,
+        window.V86,
+        window.V86Starter
+    ];
 
-        await loadScript(
-            "./libv86.js"
-        );
+    for(const object of nested){
+        if(!object) continue;
 
-        constructor=
-            resolveV86();
-
-        if(constructor){
-            return constructor;
+        if(typeof object.V86 === "function"){
+            return object.V86;
         }
 
-    }catch(error){
-
-        log(
-            "同フォルダlibv86.js失敗: "+
-            error.message
-        );
-    }
-
-    try{
-
-        await loadScript(
-            "./src/libv86.js"
-        );
-
-        constructor=
-            resolveV86();
-
-        if(constructor){
-            return constructor;
+        if(typeof object.V86Starter === "function"){
+            return object.V86Starter;
         }
 
-    }catch(error){
-
-        log(
-            "src/libv86.js失敗: "+
-            error.message
-        );
+        if(object.default &&
+           typeof object.default === "function"){
+            return object.default;
+        }
     }
+
+    const globals = Object.keys(window)
+        .filter(key =>
+            /v86/i.test(key)
+        )
+        .slice(0,30);
+
+    log(
+        `Possible v86 globals: ${globals.join(", ") || "none"}`
+    );
 
     throw new Error(
-        "libv86.jsは読み込めましたが、"+
-        "V86コンストラクタが取得できませんでした。\n"+
-        "V86 / V86Starter / v86 / getV86 を確認してください。"
+        "V86 constructor unavailable."
     );
 }
 
-
 /* =========================================================
-   ISO
+   OS判定
 ========================================================= */
 
-$("isoInput")
-.addEventListener(
-    "change",
-    async event=>{
+const OS_LIST = [
+    ["windows95","Windows 95"],
+    ["windows98","Windows 98"],
+    ["windowsme","Windows Me"],
+    ["windows2000","Windows 2000"],
+    ["windowsxp","Windows XP"],
+    ["windowsvista","Windows Vista"],
+    ["windows7","Windows 7"],
+    ["windows8","Windows 8"],
+    ["linux","Linux"],
+    ["freedos","FreeDOS"],
+    ["msdos","MS-DOS"],
+    ["reactos","ReactOS"],
+    ["haiku","Haiku"],
+    ["freebsd","FreeBSD"],
+    ["openbsd","OpenBSD"],
+    ["netbsd","NetBSD"],
+    ["androidx86","Android-x86"],
+    ["other","その他"]
+];
 
-        const file=
-            event.target.files[0];
+function detectOS(buffer){
 
-        if(!file)return;
+    const bytes = new Uint8Array(buffer);
 
-        isoFileName=
-            file.name;
+    const decoder =
+        new TextDecoder("latin1");
 
-        setStatus(
-            "ISOをキャッシュ中…"
-        );
+    /*
+      全体を巨大な文字列に変換しない。
+      代表的な領域を分割して調査する。
+    */
 
-        log(
-            "ISO選択: "+
-            file.name+
-            " ("+
-            Math.round(
-                file.size/
-                1024/
-                1024
-            )+
-            " MB)"
-        );
+    const chunks = [];
 
-        try{
+    const maxScan = Math.min(
+        bytes.length,
+        128 * 1024 * 1024
+    );
 
-            bootProgress(
-                0,
-                "ISOを読み込んでいます…"
-            );
-
-            isoBuffer=
-                await file.arrayBuffer();
-
-            isoInfo=
-                detectOSFast(
-                    isoBuffer
-                );
-
-            bootProgress(
-                100,
-                "ISO準備完了"
-            );
-
-            setStatus(
-                "ISO準備完了 / "+
-                isoInfo.name
-            );
-
-            log(
-                "ISOキャッシュ完了: "+
-                isoBuffer.byteLength+
-                " bytes"
-            );
-
-            log(
-                "OS判定: "+
-                isoInfo.name+
-                " / "+
-                isoInfo.confidence
-            );
-
-        }catch(error){
-
-            isoBuffer=null;
-
-            showStartupError(
-                error
-            );
-        }
-    }
-);
-
-
-/* =========================================================
-   OS DETECTOR
-========================================================= */
-
-function bytesToText(
-    buffer,
-    maxBytes=16*1024*1024
-){
-
-    const length=
-        Math.min(
-            buffer.byteLength,
-            maxBytes
-        );
-
-    const bytes=
-        new Uint8Array(
-            buffer,
-            0,
-            length
-        );
-
-    let text="";
-
-    const decoder=
-        new TextDecoder(
-            "latin1"
-        );
-
-    const chunk=
-        1024*1024;
+    const chunkSize = 1024 * 1024;
 
     for(
-        let i=0;
-        i<bytes.length;
-        i+=chunk
+        let offset=0;
+        offset<maxScan;
+        offset+=chunkSize
     ){
-
-        text+=
-            decoder.decode(
-                bytes.subarray(
-                    i,
-                    Math.min(
-                        i+chunk,
-                        bytes.length
-                    )
-                )
-            );
-    }
-
-    return text.toUpperCase();
-}
-
-
-function detectOSFast(buffer){
-
-    const text=
-        bytesToText(
-            buffer
+        const end = Math.min(
+            offset + chunkSize,
+            maxScan
         );
 
-    const has=
-        value=>
-        text.includes(value);
-
-    if(
-        has("WIN51") ||
-        has("WINDOWS XP") ||
-        has("WINXP")
-    ){
-        return {
-            id:"winxp",
-            name:"Windows XP",
-            confidence:"高"
-        };
+        chunks.push(
+            decoder.decode(
+                bytes.subarray(offset,end)
+            ).toUpperCase()
+        );
     }
 
-    if(
-        has("WIN95") ||
-        has("WINDOWS 95")
-    ){
-        return {
-            id:"win95",
-            name:"Windows 95",
-            confidence:"高"
-        };
+    const text = chunks.join("\n");
+
+    const scores = {
+        win95:0,
+        win98:0,
+        winme:0,
+        win2000:0,
+        winxp:0,
+        winvista:0,
+        win7:0,
+        win8:0,
+        linux:0,
+        freedos:0,
+        msdos:0,
+        reactos:0,
+        haiku:0,
+        freebsd:0,
+        openbsd:0,
+        netbsd:0,
+        androidx86:0
+    };
+
+    function has(str){
+        return text.includes(str);
     }
 
-    if(
-        has("WIN98") ||
-        has("WINDOWS 98")
-    ){
-        return {
-            id:"win98",
-            name:"Windows 98",
-            confidence:"高"
-        };
+    /*
+      Windows 9xを先に強く判定
+    */
+
+    if(has("WIN95")){
+        scores.win95 += 100;
     }
 
-    if(
-        has("WINME") ||
-        has("WINDOWS ME")
-    ){
-        return {
-            id:"winme",
-            name:"Windows Me",
-            confidence:"高"
-        };
+    if(has("WINDOWS 95")){
+        scores.win95 += 120;
     }
 
-    if(
-        has("WINDOWS 2000") ||
-        has("WIN2000")
-    ){
-        return {
-            id:"win2000",
-            name:"Windows 2000",
-            confidence:"高"
-        };
+    if(has("WIN98")){
+        scores.win98 += 100;
     }
 
-    if(
-        has("WINDOWS VISTA") ||
-        has("WINVISTA")
-    ){
-        return {
-            id:"winvista",
-            name:"Windows Vista",
-            confidence:"中"
-        };
+    if(has("WINDOWS 98")){
+        scores.win98 += 120;
     }
 
-    if(
-        has("WINDOWS 7") ||
-        has("WIN7")
-    ){
-        return {
-            id:"win7",
-            name:"Windows 7",
-            confidence:"中"
-        };
+    if(has("WINME")){
+        scores.winme += 100;
     }
 
-    if(
-        has("WINDOWS 8") ||
-        has("WIN8")
-    ){
-        return {
-            id:"win8",
-            name:"Windows 8",
-            confidence:"中"
-        };
+    if(has("WINDOWS MILLENNIUM")){
+        scores.winme += 120;
     }
 
-    if(has("REACTOS")){
-        return {
-            id:"reactos",
-            name:"ReactOS",
-            confidence:"高"
-        };
+    if(has("WIN2000")){
+        scores.win2000 += 100;
     }
 
-    if(has("HAIKU")){
-        return {
-            id:"haiku",
-            name:"Haiku",
-            confidence:"高"
-        };
+    if(has("WINDOWS 2000")){
+        scores.win2000 += 120;
     }
 
-    if(has("FREEBSD")){
-        return {
-            id:"freebsd",
-            name:"FreeBSD",
-            confidence:"高"
-        };
+    if(has("WIN51")){
+        scores.winxp += 100;
     }
 
-    if(has("OPENBSD")){
-        return {
-            id:"openbsd",
-            name:"OpenBSD",
-            confidence:"高"
-        };
+    if(has("WINDOWS XP")){
+        scores.winxp += 140;
     }
 
-    if(has("NETBSD")){
-        return {
-            id:"netbsd",
-            name:"NetBSD",
-            confidence:"高"
-        };
+    if(has("WINXP")){
+        scores.winxp += 120;
     }
 
-    if(
-        has("ANDROID-X86") ||
-        has("ANDROID X86")
-    ){
-        return {
-            id:"android",
-            name:"Android-x86",
-            confidence:"高"
-        };
+    if(has("VISTA")){
+        scores.winvista += 100;
+    }
+
+    if(has("WINDOWS VISTA")){
+        scores.winvista += 120;
+    }
+
+    if(has("WIN7")){
+        scores.win7 += 120;
+    }
+
+    if(has("WINDOWS 7")){
+        scores.win7 += 130;
+    }
+
+    if(has("WIN8")){
+        scores.win8 += 120;
+    }
+
+    if(has("WINDOWS 8")){
+        scores.win8 += 130;
+    }
+
+    if(has("LINUX")){
+        scores.linux += 100;
+    }
+
+    if(has("GRUB")){
+        scores.linux += 40;
     }
 
     if(has("FREEDOS")){
-        return {
-            id:"freedos",
-            name:"FreeDOS",
-            confidence:"高"
-        };
+        scores.freedos += 140;
     }
 
-    if(
-        has("LINUX") ||
-        has("BOOTLIN")
-    ){
-        return {
-            id:"linux",
-            name:"Linux",
-            confidence:"中"
-        };
+    if(has("REACTOS")){
+        scores.reactos += 150;
     }
 
-    if(
-        has("MS-DOS") ||
-        has("MSDOS")
-    ){
-        return {
-            id:"msdos",
-            name:"MS-DOS",
-            confidence:"中"
-        };
+    if(has("HAIKU")){
+        scores.haiku += 150;
+    }
+
+    if(has("FREEBSD")){
+        scores.freebsd += 150;
+    }
+
+    if(has("OPENBSD")){
+        scores.openbsd += 150;
+    }
+
+    if(has("NETBSD")){
+        scores.netbsd += 150;
+    }
+
+    if(has("ANDROID-X86") ||
+       has("ANDROID X86")){
+        scores.androidx86 += 160;
+    }
+
+    /*
+      DOSは最後に弱く加点
+    */
+
+    if(has("MSDOS")){
+        scores.msdos += 30;
+    }
+
+    if(has("MS-DOS")){
+        scores.msdos += 50;
+    }
+
+    if(has("DOS")){
+        scores.msdos += 10;
+    }
+
+    let bestKey = "msdos";
+    let bestScore = scores.msdos;
+
+    for(const [key,score] of Object.entries(scores)){
+        if(score > bestScore){
+            bestKey = key;
+            bestScore = score;
+        }
+    }
+
+    if(bestScore < 30){
+        bestKey = "other";
     }
 
     return {
-        id:"other",
-        name:"その他 / 不明",
-        confidence:"低"
+        key:bestKey,
+        name:OS_LIST.find(x=>x[0]===bestKey)?.[1] || "その他",
+        score:bestScore,
+        scores
     };
 }
 
-
 /* =========================================================
-   SETTINGS
+   ACPI判定
 ========================================================= */
 
-function getMemory(){
+function shouldUseACPI(os){
 
-    if(
-        settings.memory!=="auto"
-    ){
-        return Number(
-            settings.memory
-        );
-    }
-
-    const ram=
-        Number(
-            navigator.deviceMemory || 4
-        );
-
-    if(ram<=2)return 256;
-    if(ram<=4)return 512;
-    if(ram<=8)return 1024;
-
-    return 1536;
-}
-
-
-function getACPI(){
-
-    if(settings.acpi==="on"){
+    if(!os){
         return true;
     }
 
-    if(settings.acpi==="off"){
-        return false;
-    }
-
     if(
-        isoInfo &&
-        [
-            "win95",
-            "win98",
-            "winme",
-            "win2000",
-            "winxp",
-            "msdos",
-            "freedos"
-        ].includes(
-            isoInfo.id
-        )
+        os.key === "windowsxp" ||
+        os.key === "windows2000" ||
+        os.key === "windows95" ||
+        os.key === "windows98" ||
+        os.key === "windowsme" ||
+        os.key === "msdos" ||
+        os.key === "freedos"
     ){
         return false;
     }
@@ -1943,1310 +1143,849 @@ function getACPI(){
     return true;
 }
 
+/* =========================================================
+   メモリサイズ
+========================================================= */
 
-function getBootOrder(){
+function getMemorySize(){
 
-    if(settings.boot==="hdd"){
-        return 0x213;
+    const deviceMemory =
+        Number(navigator.deviceMemory || 4);
+
+    if(deviceMemory <= 2){
+        return 256 * 1024 * 1024;
     }
 
-    if(settings.boot==="fdd"){
-        return 0x321;
+    if(deviceMemory <= 4){
+        return 512 * 1024 * 1024;
     }
 
-    return 0x123;
+    if(deviceMemory <= 8){
+        return 1024 * 1024 * 1024;
+    }
+
+    return 1536 * 1024 * 1024;
 }
-
-
-function updateSettings(){
-
-    $("currentSettings")
-        .innerHTML=
-        "メモリ: "+
-        getMemory()+
-        " MB<br>"+
-        "ACPI: "+
-        (
-            getACPI()
-            ?
-            "ON"
-            :
-            "OFF"
-        )+
-        "<br>"+
-        "起動順: "+
-        $("bootSelect")
-        .selectedOptions[0]
-        .textContent;
-}
-
-
-[
-    "memorySelect",
-    "acpiSelect",
-    "bootSelect",
-    "mouseSelect",
-    "keyboardSelect",
-    "speakerSelect"
-].forEach(
-    id=>{
-
-        $(id).addEventListener(
-            "change",
-            ()=>{
-
-                settings.memory=
-                    $("memorySelect").value;
-
-                settings.acpi=
-                    $("acpiSelect").value;
-
-                settings.boot=
-                    $("bootSelect").value;
-
-                settings.mouse=
-                    $("mouseSelect").value;
-
-                settings.keyboard=
-                    $("keyboardSelect").value;
-
-                settings.speaker=
-                    $("speakerSelect").value;
-
-                updateSettings();
-            }
-        );
-    }
-);
-
-updateSettings();
-
 
 /* =========================================================
-   DESTROY
+   空HDDサイズ
+========================================================= */
+
+function getDiskSize(){
+
+    const deviceMemory =
+        Number(navigator.deviceMemory || 4);
+
+    /*
+      大きすぎるArrayBufferを作らない。
+    */
+
+    if(deviceMemory <= 4){
+        return 1 * 1024 * 1024 * 1024;
+    }
+
+    return 2 * 1024 * 1024 * 1024;
+}
+
+/* =========================================================
+   V86停止
 ========================================================= */
 
 async function destroyEmulator(){
 
-    if(!emulator){
-
-        running=false;
-
+    if(!state.emulator){
+        state.running = false;
         return;
     }
 
-    log(
-        "既存エミュレーターを破棄中…"
-    );
+    log("既存のエミュレーターを停止します");
 
     try{
-
-        if(
-            typeof emulator.stop===
-            "function"
-        ){
-            emulator.stop();
+        if(typeof state.emulator.stop === "function"){
+            state.emulator.stop();
         }
-
     }catch(error){
-
-        log(
-            "stop警告: "+
-            error.message
-        );
+        log(`stop error: ${error.message}`);
     }
 
     try{
-
-        if(
-            typeof emulator.destroy===
-            "function"
-        ){
-            emulator.destroy();
+        if(typeof state.emulator.destroy === "function"){
+            state.emulator.destroy();
         }
-
     }catch(error){
-
-        log(
-            "destroy警告: "+
-            error.message
-        );
+        log(`destroy error: ${error.message}`);
     }
 
-    emulator=null;
-    running=false;
+    state.emulator = null;
+    state.running = false;
 
-    $("screen").innerHTML="";
+    $("screen").innerHTML = "";
+
+    setState("停止中");
 }
 
-
 /* =========================================================
-   WAIT CANVAS
-========================================================= */
-
-function waitForCanvas(
-    timeout=10000
-){
-
-    return new Promise(
-        (resolve,reject)=>{
-
-            const start=
-                performance.now();
-
-            function check(){
-
-                const canvas=
-                    $("screen")
-                    .querySelector(
-                        "canvas"
-                    );
-
-                if(canvas){
-
-                    resolve(canvas);
-
-                    return;
-                }
-
-                if(
-                    performance.now()-
-                    start>
-                    timeout
-                ){
-
-                    reject(
-                        new Error(
-                            "仮想ディスプレイが生成されませんでした。\n"+
-                            "libv86.jsとv86.wasmの組み合わせを確認してください。"
-                        )
-                    );
-
-                    return;
-                }
-
-                requestAnimationFrame(
-                    check
-                );
-            }
-
-            check();
-        }
-    );
-}
-
-
-/* =========================================================
-   FIT
-========================================================= */
-
-function fitScreen(){
-
-    const canvas=
-        $("screen")
-        .querySelector(
-            "canvas"
-        );
-
-    if(!canvas)return;
-
-    const area=
-        $("screenArea");
-
-    const maxW=
-        area.clientWidth;
-
-    const maxH=
-        area.clientHeight;
-
-    const cw=
-        canvas.width ||
-        640;
-
-    const ch=
-        canvas.height ||
-        480;
-
-    const scale=
-        Math.min(
-            maxW/cw,
-            maxH/ch
-        );
-
-    if(scale>0){
-
-        canvas.style.width=
-            Math.floor(
-                cw*scale
-            )+
-            "px";
-
-        canvas.style.height=
-            Math.floor(
-                ch*scale
-            )+
-            "px";
-    }
-}
-
-
-window.addEventListener(
-    "resize",
-    fitScreen
-);
-
-
-/* =========================================================
-   START
+   V86起動
 ========================================================= */
 
 async function startEmulator(){
 
-    if(starting)return;
-
-    if(!isoBuffer){
-
-        setStatus(
-            "ISOを選択してください"
-        );
-
-        playErrorSound();
-
+    if(state.busy){
+        log("現在処理中です。二重起動を無視しました");
         return;
     }
 
-    starting=true;
+    if(!state.isoBuffer){
+        showToast("先にISOを選択してください");
+        log("ISOが選択されていません","error");
+        return;
+    }
 
-    $("startBtn")
-        .disabled=true;
+    state.busy = true;
+    state.booting = true;
 
-    $("powerBtn")
-        .disabled=true;
+    $("startBtn").disabled = true;
+    $("powerBtn").disabled = true;
 
-    showBoot();
+    $("boot-overlay").classList.remove("hidden");
+
+    setState("起動準備中");
 
     try{
 
-        bootProgress(
-            3,
-            "起動準備中…"
-        );
-
-        setStatus(
-            "起動準備中…"
-        );
-
-        await new Promise(
-            resolve=>
-            setTimeout(
-                resolve,
-                80
-            )
-        );
-
-        bootProgress(
-            10,
-            "既存のエミュレーターを安全に停止中…"
-        );
-
         await destroyEmulator();
 
-        bootProgress(
-            18,
-            "v86エンジンを確認中…"
-        );
+        /*
+          libv86.js
+        */
 
-        const V86=
-            await loadV86();
+        await loadV86Script();
 
-        if(!V86){
+        /*
+          BIOS
+        */
 
-            throw new Error(
-                "V86コンストラクタを取得できませんでした。"
+        const biosBuffer =
+            await loadSystemFile(
+                "bios",
+                state.zipFiles
+            );
+
+        /*
+          VGA BIOS
+        */
+
+        const vgaBiosBuffer =
+            await loadSystemFile(
+                "vga_bios",
+                state.zipFiles
+            );
+
+        /*
+          WASM
+        */
+
+        let wasmBuffer = null;
+
+        try{
+            wasmBuffer =
+                await loadSystemFile(
+                    "wasm",
+                    state.zipFiles
+                );
+
+            log(
+                `v86.wasm読み込み成功: ${formatBytes(wasmBuffer.byteLength)}`
+            );
+
+        }catch(error){
+            /*
+              wasmなしで動作できるビルドもあるため、
+              エラーを記録して続行。
+            */
+
+            log(
+                `v86.wasm読み込み失敗: ${error.message}`
             );
         }
 
-        bootProgress(
-            27,
-            "BIOS / VGA BIOS / WASMを探しています…"
+        const V86 = resolveV86Constructor();
+
+        const memorySize =
+            getMemorySize();
+
+        const diskSize =
+            getDiskSize();
+
+        const acpi =
+            shouldUseACPI(
+                state.manualOS ||
+                state.detectedOS
+            );
+
+        log(
+            `メモリ設定: ${formatBytes(memorySize)}`
+        );
+
+        log(
+            `空HDD設定: ${formatBytes(diskSize)}`
+        );
+
+        log(
+            `ACPI: ${acpi ? "ON" : "OFF"}`
         );
 
         /*
-           ここが今回のエラー箇所。
-           file://の場合はfetch制限を検出して
-           より分かりやすいメッセージにする。
+          CD-ROM
         */
 
-        let bios;
+        const config = {
 
-        try{
-
-            bios=
-                await fetchFirst([
-                    "./seabios.bin",
-                    "./src/seabios.bin"
-                ]);
-
-        }catch(error){
-
-            if(
-                location.protocol===
-                "file:"
-            ){
-
-                throw new Error(
-                    "SeaBIOSを読み込めませんでした。\n\n"+
-                    "現在HTMLを file:// で開いています。\n"+
-                    "Chromeではfetch()によるローカルファイル読み込みが制限されるため、"+
-                    "同じフォルダにseabios.binが存在していても読み込めない場合があります。\n\n"+
-                    "対策:\n"+
-                    "1. HTMLとシステムファイルを同じフォルダに置く\n"+
-                    "2. そのフォルダでHTTPサーバーを起動する\n"+
-                    "3. http://localhost:8000/ から開く\n\n"+
-                    "例:\n"+
-                    "python3 -m http.server 8000"
-                );
-            }
-
-            throw error;
-        }
-
-        bootProgress(
-            36,
-            "VGA BIOSを読み込んでいます…"
-        );
-
-        let vga;
-
-        try{
-
-            vga=
-                await fetchFirst([
-                    "./vgabios.bin",
-                    "./src/vgabios.bin"
-                ]);
-
-        }catch(error){
-
-            if(
-                location.protocol===
-                "file:"
-            ){
-
-                throw new Error(
-                    "VGA BIOSを読み込めませんでした。\n\n"+
-                    "file://で開いているため、Chromeのローカルfetch制限により"+
-                    "vgabios.binを取得できない可能性があります。\n\n"+
-                    "HTTPサーバー経由で開いてください。"
-                );
-            }
-
-            throw error;
-        }
-
-        bootProgress(
-            45,
-            "v86.wasmを読み込んでいます…"
-        );
-
-        let wasm;
-
-        try{
-
-            wasm=
-                await fetchFirst([
-                    "./v86.wasm",
-                    "./src/v86.wasm"
-                ]);
-
-        }catch(error){
-
-            if(
-                location.protocol===
-                "file:"
-            ){
-
-                throw new Error(
-                    "v86.wasmを読み込めませんでした。\n\n"+
-                    "file://で開いているため、Chromeのローカルfetch制限が原因の可能性があります。\n\n"+
-                    "HTTPサーバー経由で開いてください。"
-                );
-            }
-
-            throw error;
-        }
-
-        bootProgress(
-            53,
-            "システムファイルの準備完了"
-        );
-
-        const memoryMB=
-            getMemory();
-
-        const acpi=
-            getACPI();
-
-        const bootOrder=
-            getBootOrder();
-
-        log(
-            "メモリ: "+
-            memoryMB+
-            " MB"
-        );
-
-        log(
-            "ACPI: "+
-            acpi
-        );
-
-        log(
-            "Boot order: 0x"+
-            bootOrder.toString(16)
-        );
-
-        bootProgress(
-            62,
-            "v86を初期化しています…"
-        );
-
-        const config={
-
-            memory_size:
-                memoryMB*
-                1024*
-                1024,
+            wasm_fn: undefined,
 
             screen_container:
                 $("screen"),
 
+            memory_size:
+                memorySize,
+
+            vga_memory_size:
+                8 * 1024 * 1024,
+
             bios:{
-                buffer:
-                    bios.buffer
+                buffer:biosBuffer
             },
 
             vga_bios:{
-                buffer:
-                    vga.buffer
+                buffer:vgaBiosBuffer
             },
 
             cdrom:{
-                buffer:
-                    isoBuffer
+                buffer:state.isoBuffer
             },
 
-            boot_order:
-                bootOrder,
+            boot_order:0x123,
 
-            acpi:
-                acpi,
+            autostart:true,
 
-            autostart:
-                true,
+            acpi:acpi,
 
-            disable_mouse:
-                settings.mouse==="off",
+            disable_mouse:false,
 
-            disable_keyboard:
-                settings.keyboard==="off",
+            disable_keyboard:false,
 
-            disable_speaker:
-                settings.speaker==="off",
+            disable_speaker:false,
 
-            wasm_fn:
-                async()=>{
-                    return wasm.buffer;
-                }
+            preserve_mac_from_state_image:false
         };
 
-        bootProgress(
-            72,
-            "仮想PCを生成しています…"
-        );
+        /*
+          wasm_fnはビルドによってAPIが異なるため、
+          無理に注入しない。
+        */
 
-        emulator=
-            new V86(
-                config
-            );
+        if(wasmBuffer){
 
-        bootProgress(
-            82,
-            "CPU / メモリを初期化しています…"
-        );
+            try{
 
-        await new Promise(
-            resolve=>
-            setTimeout(
-                resolve,
-                350
-            )
-        );
+                const wasmModule =
+                    await WebAssembly.compile(
+                        wasmBuffer
+                    );
 
-        bootProgress(
-            90,
-            "仮想ディスプレイを準備しています…"
-        );
+                config.wasm_fn =
+                    async imports => {
 
-        await waitForCanvas();
+                        const instance =
+                            await WebAssembly.instantiate(
+                                wasmModule,
+                                imports || {}
+                            );
 
-        fitScreen();
+                        return instance.exports;
+                    };
 
-        bootProgress(
-            95,
-            "画面サイズを最適化しています…"
-        );
+                log("WASM loaderを設定しました");
 
-        await new Promise(
-            resolve=>
-            setTimeout(
-                resolve,
-                150
-            )
-        );
+            }catch(error){
 
-        fitScreen();
+                log(
+                    `WASM loader設定をスキップ: ${error.message}`
+                );
 
-        bootProgress(
-            100,
-            "起動完了！"
-        );
-
-        running=true;
-
-        setStatus(
-            "起動中 / "+
-            (
-                isoInfo
-                ?
-                isoInfo.name
-                :
-                "OS"
-            )
-        );
-
-        log(
-            "エミュレーター起動完了"
-        );
+                delete config.wasm_fn;
+            }
+        }
 
         /*
-           Fullscreen APIは非同期処理後だと
-           ブラウザによって拒否される場合がある。
+          新しいV86インスタンスを作成
         */
+
+        log("V86インスタンスを作成します");
+
+        let emulator;
 
         try{
 
-            if(
-                !document.fullscreenElement
-            ){
+            emulator =
+                new V86(config);
 
-                await document
-                    .documentElement
-                    .requestFullscreen();
+        }catch(firstError){
+
+            log(
+                `V86通常起動失敗: ${firstError.message}`
+            );
+
+            /*
+              wasm_fnが互換性問題を起こす場合は外して再試行
+            */
+
+            if(config.wasm_fn){
+
+                delete config.wasm_fn;
 
                 log(
-                    "自動全画面化成功"
+                    "wasm_fnを外して再試行します"
+                );
+
+                emulator =
+                    new V86(config);
+
+            }else{
+                throw firstError;
+            }
+        }
+
+        state.emulator =
+            emulator;
+
+        state.running =
+            true;
+
+        setState("起動中");
+
+        log("V86インスタンス作成成功");
+
+        /*
+          V86のイベント
+        */
+
+        if(
+            emulator &&
+            typeof emulator.add_listener === "function"
+        ){
+
+            emulator.add_listener(
+                "emulator-started",
+                ()=>{
+                    log("emulator-started");
+                    setState("実行中");
+                    $("boot-overlay")
+                        .classList.add("hidden");
+                }
+            );
+
+            emulator.add_listener(
+                "emulator-stopped",
+                ()=>{
+                    log("emulator-stopped");
+                    state.running = false;
+                    setState("停止中");
+                }
+            );
+
+            emulator.add_listener(
+                "screen-set-mode",
+                mode=>{
+                    log(
+                        `画面モード変更: ${JSON.stringify(mode)}`
+                    );
+                }
+            );
+        }
+
+        /*
+          autostart:trueなのでrun()は呼ばない
+        */
+
+        log(
+            "autostart=true。V86に起動を任せます"
+        );
+
+        /*
+          少し待って画面を確認
+        */
+
+        setTimeout(()=>{
+
+            if(state.running){
+
+                $("boot-overlay")
+                    .classList.add("hidden");
+
+                setState("実行中");
+
+                log(
+                    "エミュレーター起動処理完了"
                 );
             }
+
+        },1800);
+
+    }catch(error){
+
+        state.running = false;
+
+        setState("起動失敗");
+
+        $("boot-overlay")
+            .classList.remove("hidden");
+
+        log(
+            `Startup failed: ${error.message}`,
+            "error"
+        );
+
+        console.error(error);
+
+        showToast(
+            "エミュレーターを起動できませんでした"
+        );
+
+    }finally{
+
+        state.busy = false;
+        state.booting = false;
+
+        $("startBtn").disabled = false;
+        $("powerBtn").disabled = false;
+    }
+}
+
+/* =========================================================
+   ISO選択
+========================================================= */
+
+$("isoInput").addEventListener(
+    "change",
+    async event=>{
+
+        const file =
+            event.target.files?.[0];
+
+        if(!file){
+            return;
+        }
+
+        state.isoFile = file;
+
+        $("isoName").textContent =
+            file.name;
+
+        $("isoSize").textContent =
+            formatBytes(file.size);
+
+        state.manualOS = null;
+
+        log(
+            `ISO選択: ${file.name}`
+        );
+
+        log(
+            `ISOサイズ: ${formatBytes(file.size)}`
+        );
+
+        try{
+
+            /*
+              一度だけ読み込んでキャッシュ。
+              起動時にもう一度巨大ISOを読む必要をなくす。
+            */
+
+            log("ISOをメモリに読み込みます");
+
+            state.isoBuffer =
+                await file.arrayBuffer();
+
+            log(
+                `ISO読み込み完了: ${formatBytes(state.isoBuffer.byteLength)}`
+            );
+
+            /*
+              OS判定
+            */
+
+            log("OS自動判定を開始します");
+
+            const result =
+                detectOS(
+                    state.isoBuffer
+                );
+
+            state.detectedOS =
+                result;
+
+            $("osValue").textContent =
+                result.name;
+
+            log(
+                `OS判定結果: ${result.name}`
+            );
+
+            log(
+                `判定スコア: ${result.score}`
+            );
+
+            log(
+                `判定詳細: ${JSON.stringify(result.scores)}`
+            );
+
+            /*
+              XPならACPI OFF
+            */
+
+            if(
+                result.key === "windowsxp"
+            ){
+                log(
+                    "Windows XPを検出。ACPI OFFを推奨"
+                );
+            }
+
+            /*
+              ZIPの場合
+            */
+
+            await readZipIfPossible(file);
 
         }catch(error){
 
             log(
-                "自動全画面化は拒否されました: "+
-                error.message
+                `ISO処理失敗: ${error.message}`,
+                "error"
             );
+
+            state.isoBuffer = null;
+
+            $("osValue").textContent =
+                "判定失敗";
         }
-
-        $("menu")
-            .classList
-            .add("hidden");
-
-        setTimeout(
-            hideBoot,
-            700
-        );
-
-    }catch(error){
-
-        showStartupError(
-            error
-        );
-
-        try{
-
-            await destroyEmulator();
-
-        }catch(e){}
-
-    }finally{
-
-        starting=false;
-
-        $("startBtn")
-            .disabled=false;
-
-        $("powerBtn")
-            .disabled=false;
     }
-}
-
+);
 
 /* =========================================================
-   BUTTONS
+   起動ボタン
 ========================================================= */
 
-$("startBtn")
-.addEventListener(
+$("startBtn").addEventListener(
     "click",
     ()=>{
         startEmulator();
     }
 );
 
+/* =========================================================
+   電源ボタン
+========================================================= */
 
-$("powerBtn")
-.addEventListener(
+$("powerBtn").addEventListener(
     "click",
-    async()=>{
+    async ()=>{
 
-        if(starting)return;
+        if(state.busy){
+            log("起動処理中のため電源操作を無視しました");
+            return;
+        }
 
-        if(
-            running ||
-            emulator
-        ){
-
-            log(
-                "電源OFF"
-            );
+        if(state.running){
 
             await destroyEmulator();
 
-            setStatus(
-                "停止中"
-            );
+            $("boot-overlay")
+                .classList.remove("hidden");
 
-            $("menu")
-                .classList
-                .remove("hidden");
-
-            hideBoot();
+            log("電源OFF");
 
             return;
         }
-
-        startEmulator();
-    }
-);
-
-
-$("resetBtn")
-.addEventListener(
-    "click",
-    async()=>{
-
-        if(starting)return;
-
-        if(!isoBuffer){
-
-            setStatus(
-                "ISOを選択してください"
-            );
-
-            playErrorSound();
-
-            return;
-        }
-
-        log(
-            "リセット開始"
-        );
 
         await startEmulator();
     }
 );
 
-
 /* =========================================================
-   FULLSCREEN
+   リセット
 ========================================================= */
 
-$("fullscreenBtn")
-.addEventListener(
+$("resetBtn").addEventListener(
     "click",
-    async()=>{
+    async ()=>{
+
+        if(state.busy){
+            log("処理中のためリセットを無視しました");
+            return;
+        }
+
+        if(!state.isoBuffer){
+            showToast("ISOがありません");
+            return;
+        }
+
+        log("リセット開始");
+
+        await startEmulator();
+    }
+);
+
+/* =========================================================
+   全画面
+========================================================= */
+
+$("fullscreenBtn").addEventListener(
+    "click",
+    async ()=>{
 
         try{
 
-            if(
-                !document.fullscreenElement
-            ){
+            if(!document.fullscreenElement){
 
-                await document
-                    .documentElement
+                await document.documentElement
                     .requestFullscreen();
-
-                log(
-                    "全画面モード"
-                );
 
             }else{
 
-                await document
-                    .exitFullscreen();
+                await document.exitFullscreen();
 
-                log(
-                    "全画面解除"
-                );
             }
 
         }catch(error){
 
             log(
-                "全画面エラー: "+
-                error.message
+                `Fullscreen error: ${error.message}`
             );
-
-            playErrorSound();
         }
     }
 );
 
-
 /* =========================================================
-   SCREENSHOT
+   スクリーンショット
 ========================================================= */
 
-$("screenshotBtn")
-.addEventListener(
+$("screenshotBtn").addEventListener(
     "click",
     ()=>{
 
-        const canvas=
-            $("screen")
-            .querySelector(
-                "canvas"
-            );
+        const canvas =
+            $("screen").querySelector("canvas");
 
         if(!canvas){
 
-            log(
-                "スクショ失敗: キャンバスなし"
+            showToast(
+                "スクリーンショット可能な画面がありません"
             );
-
-            playErrorSound();
 
             return;
         }
 
         try{
 
-            const a=
-                document.createElement(
-                    "a"
-                );
+            const link =
+                document.createElement("a");
 
-            a.download=
-                "superEmulator-"+
-                Date.now()+
-                ".png";
+            link.download =
+                `superEmulator-${Date.now()}.png`;
 
-            a.href=
-                canvas.toDataURL(
-                    "image/png"
-                );
+            link.href =
+                canvas.toDataURL("image/png");
 
-            a.click();
+            link.click();
 
-            log(
-                "スクリーンショット保存"
-            );
+            log("スクリーンショットを保存しました");
 
         }catch(error){
 
             log(
-                "スクショ失敗: "+
-                error.message
+                `Screenshot error: ${error.message}`,
+                "error"
             );
-
-            playErrorSound();
         }
     }
 );
 
-
 /* =========================================================
-   SETTINGS
+   ログ保存
 ========================================================= */
 
-$("settingsBtn")
-.addEventListener(
+$("saveLogBtn").addEventListener(
     "click",
     ()=>{
-        $("settingsModal")
-            .classList
-            .add("show");
+
+        const blob =
+            new Blob(
+                [state.logLines.join("\n")],
+                {type:"text/plain"}
+            );
+
+        const url =
+            URL.createObjectURL(blob);
+
+        const link =
+            document.createElement("a");
+
+        link.href =
+            url;
+
+        link.download =
+            `superEmulator-log-${Date.now()}.txt`;
+
+        link.click();
+
+        setTimeout(
+            ()=>URL.revokeObjectURL(url),
+            1000
+        );
+
+        log("ログを保存しました");
     }
 );
-
-
-$("closeSettingsBtn")
-.addEventListener(
-    "click",
-    ()=>{
-        $("settingsModal")
-            .classList
-            .remove("show");
-    }
-);
-
 
 /* =========================================================
-   OS SELECT
+   OS手動選択
 ========================================================= */
 
-$("wrongOsBtn")
-.addEventListener(
-    "click",
-    ()=>{
-        $("osModal")
-            .classList
-            .add("show");
-    }
-);
+const osGrid =
+    $("osGrid");
 
+for(const [key,name] of OS_LIST){
 
-$("closeOsBtn")
-.addEventListener(
-    "click",
-    ()=>{
-        $("osModal")
-            .classList
-            .remove("show");
-    }
-);
+    const button =
+        document.createElement("button");
 
+    button.className =
+        "os-btn";
 
-document
-.querySelectorAll(".osBtn")
-.forEach(
-    button=>{
+    button.textContent =
+        name;
 
-        button.addEventListener(
-            "click",
-            ()=>{
+    button.addEventListener(
+        "click",
+        ()=>{
 
-                isoInfo={
-                    id:
-                        button.dataset.os,
+            state.manualOS = {
+                key:key,
+                name:name,
+                manual:true
+            };
 
-                    name:
-                        button.textContent
-                        .trim(),
+            $("osValue").textContent =
+                name;
 
-                    confidence:
-                        "手動"
-                };
+            $("os-modal")
+                .classList.remove("show");
 
+            log(
+                `OSを手動選択: ${name}`
+            );
+
+            if(
+                key === "windowsxp" ||
+                key === "windows2000"
+            ){
                 log(
-                    "OS手動選択: "+
-                    isoInfo.name
+                    `${name}: ACPI OFFで起動します`
                 );
-
-                setStatus(
-                    "手動設定: "+
-                    isoInfo.name
-                );
-
-                $("osModal")
-                    .classList
-                    .remove("show");
             }
-        );
-    }
-);
+        }
+    );
 
-
-/* =========================================================
-   LOG SAVE
-========================================================= */
-
-$("saveLogBtn")
-.addEventListener(
-    "click",
-    ()=>{
-
-        const blob=
-            new Blob(
-                [
-                    $("log")
-                    .textContent
-                ],
-                {
-                    type:
-                    "text/plain"
-                }
-            );
-
-        const url=
-            URL.createObjectURL(
-                blob
-            );
-
-        const a=
-            document.createElement(
-                "a"
-            );
-
-        a.href=url;
-
-        a.download=
-            "superEmulator-log.txt";
-
-        a.click();
-
-        URL.revokeObjectURL(
-            url
-        );
-    }
-);
-
-
-/* =========================================================
-   REPAIR SCRIPT
-========================================================= */
-
-function makeRepairScript(){
-
-return `#!/usr/bin/env bash
-
-# ==========================================================
-# superEmulator 修復・診断スクリプト
-# ==========================================================
-
-set -u
-
-echo
-echo "=========================================="
-echo " superEmulator Repair Tool"
-echo "=========================================="
-echo
-
-BASE="$(cd "$(dirname "$0")" && pwd)"
-
-echo "[1/7] 作業フォルダ"
-echo "$BASE"
-echo
-
-cd "$BASE" || {
-    echo "[ERROR] フォルダへ移動できませんでした"
-    exit 1
+    osGrid.appendChild(button);
 }
 
-echo "[2/7] OS"
-uname -a || true
-echo
-
-echo "[3/7] 必須ファイル"
-
-FILES=(
-    "index.html"
-    "libv86.js"
-    "v86.wasm"
-    "seabios.bin"
-    "vgabios.bin"
-)
-
-for FILE in "\${FILES[@]}"; do
-
-    if [ -f "./$FILE" ]; then
-
-        SIZE=$(wc -c < "./$FILE")
-
-        echo "[OK] $FILE ($SIZE bytes)"
-
-    elif [ -f "./src/$FILE" ]; then
-
-        SIZE=$(wc -c < "./src/$FILE")
-
-        echo "[OK] src/$FILE ($SIZE bytes)"
-
-    else
-
-        echo "[NG] $FILE が見つかりません"
-
-    fi
-
-done
-
-echo
-echo "[4/7] srcフォルダ"
-
-if [ -d "./src" ]; then
-    echo "[OK] ./src/"
-    ls -lah "./src"
-else
-    echo "[INFO] ./src/ はありません"
-fi
-
-echo
-echo "[5/7] index.html"
-
-if [ -f "./index.html" ]; then
-
-    if grep -q "superEmulator" "./index.html"; then
-        echo "[OK] superEmulator HTMLを確認"
-    else
-        echo "[WARN] superEmulator文字列がありません"
-    fi
-
-else
-
-    echo "[NG] index.html がありません"
-
-fi
-
-echo
-echo "[6/7] HTTPサーバー確認"
-
-if command -v python3 >/dev/null 2>&1; then
-
-    echo "[OK] python3があります"
-    echo
-    echo "ローカルHTTPサーバーを起動する場合:"
-    echo
-    echo "  python3 -m http.server 8000"
-    echo
-    echo "その後ブラウザで:"
-    echo
-    echo "  http://localhost:8000/"
-    echo
-
-else
-
-    echo "[INFO] python3がありません"
-
-fi
-
-echo
-echo "[7/7] 権限修復"
-
-for FILE in index.html libv86.js v86.wasm seabios.bin vgabios.bin; do
-
-    if [ -f "./$FILE" ]; then
-        chmod 644 "./$FILE" 2>/dev/null || true
-    fi
-
-    if [ -f "./src/$FILE" ]; then
-        chmod 644 "./src/$FILE" 2>/dev/null || true
-    fi
-
-done
-
-echo
-echo "=========================================="
-echo " 修復チェック完了"
-echo "=========================================="
-echo
-echo "重要:"
-echo "Chromeで file:// のHTMLから"
-echo "fetch()している場合、ローカルファイル"
-echo "読み込みが拒否されることがあります。"
-echo
-echo "推奨:"
-echo "python3 -m http.server 8000"
-echo
-echo "そして"
-echo "http://localhost:8000/"
-echo "を開いてください。"
-echo
-`;
-
-}
-
-
-$("repairText").value=
-    makeRepairScript();
-
-
-$("repairBtn")
-.addEventListener(
+$("wrongDetect").addEventListener(
     "click",
     ()=>{
-        $("repairText").value=
-            makeRepairScript();
-
-        $("repairModal")
-            .classList
-            .add("show");
+        $("os-modal")
+            .classList.add("show");
     }
 );
 
-
-$("closeRepairBtn")
-.addEventListener(
+$("closeModal").addEventListener(
     "click",
     ()=>{
-        $("repairModal")
-            .classList
-            .remove("show");
+        $("os-modal")
+            .classList.remove("show");
     }
 );
 
-
-$("copyRepairBtn")
-.addEventListener(
+$("os-modal").addEventListener(
     "click",
-    async()=>{
-
-        try{
-
-            await navigator
-                .clipboard
-                .writeText(
-                    $("repairText").value
-                );
-
-            log(
-                "修復スクリプトをコピーしました"
-            );
-
-        }catch(error){
-
-            $("repairText")
-                .select();
-
-            document.execCommand(
-                "copy"
-            );
-
-            log(
-                "修復スクリプトをコピーしました"
-            );
+    event=>{
+        if(event.target === $("os-modal")){
+            $("os-modal")
+                .classList.remove("show");
         }
     }
 );
 
+/* =========================================================
+   キーボード
+========================================================= */
 
-$("downloadRepairBtn")
-.addEventListener(
-    "click",
-    ()=>{
+document.addEventListener(
+    "keydown",
+    event=>{
 
-        const blob=
-            new Blob(
-                [
-                    $("repairText").value
-                ],
-                {
-                    type:
-                    "text/x-shellscript"
-                }
-            );
-
-        const url=
-            URL.createObjectURL(
-                blob
-            );
-
-        const a=
-            document.createElement(
-                "a"
-            );
-
-        a.href=url;
-
-        a.download=
-            "repair-superemulator.sh";
-
-        a.click();
-
-        URL.revokeObjectURL(
-            url
-        );
-
-        log(
-            "修復スクリプト保存"
-        );
+        if(
+            event.key === "Escape" &&
+            $("os-modal").classList.contains("show")
+        ){
+            $("os-modal")
+                .classList.remove("show");
+        }
     }
 );
 
-
 /* =========================================================
-   INITIAL LOG
+   初期ログ
 ========================================================= */
 
+log("superEmulator 起動");
+
+log("歴代OSを使いやすく");
+
 log(
-    "superEmulator 起動"
+    `hardwareConcurrency: ${
+        navigator.hardwareConcurrency || "unknown"
+    }`
 );
 
 log(
-    "CPU cores: "+
-    (
-        navigator.hardwareConcurrency ||
-        "unknown"
-    )
+    `deviceMemory: ${
+        navigator.deviceMemory || "unknown"
+    } GB`
 );
 
-log(
-    "deviceMemory: "+
-    (
-        navigator.deviceMemory ||
-        "unknown"
-    )+
-    " GB"
-);
-
-log(
-    "devicePixelRatio: "+
-    window.devicePixelRatio
-);
-
-log(
-    "Protocol: "+
-    location.protocol
-);
-
-if(
-    location.protocol===
-    "file:"
-){
+if(location.protocol === "file:"){
 
     log(
-        "注意: 現在file://で実行されています"
+        "file://で実行されています"
     );
 
     log(
-        "ローカルfetchがChromeに拒否される可能性があります"
+        "ブラウザのセキュリティ制限によりfetchが失敗する場合があります"
     );
 }
 
 log(
-    "システムファイル自動検索: 有効"
+    "システムファイルアップロード欄は無効化されています"
 );
 
 log(
-    "ISO高速キャッシュ: 有効"
+    "システムファイルは自動検索します:"
 );
 
 log(
-    "OS高速判定: 有効"
-);
-
-log(
-    "エラー音: 有効"
-);
-
-log(
-    "起動プログレス: 有効"
-);
-
-log(
-    "修復用Bash: 有効"
-);
-
-setStatus(
-    "ISO待機中"
+    "① 同じフォルダ → ② ZIP内 → ③ ./src/"
 );
 
 </script>
