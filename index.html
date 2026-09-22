@@ -1280,6 +1280,8 @@ code{color:#8fc3ff;}
 
           <div style="height:8px"></div>
 
+          <div class="storage-note" style="margin-top:8px">起動時は、ISOの自動判定より「最後に使用したOS」を優先します。手動でOSを変更すると次回からそのOSが優先されます。</div>
+
           <div
             id="detectedOS"
             style="
@@ -1523,7 +1525,14 @@ let selectedISO = null;
 let selectedISOName = "";
 let selectedFloppy = null;
 let selectedFloppyName = "";
-let selectedOS = "winxp";
+const VALID_OS_KEYS = new Set([
+  "win10","win8","win7","winvista","winxp","win2000","winnt4",
+  "winme","win98","win95","win31","win2","win1","msdos","freedos",
+  "linux","reactos","haiku","freebsd","openbsd","netbsd","android","other"
+]);
+const savedOS = localStorage.getItem("superEmulator.lastOS");
+let selectedOS = VALID_OS_KEYS.has(savedOS) ? savedOS : "winxp";
+let lastDetectedOS = null;
 
 let wasmBuffer = null;
 let biosBuffer = null;
@@ -2182,12 +2191,13 @@ function getHostMemoryGB(){
 function chooseInitialMemory(osKey){
   const hostGB=getHostMemoryGB();
   const oldOS=["win1","win2","win31","win95","win98","winme","winnt4","msdos","freedos"].includes(osKey);
-  if(oldOS) return Math.min(Number(window.OS_CONFIG[osKey]?.memory)||64, 256);
+  const configs = window.OS_CONFIG || {};
+  if(oldOS) return Math.min(Number(configs[osKey]?.memory)||64, 256);
 
   /* deviceMemory is deliberately only a hint. Try up to 4GB, then fall back
      automatically if the browser cannot reserve the requested guest RAM. */
   const target=Math.min(4096, Math.max(256, Math.floor(hostGB*1024*0.75)));
-  const osCap=Number(window.OS_CONFIG[osKey]?.memory)||4096;
+  const osCap=Number((window.OS_CONFIG || {})[osKey]?.memory)||4096;
   const raw=Math.min(target,osCap,4096);
   let p=128; while(p*2<=raw) p*=2;
   return Math.max(128,p);
@@ -2250,7 +2260,7 @@ screenScaleSelect.value=String(screenScale);
 diskSize.value=localStorage.getItem("superEmulator.diskSize")||diskSize.value;
 localStorage.setItem("superEmulator.diskSize",diskSize.value);
 diskSize.addEventListener("change",()=>{localStorage.setItem("superEmulator.diskSize",diskSize.value); if(!emulator) createVirtualDisk();});
-storageTypeSelect.addEventListener("change",()=>{storageType=storageTypeSelect.value; localStorage.setItem("superEmulator.storageType",storageType); storageTypeLabel.textContent=storageType.toUpperCase(); log(`ストレージ方式: ${storageType.toUpperCase()}`); if(!emulator&&!selectedDiskFile) createVirtualDisk();});
+storageTypeSelect.addEventListener("change",()=>{storageType=storageTypeSelect.value; localStorage.setItem("superEmulator.storageType",storageType); storageTypeLabel.textContent=storageType.toUpperCase(); log(`ストレージ方式: ${storageType.toUpperCase()}`); if(!emulator&&!selectedDiskFile&&!selectedDiskURL&&!selectedISO) createVirtualDisk();});
 screenScaleSelect.addEventListener("change",()=>{screenScale=Number(screenScaleSelect.value); localStorage.setItem("superEmulator.screenScale",String(screenScale)); applyScreenScale();});
 diskImageFile.addEventListener("change",()=>{
   selectedDiskFile=diskImageFile.files[0]||null;
@@ -2355,6 +2365,18 @@ window.OS_CONFIG = {
   android:{memory:512,acpi:true},
   other:{memory:128,acpi:false}
 };
+
+// 起動時は「最後に使用したOS」を最優先。保存値が壊れていてもXP固定には戻さない。
+if(!VALID_OS_KEYS.has(selectedOS)) selectedOS = "other";
+if(osSelect) osSelect.value = selectedOS;
+
+function saveLastOS(key){
+  if(!VALID_OS_KEYS.has(key)) return;
+  selectedOS = key;
+  localStorage.setItem("superEmulator.lastOS", key);
+  if(osSelect) osSelect.value = key;
+  log("最後に使用したOSを保存: " + getOSName(key));
+}
 
 
 /* =========================================================
@@ -2486,12 +2508,25 @@ async function detectISOFile(file){
       if(score[key]>bestScore){bestScore=score[key];best=key;}
     }
 
-    selectedOS=best;
-    osSelect.value=best;
-    detectedOS.innerHTML=`推定OS: <strong>${getOSName(best)}</strong> / スコア ${bestScore}`;
+    lastDetectedOS = best;
+    const saved = localStorage.getItem("superEmulator.lastOS");
+    const hasSaved = VALID_OS_KEYS.has(saved);
+
+    // ISOの判定結果は表示するが、起動時のOSは最後に使用したOSを優先。
+    if(!hasSaved){
+      saveLastOS(best);
+    } else {
+      selectedOS = saved;
+      osSelect.value = saved;
+    }
+
+    detectedOS.innerHTML = hasSaved
+      ? `ISO推定: <strong>${getOSName(best)}</strong> / スコア ${bestScore}<br><span style="color:#7dffb2">起動優先: 最後に使用したOS → ${getOSName(selectedOS)}</span>`
+      : `推定OS: <strong>${getOSName(best)}</strong> / スコア ${bestScore}`;
 
     log("ISO判定結果: "+JSON.stringify(score));
-    log("最終推定: "+getOSName(best));
+    log("ISO推定: "+getOSName(best));
+    log("起動に使用するOS: "+getOSName(selectedOS));
 
     if(best==="other" || bestScore<40){
       detectedOS.innerHTML+=`<br><span style="color:#ffbd66">判定材料が少ないため手動選択を推奨</span>`;
@@ -2536,17 +2571,11 @@ osSelect.addEventListener(
   "change",
   () =>
 {
-  selectedOS =
-    osSelect.value;
+  saveLastOS(osSelect.value);
 
   detectedOS.textContent =
-    "手動選択: " +
+    "手動選択 / 次回起動優先: " +
     getOSName(selectedOS);
-
-  log(
-    "手動OS選択: " +
-    selectedOS
-  );
 });
 
 
@@ -2744,6 +2773,7 @@ document.getElementById("startBtn")
       "superEmulator 起動エラー\n\n" +
       e.message
     );
+    emulatorStarting = false;
   }
 };
 
@@ -2805,8 +2835,15 @@ async function startEmulator(options={})
     /*
      * 2. 仮想ディスク
      */
-    if(!virtualDisk && !selectedDiskFile) createVirtualDisk();
-    if(!virtualDisk && !selectedDiskFile && !selectedDiskURL) throw new Error("仮想ディスクを作成できませんでした。");
+    // ISOがある場合、空の「16/32/64GB設定」だけを実体ディスクとして渡さない。
+    // それが原因で大容量ArrayBuffer確保に失敗したり、空HDDから起動待ちになるのを防ぐ。
+    // 実ディスクが必要な場合はIMGファイルまたはURL HDDを接続する。
+    if(!virtualDisk && !selectedDiskFile && !selectedDiskURL && !selectedISO && !options.debugPath && !options.uploadedFile){
+      createVirtualDisk();
+    }
+    if(!virtualDisk && !selectedDiskFile && !selectedDiskURL && !selectedISO && !options.debugPath && !options.uploadedFile){
+      throw new Error("起動用HDDがありません。OSのISOを接続するか、ディスクイメージを指定してください。");
+    }
 
     setBoot(
       25,
@@ -2882,9 +2919,15 @@ async function startEmulator(options={})
     /*
      * 4. OS settings
      */
+    const persistedOS = localStorage.getItem("superEmulator.lastOS");
+    if(VALID_OS_KEYS.has(persistedOS)) selectedOS = persistedOS;
+    if(osSelect) osSelect.value = selectedOS;
+    localStorage.setItem("superEmulator.lastOS", selectedOS);
+
     const cfg =
-      window.OS_CONFIG[selectedOS] ||
-      window.OS_CONFIG.other;
+      ((window.OS_CONFIG || {})[selectedOS]) ||
+      ((window.OS_CONFIG || {}).other) ||
+      {memory:128,acpi:false};
 
 
     let selectedMemoryMB=chooseInitialMemory(selectedOS);
@@ -2970,17 +3013,18 @@ async function startEmulator(options={})
       /*
        * ★ 仮想HDD
        */
-      hda:
-      selectedDiskURL
-        ? {
+      ...(selectedDiskURL
+        ? { hda:{
             url:selectedDiskURL,
             async:true,
             size:selectedDiskURLSize,
             use_parts:false
-          }
+          }}
         : (selectedDiskFile
-            ? {buffer:await selectedDiskFile.arrayBuffer()}
-            : {buffer:virtualDisk}),
+            ? { hda:{buffer:await selectedDiskFile.arrayBuffer()} }
+            : (virtualDisk
+                ? { hda:{buffer:virtualDisk} }
+                : {}))),
 
       /*
        * フロッピー
