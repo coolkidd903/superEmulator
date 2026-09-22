@@ -813,10 +813,11 @@ code{color:#8fc3ff;}
 .storage-note{font-size:11px;color:#8290a4;line-height:1.6;margin:8px 0}
 @media(max-width:700px){.settings-grid{grid-template-columns:1fr}}
 
-/* SUPER CURSOR: landing全体に確実に適用 */
-#landing, #landing * {
-  cursor: var(--super-cursor, auto) !important;
-}
+/* SUPER CURSOR: all screens */
+:root, body, #landing, #landing *, #app, #app * { cursor: var(--super-cursor, auto) !important; }
+button, input, select, label, a, [role="button"] { pointer-events:auto !important; }
+#screenPlaceholder { pointer-events:none !important; }
+
 </style>
 </head>
 
@@ -1524,7 +1525,6 @@ let storageType = localStorage.getItem("superEmulator.storageType") || "hdd";
 let screenScale = Number(localStorage.getItem("superEmulator.screenScale") || "1");
 let selectedISO = null;
 let selectedISOName = "";
-let activeCDROMObjectURL = "";
 let selectedFloppy = null;
 let selectedFloppyName = "";
 const VALID_OS_KEYS = new Set([
@@ -1833,7 +1833,7 @@ function makeCursor(stage)
 
 function updateCursor()
 {
-  if(!landing || landing.style.display === "none") return;
+  if(!landing) return;
 
   const max=Math.max(1,document.documentElement.scrollHeight-window.innerHeight);
   const ratio=Math.max(0,Math.min(0.999999,window.scrollY/max));
@@ -1843,8 +1843,10 @@ function updateCursor()
   const stage=cursorStages[index];
   const cursor=makeCursor(stage);
   document.documentElement.style.setProperty("--super-cursor",cursor);
+  document.body.style.setProperty("--super-cursor",cursor);
   landing.style.setProperty("--super-cursor",cursor);
-  cursorStatus.textContent="カーソル: "+stage.name;
+  if(app) app.style.setProperty("--super-cursor",cursor);
+  if(cursorStatus) cursorStatus.textContent="カーソル: "+stage.name;
 }
 
 
@@ -2192,16 +2194,17 @@ function getHostMemoryGB(){
 }
 function chooseInitialMemory(osKey){
   const hostGB=getHostMemoryGB();
-  const oldOS=["win1","win2","win31","win95","win98","winme","winnt4"].includes(osKey);
-  if(oldOS) return Math.min(OS_CONFIG[osKey]?.memory||64,256);
+  const oldOS=["win1","win2","win31","win95","win98","winme","winnt4","msdos","freedos"].includes(osKey);
+  const configs = window.OS_CONFIG || {};
+  if(oldOS) return Math.min(Number(configs[osKey]?.memory)||64, 256);
 
-  // ISOをメモリに保持した状態で4GBを自動確保すると、
-  // 4GB端末ではChrome/v86/ISOの合計が限界を超えやすい。
-  // 自動値は安全側にし、4GBはUIから手動選択できるようにする。
-  const safeDefault = (osKey==="winxp" || osKey==="win2000" || osKey==="winvista" || osKey==="win7" || osKey==="win8" || osKey==="win10") ? 1024 : 768;
-  const hostCap = Math.max(512, Math.floor(hostGB*1024*0.50));
-  const osCap = OS_CONFIG[osKey]?.memory || 4096;
-  return Math.min(safeDefault, hostCap, osCap);
+  /* deviceMemory is deliberately only a hint. Try up to 4GB, then fall back
+     automatically if the browser cannot reserve the requested guest RAM. */
+  const target=Math.min(4096, Math.max(256, Math.floor(hostGB*1024*0.75)));
+  const osCap=Number((window.OS_CONFIG || {})[osKey]?.memory)||4096;
+  const raw=Math.min(target,osCap,4096);
+  let p=128; while(p*2<=raw) p*=2;
+  return Math.max(128,p);
 }
 function memoryFallbacks(start){
   const values=[start,3072,2048,1536,1024,768,512,256,128,64,32];
@@ -2365,6 +2368,8 @@ window.OS_CONFIG = {
   android:{memory:512,acpi:true},
   other:{memory:128,acpi:false}
 };
+
+const OS_CONFIG = window.OS_CONFIG || {};
 
 // 起動時は「最後に使用したOS」を最優先。保存値が壊れていてもXP固定には戻さない。
 if(!VALID_OS_KEYS.has(selectedOS)) selectedOS = "other";
@@ -2867,11 +2872,7 @@ async function startEmulator(options={})
           options.uploadedFile
         );
 
-      if(activeCDROMObjectURL) URL.revokeObjectURL(activeCDROMObjectURL);
-      activeCDROMObjectURL = URL.createObjectURL(options.uploadedFile);
-
       cdromImage = {
-        url:activeCDROMObjectURL,
         buffer
       };
 
@@ -2885,11 +2886,7 @@ async function startEmulator(options={})
           selectedISO
         );
 
-      if(activeCDROMObjectURL) URL.revokeObjectURL(activeCDROMObjectURL);
-      activeCDROMObjectURL = URL.createObjectURL(selectedISO);
-
       cdromImage = {
-        url:activeCDROMObjectURL,
         buffer
       };
 
@@ -2928,15 +2925,13 @@ async function startEmulator(options={})
     if(osSelect) osSelect.value = selectedOS;
     localStorage.setItem("superEmulator.lastOS", selectedOS);
 
-    const cfg =
-      ((window.OS_CONFIG || {})[selectedOS]) ||
-      ((window.OS_CONFIG || {}).other) ||
-      {memory:128,acpi:false};
+    const safeOSConfig = (window.OS_CONFIG && typeof window.OS_CONFIG === "object") ? window.OS_CONFIG : {};
+    const cfg = safeOSConfig[selectedOS] || safeOSConfig.other || {memory:128,acpi:false};
 
 
     let selectedMemoryMB=chooseInitialMemory(selectedOS);
     updateMemoryStatus(selectedMemoryMB, `host ${getHostMemoryGB()}GB相当`);
-    log(`OS=${getOSName(selectedOS)} / 自動RAM=${selectedMemoryMB}MB（安全値。手動で最大4GB選択可） / ACPI=${cfg.acpi}`);
+    log(`OS=${getOSName(selectedOS)} / 自動RAM=${selectedMemoryMB}MB / ACPI=${cfg.acpi}`);
 
 
     /*
@@ -3040,11 +3035,7 @@ async function startEmulator(options={})
        */
       ...(cdromImage
         ? {
-            // ローカルISOはv86へFileのArrayBufferを直接渡さず、
-            // Blob URLとして読ませる。大きなISOでもCD-ROMの読み出しを
-            // v86側の通常のURLローダーに任せることで、
-            // SeaBIOSの「Could not read from CDROM」を回避する。
-            cdrom:{url:cdromImage.url}
+            cdrom:cdromImage
           }
         : {}),
 
@@ -4425,6 +4416,21 @@ document.addEventListener("keyup",e=>{
   if((e.code==="MetaLeft"||e.code==="MetaRight")&&emulator&&typeof emulator.keyboard_send_scancodes==="function"){e.preventDefault();emulator.keyboard_send_scancodes([0xE0DB]);}
 },true);
 
+
+/* =========================================================
+   FAIL-SAFE UI CLICK DELEGATION
+========================================================= */
+(function(){
+ document.addEventListener("click",function(e){
+   const el=e.target?.closest?.("button,[data-panel],label"); if(!el) return;
+   try{
+     if(el.matches('[data-panel="logs"]')) document.getElementById("logs")?.scrollIntoView({behavior:"smooth",block:"nearest"});
+     if(el.id==="clearLogs"){const x=document.getElementById("logs");if(x)x.textContent="";}
+     if(el.id==="openSettingsMain"||el.matches('[data-panel="settings"]')){const m=document.getElementById("settingsModal");if(m){m.classList.add("show");m.style.display="flex";}}
+     if(el.id==="closeSettings"){const m=document.getElementById("settingsModal");if(m){m.classList.remove("show");m.style.display="none";}}
+   }catch(_){}
+ },true);
+})();
 
 /* =========================================================
    STARTUP
