@@ -1139,6 +1139,7 @@ code{color:#8fc3ff;}
       <button class="fkey" data-f="10">F10</button>
       <button class="fkey" data-f="11">F11</button>
       <button class="fkey" data-f="12">F12</button>
+      <button class="fkey" id="windowsKeyBtn" type="button">⊞ Win</button>
 
     </div>
 
@@ -1334,9 +1335,9 @@ code{color:#8fc3ff;}
       <select class="field" id="storageType"><option value="hdd">HDD（IDE互換）</option><option value="ssd">SSD（高速ストレージ相当）</option></select>
       <label class="label">新規仮想ディスク容量</label>
       <select class="field" id="diskSize">
-        <option value="16384">16 GB</option><option value="32768" selected>32 GB</option><option value="65536">64 GB</option>
+        <option value="512">512 MB</option><option value="1024">1 GB</option><option value="2048">2 GB</option><option value="4096">4 GB</option><option value="8192">8 GB</option><option value="16384">16 GB</option><option value="32768" selected>32 GB</option>
       </select>
-      <div class="storage-note">16～32GB以上は、ブラウザのRAMに丸ごとArrayBufferとして確保せず、HTTP(S)上の大容量ディスクイメージをRange/分割読み込みできます。新規空ディスクをブラウザだけで32GB実体化するのではなく、既存の大容量IMGを使う方式です。</div>
+      <div class="storage-note">512MB～32GBを選択できます。URL/ファイル未接続時はRAM上に空HDDを作成します（安全上限を超える容量は設定値のみで、実体は安全な容量に制限）。32GBを実容量で使う場合は大容量IMGのURL/ファイルを接続してください。</div>
       <label class="label">既存ディスクイメージ（任意）</label>
       <input class="field" id="diskImageFile" type="file" accept=".img,.vhd,.bin">
       <label class="label">大容量HDD URL（16/32GB以上・推奨）</label>
@@ -1531,7 +1532,7 @@ const VALID_OS_KEYS = new Set([
   "linux","reactos","haiku","freebsd","openbsd","netbsd","android","other"
 ]);
 const savedOS = localStorage.getItem("superEmulator.lastOS");
-let selectedOS = VALID_OS_KEYS.has(savedOS) ? savedOS : "winxp";
+let selectedOS = VALID_OS_KEYS.has(savedOS) ? savedOS : "other";
 let lastDetectedOS = null;
 
 let wasmBuffer = null;
@@ -2216,7 +2217,7 @@ function updateMemoryStatus(mb,extra=""){
 ========================================================= */
 
 function createVirtualDisk(){
-  const mb=Math.max(16,Number(diskSize?.value)||32768);
+  const mb=Math.max(512,Number(diskSize?.value)||512);
 
   if(selectedDiskURL){
     virtualDisk=null;
@@ -2232,26 +2233,25 @@ function createVirtualDisk(){
     return;
   }
 
-  /*
-   * 16/32GBの「容量」は設定値として保持するが、空ディスクを
-   * ArrayBufferで丸ごと32GB確保することは4GB級ホストでは危険。
-   * そのため新規空ディスクは安全な小容量に留め、大容量はURL IMG
-   * (Range/分割読み込み)を使う。
-   */
-  const safeLimitMB=512;
-  const allocMB=Math.min(mb,safeLimitMB);
+  // URL/ファイルを使わない場合は、HDDをRAM上のArrayBufferとして作成。
+  // ただし32GBをそのまま確保するとホストRAMを圧迫するため、実体化上限を設ける。
+  const hostGB=Number(navigator.deviceMemory)||4;
+  const safeMB=Math.min(2048, Math.max(512, Math.floor(hostGB*1024*0.25)));
+  const allocMB=Math.min(mb,safeMB);
 
   try{
     virtualDisk=new ArrayBuffer(allocMB*1024*1024);
-    diskStatus.textContent=`${mb/1024} GB 設定 / 空ディスク実体 ${allocMB} MB`;
-    log(`新規空ディスク: 設定容量=${mb}MB / 実体=${allocMB}MB`,"WARN");
-    if(mb>safeLimitMB){
-      log("16/32GB以上のHDDとして実際に使うには、大容量IMGのURL接続を使用してください。","WARN");
+    const configured=mb>=1024 ? `${mb/1024} GB` : `${mb} MB`;
+    const actual=allocMB>=1024 ? `${allocMB/1024} GB` : `${allocMB} MB`;
+    diskStatus.textContent=`RAM HDD / ${configured} 設定 / 実体 ${actual}`;
+    log(`RAM HDD作成: 設定=${configured} / 実体=${actual}`);
+    if(mb>allocMB){
+      log(`要求容量 ${configured} はブラウザRAM安全上限を超えるため、${actual}だけRAMに確保しました。32GB等を実容量で使う場合はHDDイメージURL/ファイルを使用してください。`,"WARN");
     }
   }catch(e){
     virtualDisk=null;
-    diskStatus.textContent="作成失敗";
-    log("仮想ディスク作成失敗: "+(e?.message||e),"ERROR");
+    diskStatus.textContent="RAM HDD作成失敗";
+    log("RAM HDD作成失敗: "+(e?.message||e),"ERROR");
   }
 }
 
@@ -2476,17 +2476,12 @@ async function detectISOFile(file){
      * 複数ウィンドウで確認する。568MB級ISOでも巨大な1本の
      * ArrayBufferを作らない。
      */
-    const windows=[
-      [0,4*1024*1024],
-      [16*2048,2*1024*1024],
-      [8*1024*1024,8*1024*1024],
-      [32*1024*1024,16*1024*1024],
-      [64*1024*1024,16*1024*1024]
-    ];
-
-    for(const [start,len] of windows){
-      const bytes=await readFileWindow(file,start,len);
-      for(const key of Object.keys(markers)){
+    // ISO全体を8MBずつRAMへ読み、重要マーカーを探す。568MB級でも一括展開しない。
+    const chunkSize=8*1024*1024;
+    const markerKeys=Object.keys(markers);
+    for(let start=0; start<file.size; start+=chunkSize){
+      const bytes=await readFileWindow(file,start,chunkSize);
+      for(const key of markerKeys){
         for(const marker of markers[key]){
           if(containsText(bytes,marker)){
             if(key==="winxp") score.winxp += marker==="WIN51"?180:60;
@@ -2494,6 +2489,7 @@ async function detectISOFile(file){
           }
         }
       }
+      // 明確なWindowsマーカーが見つかった後も他OSの誤判定を防ぐため、最後まで走査。
     }
 
     /*
@@ -4354,6 +4350,23 @@ async function handleMicrosoftCallback()
 /* =========================================================
    FORMAT
 ========================================================= */
+
+function sendWindowsKey(){
+  if(!emulator){ log("Windowsキー: エミュレーター未起動","WARN"); return; }
+  try{
+    if(typeof emulator.keyboard_send_scancodes === "function"){
+      emulator.keyboard_send_scancodes([0xE05B,0xE0DB]);
+      log("Windowsキー送信");
+      return;
+    }
+    if(typeof emulator.keyboard_send_keys === "function"){
+      emulator.keyboard_send_keys([0x5B]);
+      log("Windowsキー送信(fallback)");
+    }
+  }catch(e){ log("Windowsキー送信失敗: "+(e?.message||e),"ERROR"); }
+}
+const windowsKeyBtn=document.getElementById("windowsKeyBtn");
+if(windowsKeyBtn) windowsKeyBtn.addEventListener("click",sendWindowsKey);
 
 function formatBytes(bytes)
 {
