@@ -2192,7 +2192,12 @@ function updateMemoryStatus(mb,extra=""){
 ========================================================= */
 
 function createVirtualDisk(){
-  const mb=Math.max(512,Number(diskSize?.value)||512);
+  let mb=Math.max(512,Number(diskSize?.value)||512);
+  const win9x=["win95","win98","winme"].includes(selectedOS);
+  if(win9x && mb>512){
+    log(`Windows 9xではv86の既知のIDE/ディスクサイズ問題を回避するため、RAM HDDを512MBに制限します（設定値=${mb>=1024?mb/1024+"GB":mb+"MB"}）。`,"WARN");
+    mb=512;
+  }
 
   if(selectedDiskURL){
     virtualDisk=null;
@@ -2216,12 +2221,13 @@ function createVirtualDisk(){
 
   try{
     virtualDisk=new ArrayBuffer(allocMB*1024*1024);
-    const configured=mb>=1024 ? `${mb/1024} GB` : `${mb} MB`;
+    const requestedMB=Math.max(512,Number(diskSize?.value)||512);
+    const configured=requestedMB>=1024 ? `${requestedMB/1024} GB` : `${requestedMB} MB`;
     const actual=allocMB>=1024 ? `${allocMB/1024} GB` : `${allocMB} MB`;
     diskStatus.textContent=`RAM HDD / ${configured} 設定 / 実体 ${actual}`;
     log(`RAM HDD作成: 設定=${configured} / 実体=${actual}`);
-    if(mb>allocMB){
-      log(`要求容量 ${configured} はブラウザRAM安全上限を超えるため、${actual}だけRAMに確保しました。32GB等を実容量で使う場合はHDDイメージURL/ファイルを使用してください。`,"WARN");
+    if(requestedMB>allocMB){
+      log(`要求容量 ${configured} は実際には ${actual}だけRAMに確保しました。大容量を実容量で使う場合はHDDイメージURL/ファイルを使用してください。`,"WARN");
     }
   }catch(e){
     virtualDisk=null;
@@ -2230,47 +2236,45 @@ function createVirtualDisk(){
   }
 }
 
-// 設定をできるだけ永続化。ファイルそのものはブラウザのセキュリティ上保存できないため、
-// ISO/HDDのファイル名・サイズ・OS・容量などの再選択用情報を保存する。
-function saveSetupInfo(){
-  try{
-    localStorage.setItem("superEmulator.setup.v2", JSON.stringify({
-      os:selectedOS, storageType, screenScale,
-      diskSize:diskSize?.value||"",
-      isoName:selectedISOName||"", isoSize:selectedISO?.size||0,
-      diskName:selectedDiskName||"", diskSizeBytes:selectedDiskFile?.size||0,
-      diskURL:selectedDiskURL||"", diskURLSize:selectedDiskURLSize||0,
-      floppyName:selectedFloppyName||"",
-      savedAt:Date.now()
-    }));
-  }catch(e){}
-}
-function loadSetupInfo(){
-  try{
-    const x=JSON.parse(localStorage.getItem("superEmulator.setup.v2")||"null");
-    if(!x) return;
-    if(VALID_OS_KEYS.has(x.os)) selectedOS=x.os;
-    if(["hdd","disk"].includes(x.storageType)) storageType=x.storageType;
-    if(Number.isFinite(Number(x.screenScale))) screenScale=Number(x.screenScale);
-    if(x.diskSize && diskSize) diskSize.value=x.diskSize;
-    if(osSelect) osSelect.value=selectedOS;
-  }catch(e){}
-}
-loadSetupInfo();
-log(`保存済み設定を復元: OS=${getOSName(selectedOS)} / ストレージ=${storageType.toUpperCase()} / 画面倍率=${screenScale}x`);
-
 storageTypeSelect.value=storageType; storageTypeLabel.textContent=storageType.toUpperCase();
 screenScaleSelect.value=String(screenScale);
+
+/* セットアップ設定の永続化（ファイル本体ではなく設定値・選択状態のみ） */
+function saveSetupState(){
+  try{
+    localStorage.setItem("superEmulator.setupState", JSON.stringify({
+      os:selectedOS,
+      diskSize:Number(diskSize?.value)||512,
+      storageType:storageType,
+      screenScale:screenScale,
+      diskURL:selectedDiskURL||"",
+      diskURLSize:selectedDiskURLSize||0,
+      lastISOName:selectedISOName||"",
+      lastDiskName:selectedDiskName||""
+    }));
+  }catch(e){ log("設定保存失敗: "+e,"WARN"); }
+}
+function restoreSetupState(){
+  try{
+    const x=JSON.parse(localStorage.getItem("superEmulator.setupState")||"null");
+    if(!x) return;
+    if(VALID_OS_KEYS.has(x.os)) selectedOS=x.os;
+    if(x.diskSize) diskSize.value=String(x.diskSize);
+    if(["hdd","ssd"].includes(x.storageType)) { storageType=x.storageType; storageTypeSelect.value=storageType; storageTypeLabel.textContent=storageType.toUpperCase(); }
+    if(Number.isFinite(Number(x.screenScale))) { screenScale=Number(x.screenScale); screenScaleSelect.value=String(screenScale); }
+    log(`保存済みセットアップ設定を復元: OS=${getOSName(selectedOS)} / HDD=${diskSize.value} / 倍率=${screenScale}x`);
+  }catch(e){ log("保存済み設定の復元失敗: "+e,"WARN"); }
+}
+restoreSetupState();
 diskSize.value=localStorage.getItem("superEmulator.diskSize")||diskSize.value;
 localStorage.setItem("superEmulator.diskSize",diskSize.value);
-diskSize.addEventListener("change",()=>{localStorage.setItem("superEmulator.diskSize",diskSize.value); saveSetupInfo(); if(!emulator) createVirtualDisk();});
-storageTypeSelect.addEventListener("change",()=>{storageType=storageTypeSelect.value; localStorage.setItem("superEmulator.storageType",storageType); saveSetupInfo(); storageTypeLabel.textContent=storageType.toUpperCase(); log(`ストレージ方式: ${storageType.toUpperCase()}`); if(!emulator&&!selectedDiskFile&&!selectedDiskURL&&!selectedISO) createVirtualDisk();});
-screenScaleSelect.addEventListener("change",()=>{screenScale=Number(screenScaleSelect.value); localStorage.setItem("superEmulator.screenScale",String(screenScale)); saveSetupInfo(); applyScreenScale();});
+diskSize.addEventListener("change",()=>{localStorage.setItem("superEmulator.diskSize",diskSize.value); saveSetupState(); if(!emulator) createVirtualDisk();});
+storageTypeSelect.addEventListener("change",()=>{storageType=storageTypeSelect.value; localStorage.setItem("superEmulator.storageType",storageType); storageTypeLabel.textContent=storageType.toUpperCase(); saveSetupState(); log(`ストレージ方式: ${storageType.toUpperCase()}`); if(!emulator&&!selectedDiskFile&&!selectedDiskURL&&!selectedISO) createVirtualDisk();});
+screenScaleSelect.addEventListener("change",()=>{screenScale=Number(screenScaleSelect.value); localStorage.setItem("superEmulator.screenScale",String(screenScale)); saveSetupState(); applyScreenScale();});
 diskImageFile.addEventListener("change",()=>{
   selectedDiskFile=diskImageFile.files[0]||null;
   selectedDiskName=selectedDiskFile?selectedDiskFile.name:"";
   selectedDiskURL="";
-  saveSetupInfo();
   selectedDiskURLSize=0;
   if(selectedDiskFile){
     virtualDisk=null;
@@ -2297,13 +2301,12 @@ document.getElementById("connectDiskURLBtn").onclick=async()=>{
     diskImageFile.value="";
     diskStatus.textContent=`URL HDD / ${len?formatBytes(len):"サイズ不明"} / ${accept||"Range確認不可"}`;
     log(`大容量HDD URL接続: ${url} / ${len?formatBytes(len):"size unknown"} / Accept-Ranges=${accept||"unknown"}`);
-    saveSetupInfo();
   }catch(e){
     log("HDD URL確認失敗: "+(e?.message||e),"ERROR");
     alert("HDD URLを読み込めませんでした。HTTP(S)で配信し、Range/Content-Lengthに対応したサーバーを使用してください。");
   }
 };
-floppyFile.addEventListener("change",()=>{selectedFloppy=floppyFile.files[0]||null; selectedFloppyName=selectedFloppy?selectedFloppy.name:""; if(floppyStatus) floppyStatus.textContent=selectedFloppy?`${selectedFloppyName} / ${formatBytes(selectedFloppy.size)}`:"未接続"; if(selectedFloppy) log(`フロッピー選択: ${selectedFloppyName}`); saveSetupInfo();});
+floppyFile.addEventListener("change",()=>{selectedFloppy=floppyFile.files[0]||null; selectedFloppyName=selectedFloppy?selectedFloppy.name:""; if(floppyStatus) floppyStatus.textContent=selectedFloppy?`${selectedFloppyName} / ${formatBytes(selectedFloppy.size)}`:"未接続"; if(selectedFloppy) log(`フロッピー選択: ${selectedFloppyName}`);});
 clearDiskImageBtn.addEventListener("click",()=>{
   selectedDiskFile=null; selectedDiskName="";
   selectedDiskURL=""; selectedDiskURLSize=0;
@@ -2382,7 +2385,6 @@ function saveLastOS(key){
   if(!VALID_OS_KEYS.has(key)) return;
   selectedOS = key;
   localStorage.setItem("superEmulator.lastOS", key);
-  saveSetupInfo();
   if(osSelect) osSelect.value = key;
   log("最後に使用したOSを保存: " + getOSName(key));
 }
@@ -2402,7 +2404,6 @@ isoFile.addEventListener(
   selectedISO = file;
   window.__superEmulatorSelectedISO = file;
   selectedISOName = file.name;
-  saveSetupInfo();
   isoLoading = true;
   isoReady = false;
   window.superEmulatorIsoLoading = true;
@@ -2734,8 +2735,6 @@ document.getElementById("debugUploadBtn")
 
   selectedISO = file;
   selectedISOName = file.name;
-  window.__superEmulatorSelectedISO = file;
-  saveSetupInfo();
   selectedOS = "linux";
 
   try
@@ -2966,6 +2965,14 @@ async function startEmulator(options={})
       log("CD-ROM: 起動可能ISOを確認。SeaBIOSのCD起動を優先します。","OK");
     }
 
+    /* Windows 9x diagnostics */
+    if(["win95","win98","winme"].includes(selectedOS)){
+      log("Windows 9x互換設定: ACPI OFF / VGA RAM 2MB / RAM HDDは最大512MBを推奨", "INFO");
+      if(virtualDisk && virtualDisk.byteLength > 512*1024*1024){
+        throw new Error("Windows 9x用RAM HDDが512MBを超えています。v86では大きなWin9xディスクでセットアップ停止が起きる既知問題があるため、512MB以下にしてください。");
+      }
+    }
+
     setBoot(
       40,
       "仮想ディスク・CD-ROM接続..."
@@ -2979,6 +2986,7 @@ async function startEmulator(options={})
     if(VALID_OS_KEYS.has(persistedOS)) selectedOS = persistedOS;
     if(osSelect) osSelect.value = selectedOS;
     localStorage.setItem("superEmulator.lastOS", selectedOS);
+    saveSetupState();
 
     const safeOSConfig = (window.OS_CONFIG && typeof window.OS_CONFIG === "object") ? window.OS_CONFIG : {};
     const cfg = (window.OS_CONFIG && window.OS_CONFIG[selectedOS]) || (window.OS_CONFIG && window.OS_CONFIG.other) || {memory:128,acpi:false};
@@ -3038,7 +3046,7 @@ async function startEmulator(options={})
         1024,
 
       vga_memory_size:
-        8 *
+        (["win95","win98","winme","win31","win2","win1","winnt4","win2000"].includes(selectedOS) ? 2 : 8) *
         1024 *
         1024,
 
@@ -3608,17 +3616,23 @@ document.getElementById("resetBtn")
 
 
 function applyScreenScale(){
-  // v86自身のscale機能だけを使う。canvasのCSSサイズを別途変更すると
-  // 実ピクセルと表示座標の比率がずれて、Windows側のマウス位置がずれることがある。
-  const canvas=screen.querySelector("canvas");
+  /*
+   * v86自身のScreenAdapterにスケールを任せる。
+   * Canvasへ別途CSS倍率を掛けると、表示座標とPS/2マウス座標の変換が
+   * 二重に行われてクリック位置がズレることがある。
+   */
   if(emulator && typeof emulator.screen_set_scale==="function"){
-    try{ emulator.screen_set_scale(screenScale, screenScale); }catch(e){ log("画面倍率適用失敗: "+(e?.message||e),"WARN"); }
+    try{
+      emulator.screen_set_scale(screenScale,screenScale);
+      return;
+    }catch(e){
+      log("v86画面スケール設定失敗: "+e,"WARN");
+    }
   }
+  const canvas=screen.querySelector("canvas");
   if(canvas){
     canvas.style.width="";
     canvas.style.height="";
-    canvas.style.maxWidth="none";
-    canvas.style.height="auto";
   }
 }
 
@@ -3634,20 +3648,6 @@ document.getElementById("fullscreenBtn").onclick=async()=>{
 screen.addEventListener("dblclick",()=>{if(emulator)document.getElementById("fullscreenBtn").click();});
 screen.addEventListener("click",()=>{if(emulator&&typeof emulator.lock_mouse==="function"){try{emulator.lock_mouse();}catch(e){}}});
 screen.tabIndex=0;
-
-// マウス座標ずれ対策: 表示領域の変形をリセットし、v86に座標計算を任せる。
-function normalizeEmulatorScreen(){
-  const canvas=screen.querySelector("canvas");
-  if(!canvas) return;
-  canvas.style.transform="none";
-  canvas.style.transformOrigin="top left";
-  canvas.style.margin="0";
-  canvas.style.display="block";
-  canvas.style.maxWidth="none";
-  canvas.style.height="auto";
-}
-new MutationObserver(()=>normalizeEmulatorScreen()).observe(screen,{childList:true,subtree:true});
-window.addEventListener("resize",()=>{ normalizeEmulatorScreen(); });
 
 
 /* =========================================================
