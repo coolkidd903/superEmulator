@@ -883,6 +883,21 @@ button, input, select, label, a, [role="button"] { pointer-events:auto !importan
   cursor: var(--super-cursor, pointer) !important;
 }
 
+/* =========================================================
+   INDEPENDENT UI HIT LAYER
+========================================================= */
+#sidebar, #main, .topbar, #functionBar, #controlPanel, #settingsModal,
+#sidebar button, #main button, #functionBar button, #controlPanel button,
+#settingsModal button, #settingsModal input, #settingsModal select, #settingsModal textarea {
+  pointer-events:auto !important;
+}
+#sidebar, #main { position:relative; }
+#sidebar { z-index:3000 !important; }
+.topbar, #functionBar, #controlPanel { position:relative; z-index:2500 !important; }
+#screenArea { position:relative; z-index:1; }
+#settingsModal { z-index:9000 !important; }
+#settingsModal .modal-card { position:relative; z-index:9001; pointer-events:auto !important; }
+
 
 .iso-detected{padding:10px;border:1px solid rgba(255,255,255,.08);background:#080c12;border-radius:10px;color:#cfd9e8;font-size:12px;line-height:1.6}
 .compact-status-panel{min-height:0}
@@ -4878,5 +4893,107 @@ document.addEventListener("keyup",e=>{
 })();
 </script>
 
+
+
+<!-- =========================================================
+     INDEPENDENT UI BUTTON CONTROLLER
+     起動本体(startEmulator等)の中身は変更せず、UIボタンだけを独立配線
+========================================================= -->
+<script>
+(function(){
+  "use strict";
+  function el(id){ return document.getElementById(id); }
+  function safe(fn){ try{return fn();}catch(e){console.error(e); if(typeof window.log==="function") window.log(String(e),"ERROR");} }
+  function wire(id,fn){
+    const b=el(id); if(!b) return;
+    b.onclick=function(e){ if(e){e.preventDefault();e.stopPropagation();} safe(fn); };
+    b.style.pointerEvents="auto";
+  }
+  function openSettings(){
+    const m=el("settingsModal"); if(!m) return;
+    const c=el("clientIdInput");
+    if(c){try{c.value=localStorage.getItem("superEmulator.microsoftClientId")||"";}catch(_){} }
+    m.classList.add("show"); m.style.display="flex";
+  }
+  function closeSettings(){const m=el("settingsModal");if(m){m.classList.remove("show");m.style.display="none";}}
+
+  /* ランディング */
+  wire("landingStart",()=>{if(typeof window.openApp==="function")window.openApp();});
+  wire("heroStart",()=>{if(typeof window.openApp==="function")window.openApp();});
+  wire("finalStart",()=>{if(typeof window.openApp==="function")window.openApp();});
+  wire("landingMicrosoft",openSettings);
+  wire("heroMicrosoft",openSettings);
+
+  /* サイドバー */
+  wire("openSidebar",()=>{const x=el("sidebar");if(x)x.classList.remove("collapsed");});
+  wire("closeSidebar",()=>{const x=el("sidebar");if(x)x.classList.add("collapsed");});
+  wire("openSettingsMain",openSettings);
+  wire("closeSettings",closeSettings);
+  document.querySelectorAll('.side-btn[data-panel]').forEach(b=>{
+    b.onclick=function(e){
+      e.preventDefault();e.stopPropagation();
+      document.querySelectorAll('.side-btn[data-panel]').forEach(x=>x.classList.remove('active'));b.classList.add('active');
+      if(b.dataset.panel==='settings')openSettings();
+      if(b.dataset.panel==='logs'){const x=el('logs');if(x)x.scrollIntoView({behavior:'smooth',block:'nearest'});}
+    };
+  });
+
+  /* ここから下はUI処理だけ。エミュレーター起動処理そのものは触らない。 */
+  wire("powerBtn",async()=>{if(typeof window.stopAndDestroy==="function")await window.stopAndDestroy();else if(window.emulator&&typeof window.emulator.stop==="function")window.emulator.stop();});
+  wire("resetBtn",async()=>{
+    if(!window.emulator){alert("エミュレーターが起動していません。");return;}
+    if(typeof window.emulator.restart==="function")return window.emulator.restart();
+    if(typeof window.stopAndDestroy==="function"&&typeof window.startEmulator==="function"){await window.stopAndDestroy();await window.startEmulator();}
+  });
+  wire("fullscreenBtn",async()=>{
+    const target=el("screenArea");
+    if(document.fullscreenElement){if(document.exitFullscreen)await document.exitFullscreen();return;}
+    if(target&&target.requestFullscreen){await target.requestFullscreen({navigationUI:"hide"});return;}
+    if(window.emulator&&typeof window.emulator.screen_go_fullscreen==="function")window.emulator.screen_go_fullscreen();
+  });
+  wire("settingsFullscreenBtn",()=>{const b=el("fullscreenBtn");if(b)b.click();});
+  wire("screenshotBtn",()=>{
+    const em=window.emulator;if(!em){alert("先にエミュレーターを起動してください。");return;}
+    if(typeof em.screen_make_screenshot!=="function"){alert("スクリーンショットAPIがありません。");return;}
+    const img=em.screen_make_screenshot();if(img&&img.src){const a=document.createElement('a');a.href=img.src;a.download='superEmulator-'+Date.now()+'.png';a.click();}
+  });
+  wire("settingsScreenshotBtn",()=>{const b=el("screenshotBtn");if(b)b.click();});
+
+  /* 設定 */
+  wire("manualDetectBtn",()=>{
+    const a=el("manualArea");if(!a)return;const hidden=a.style.display==='none'||a.hidden;a.style.display=hidden?'block':'none';a.hidden=!hidden;
+  });
+  wire("downloadDiskBtn",()=>{if(typeof window.downloadSelectedDiskImage==="function")window.downloadSelectedDiskImage();else alert("仮想HDD保存機能がまだ読み込まれていません。");});
+  wire("downloadCurrentDiskBtn",()=>{if(typeof window.downloadCurrentDiskImage==="function")window.downloadCurrentDiskImage();else alert("現在のHDD保存機能がまだ読み込まれていません。");});
+  wire("rebuildDiskBtn",()=>{if(typeof window.createVirtualDisk==="function")window.createVirtualDisk();});
+  wire("clearDiskImageBtn",()=>{
+    if(typeof window.clearSelectedDiskIndependent==="function")return window.clearSelectedDiskIndependent();
+    const f=el("diskImageFile");if(f)f.value="";
+    if(el("diskStatus"))el("diskStatus").textContent="未作成";
+  });
+  wire("saveClientId",()=>{const v=(el("clientIdInput")?.value||"").trim();try{localStorage.setItem("superEmulator.microsoftClientId",v);}catch(_){}closeSettings();});
+  wire("showLogsBtn",()=>{const x=el("logs");if(x)x.scrollIntoView({behavior:'smooth',block:'nearest'});});
+  wire("clearLogs",()=>{const x=el("logs");if(x)x.textContent="";});
+  wire("refreshDebugInfo",()=>{
+    const x=el("debugInfo");if(!x)return;
+    x.value=[`protocol=${location.protocol}`,`viewport=${innerWidth}x${innerHeight}`,`devicePixelRatio=${devicePixelRatio}`,`hardwareConcurrency=${navigator.hardwareConcurrency||"unknown"}`,`deviceMemory=${navigator.deviceMemory||"unknown"}GB`,`emulator=${!!window.emulator}`,`canvas=${el("screen")?.querySelector("canvas")?"OK":"not yet"}`].join("\n");
+  });
+  wire("sendCommand",()=>{const v=el("commandInput")?.value||"";if(typeof window.sendCommand==="function")window.sendCommand(v);else alert("ゲストコマンド機能がまだ読み込まれていません。");});
+  document.querySelectorAll('.command[data-command]').forEach(b=>{b.onclick=function(e){e.preventDefault();e.stopPropagation();const v=b.dataset.command||"";const x=el('commandInput');if(x)x.value=v;if(typeof window.sendCommand==='function')window.sendCommand(v);};});
+  wire("repairBtn",()=>{if(typeof window.generateRepairBash==='function')window.generateRepairBash();else if(typeof window.repairBash==='function')window.repairBash();else alert("修復Bash生成機能がまだ読み込まれていません。");});
+
+  /* F1～F12 */
+  const F={1:0x3B,2:0x3C,3:0x3D,4:0x3E,5:0x3F,6:0x40,7:0x41,8:0x42,9:0x43,10:0x44,11:0x57,12:0x58};
+  document.querySelectorAll('.fkey[data-f]').forEach(b=>{b.onclick=function(e){e.preventDefault();e.stopPropagation();const em=window.emulator,c=F[Number(b.dataset.f)];if(em&&c&&typeof em.keyboard_send_scancodes==='function')em.keyboard_send_scancodes([c,c|0x80]);};});
+  wire("windowsKeyBtn",()=>{const em=window.emulator;if(em&&typeof em.keyboard_send_scancodes==='function')em.keyboard_send_scancodes([0xE0,0x5B,0xE0,0xDB]);});
+
+  /* ISO入力だけは状態保存。ISO判定本体は既存処理を使用。 */
+  const iso=el("isoFile");if(iso)iso.addEventListener("change",()=>{if(iso.files?.[0])window.__superEmulatorSelectedISO=iso.files[0];});
+
+  /* 起動ボタンは既存のstartEmulator系処理をそのまま残す。 */
+  ["startBtn","powerBtn","resetBtn"].forEach(id=>{const b=el(id);if(b)b.style.pointerEvents="auto";});
+  window.__superEmulatorIndependentUI=true;
+})();
+</script>
 </body>
 </html>
