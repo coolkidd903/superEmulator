@@ -1425,7 +1425,7 @@ window.OS_CONFIG = window.OS_CONFIG || {
     const mb=e.target.closest?.("#manualDetectBtn");
     if(mb){e.preventDefault();e.stopImmediatePropagation();const area=document.getElementById("manualArea");if(area){const visible=area.style.display!=="none";area.style.display=visible?"none":"block";area.hidden=visible;}return;}
     const sb=e.target.closest?.("#startBtn");
-    if(sb){e.preventDefault();if(typeof window.startEmulator==="function"){Promise.resolve(window.startEmulator()).catch(err=>{console.error(err);alert("起動に失敗しました\n\n"+(err?.message||err));});}else alert("起動処理が読み込まれていません。ページを再読み込みしてください。");return;}
+    if(sb){e.preventDefault();e.stopImmediatePropagation();if(typeof window.startEmulator==="function"){Promise.resolve(window.startEmulator()).catch(err=>{console.error(err);alert("起動に失敗しました\n\n"+(err?.message||err));});}else alert("起動処理が読み込まれていません。ページを再読み込みしてください。");return;}
   },true);
   window.addEventListener("resize",()=>{if(typeof window.updateCursor==="function")window.updateCursor();});
 })();
@@ -1485,6 +1485,7 @@ const DEBUG_LINUX_PATH =
 
 let emulator = null;
 let emulatorStarting = false;
+let startGeneration = 0;
 let virtualDisk = null;
 let selectedDiskFile = null;
 let selectedDiskName = "";
@@ -1700,7 +1701,7 @@ function openApp()
 
   log("superEmulatorを開きました");
 
-  createVirtualDisk();
+  if(!virtualDisk && !selectedDiskFile && !selectedDiskURL) createVirtualDisk();
 }
 
 
@@ -2367,6 +2368,7 @@ isoFile.addEventListener(
   if(!file) return;
 
   selectedISO = file;
+  window.__superEmulatorSelectedISO = file;
   selectedISOName = file.name;
   isoLoading = true;
   isoReady = false;
@@ -2751,6 +2753,22 @@ document.getElementById("startBtn")
 
 async function startEmulator(options={})
 {
+  if(!options.debugPath && !options.uploadedFile && !selectedISO)
+  {
+    const recovery = window.__superEmulatorSelectedISO || (isoFile && isoFile.files && isoFile.files[0]);
+    if(recovery)
+    {
+      selectedISO = recovery;
+      selectedISOName = recovery.name || "ISO";
+      if(!isoReady)
+      {
+        log("ISOは選択されていますが、読み込み・判定が未完了のため起動をブロックしました", "WARN");
+        alert("ISOの読み込み・判定が完了するまで起動できません。");
+        return;
+      }
+    }
+  }
+
   if(isoLoading)
   {
     log("ISOの読み込み・自動判定中のため起動をブロックしました", "WARN");
@@ -2778,6 +2796,7 @@ async function startEmulator(options={})
   }
 
   emulatorStarting = true;
+  const myStartGeneration = ++startGeneration;
 
   setStatus(
     "起動中",
@@ -2852,10 +2871,7 @@ async function startEmulator(options={})
       // v86には「File」ではなく、独立したArrayBufferを渡す。
       // slice()で元のFile由来バッファとの共有を避ける。
       cdromImage = {
-        // v86へ渡す直前に独立したArrayBufferを作る。
-        // File/Blob由来のバッファをそのまま共有せず、CD-ROM読み取り中の
-        // detach/共有状態による不安定化を避ける。
-        buffer: new Uint8Array(buffer).slice().buffer
+        buffer: buffer.slice(0)
       };
 
       cdStatus.textContent =
@@ -2871,10 +2887,7 @@ async function startEmulator(options={})
       // v86には「File」ではなく、独立したArrayBufferを渡す。
       // slice()で元のFile由来バッファとの共有を避ける。
       cdromImage = {
-        // v86へ渡す直前に独立したArrayBufferを作る。
-        // File/Blob由来のバッファをそのまま共有せず、CD-ROM読み取り中の
-        // detach/共有状態による不安定化を避ける。
-        buffer: new Uint8Array(buffer).slice().buffer
+        buffer: buffer.slice(0)
       };
 
       cdStatus.textContent =
@@ -2905,6 +2918,9 @@ async function startEmulator(options={})
       }
 
       const isoInfo=inspectISOBuffer(cdromImage.buffer);
+      log(`ISO診断: ${formatBytes(isoInfo.size)} / ISO9660=${isoInfo.pvd} / ElTorito=${isoInfo.elTorito} / Bootable=${isoInfo.bootable}`);
+      if(!isoInfo.pvd) throw new Error("ISO9660のPVDを確認できません。ISOファイルが壊れているか、対応していない形式の可能性があります。");
+      if(!isoInfo.elTorito || !isoInfo.bootable) log("El Toritoブートカタログを確認できません。非ブートISOの可能性があります。","WARN");
       log(`ISO診断: ${formatBytes(isoInfo.size)} / ISO9660=${isoInfo.pvd} / El Torito=${isoInfo.elTorito} / ブートエントリ=${isoInfo.bootable}`);
       if(!isoInfo.pvd){
         throw new Error("選択したファイルはISO9660 CDイメージとして認識できません。別のISOを選択してください。");
@@ -3046,9 +3062,8 @@ async function startEmulator(options={})
       /*
        * CD → HDD
        */
-      // ISO起動時はCDを最優先。
-      // v86公式BootOrderでは 0x213 = CD → Floppy → HDD。
-      // フロッピー未接続でもCDが先に試されるため、ISO起動ではこれを固定する。
+      // v86公式UIと同じ「CD → Floppy → HDD」を使用。
+      // ISO起動時はCDを必ず最優先にする。
       boot_order:
         (cdromImage ? 0x213 : (selectedFloppy ? 0x231 : 0x132)),
 
@@ -3095,22 +3110,6 @@ async function startEmulator(options={})
     );
 
 
-    // CD-ROM最終診断。SeaBIOSの code 0003 はCD-ROM読み取り失敗なので、
-    // 起動直前に「ISOバッファが本当に存在するか」「サイズがセクタ境界か」を記録する。
-    if(cdromImage?.buffer){
-      const cdBytes = new Uint8Array(cdromImage.buffer);
-      log(`CD-ROM最終確認: ${formatBytes(cdBytes.byteLength)} / ArrayBuffer=${cdromImage.buffer instanceof ArrayBuffer} / 2048境界=${cdBytes.byteLength % 2048 === 0}`, "INFO");
-      if(cdBytes.byteLength < 18 * 2048){
-        throw new Error("CD-ROMイメージが小さすぎます。ISOが完全に読み込まれていない可能性があります。");
-      }
-      // ISO9660 PVDとEl Torito領域を再確認してからSeaBIOSへ渡す。
-      const finalIsoInfo = inspectISOBuffer(cdromImage.buffer);
-      if(!finalIsoInfo.pvd || !finalIsoInfo.elTorito || !finalIsoInfo.bootable){
-        throw new Error(`CD-ROM最終検証失敗: ISO9660=${finalIsoInfo.pvd} / ElTorito=${finalIsoInfo.elTorito} / Boot=${finalIsoInfo.bootable}`);
-      }
-      log("CD-ROM最終検証OK。SeaBIOSへ渡します。", "OK");
-    }
-
     const V86Constructor =
       resolveV86Constructor();
 
@@ -3149,15 +3148,6 @@ async function startEmulator(options={})
       "function"
     )
     {
-      emulator.add_listener("ide-read-start", () => {
-        if(cdromImage) log("v86: CD/IDE読み取り開始", "DEBUG");
-      });
-      emulator.add_listener("ide-read-end", data => {
-        if(cdromImage) log(`v86: IDE読み取り完了 channel=${data?.[0]} bytes=${data?.[1]} sectors=${data?.[2]}`, "DEBUG");
-      });
-      emulator.add_listener("download-error", data => {
-        log(`v86: ディスク読み込みエラー ${data?.file_name || "unknown"}`, "ERROR");
-      });
       emulator.add_listener(
         "emulator-loaded",
         () =>
