@@ -1367,9 +1367,19 @@ button, input, select, label, a, [role="button"] { pointer-events:auto !importan
       <select class="field" id="storageType"><option value="hdd">HDD（IDE互換）</option><option value="ssd">SSD（高速ストレージ相当）</option></select>
       <label class="label">新規仮想ディスク容量</label>
       <select class="field" id="diskSize">
-        <option value="512">512 MB</option><option value="1024">1 GB</option><option value="2048">2 GB</option><option value="4096">4 GB</option><option value="8192">8 GB</option><option value="16384">16 GB</option><option value="32768" selected>32 GB</option>
+        <option value="512">512 MB</option>
+        <option value="1024">1 GB</option>
+        <option value="2048">2 GB</option>
+        <option value="4096">4 GB</option>
+        <option value="8192">8 GB</option>
+        <option value="16384">16 GB</option>
+        <option value="32768" selected>32 GB</option>
+        <option value="65536">64 GB</option>
+        <option value="131072">128 GB</option>
+        <option value="262144">256 GB</option>
+        <option value="524288">512 GB</option>
       </select>
-      <div class="storage-note">512MB～32GBを選択できます。URL/ファイル未接続時はRAM上に空HDDを作成します（安全上限を超える容量は設定値のみで、実体は安全な容量に制限）。32GBを実容量で使う場合は大容量IMGのURL/ファイルを接続してください。</div>
+      <div class="storage-note">512MB～512GBを選択できます。RAM上の新規仮想ディスクはホストの安全上限に合わせて実体容量が制限されます。『選択容量の .img を保存』では選択した容量のRAW .imgを作成します。</div>
       <label class="label">既存ディスクイメージ（任意）</label>
       <input class="field" id="diskImageFile" type="file" accept=".img,.vhd,.bin">
       <label class="label">大容量HDD URL（16/32GB以上・推奨）</label>
@@ -2354,10 +2364,12 @@ document.getElementById("connectDiskURLBtn").onclick=async()=>{
    RAW HDD .IMG DOWNLOAD / SAVE
 ========================================================= */
 function diskSizeBytesFromSelect(){
-  let mb=Math.max(512,Number(diskSize?.value)||512);
-  if(["win95","win98","winme"].includes(selectedOS) && mb>512){
-    mb=512;
-  }
+  /*
+   * これは「.imgとして保存する容量」の読み取り専用処理。
+   * 起動用RAM HDDのWin9x制限(createVirtualDisk)とは完全に分離する。
+   * そのため、Win95を選択中でも512GBまで保存できる。
+   */
+  const mb=Math.max(512,Number(diskSize?.value)||512);
   return mb*1024*1024;
 }
 
@@ -4720,6 +4732,8 @@ function formatBytes(bytes)
 window.updateCursor=updateCursor;
 window.createVirtualDisk=createVirtualDisk;
 window.startEmulator=startEmulator;
+window.downloadSelectedDiskImage=downloadSelectedDiskImage;
+window.downloadCurrentDiskImage=downloadCurrentDiskImage;
 
 /* =========================================================
    WINDOWS KEY
