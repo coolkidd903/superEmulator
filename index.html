@@ -514,6 +514,7 @@ button{
 }
 
 #screenArea{
+  transform:none !important;
   min-width:0;
   min-height:0;
   position:relative;
@@ -531,13 +532,70 @@ button{
   min-height:100%;
   width:max-content;
   height:max-content;
-  display:flex;
-  align-items:flex-start;
-  justify-content:flex-start;
+  display:block;
   overflow:visible;
-  padding:18px;
+  padding:0;
+  margin:0;
   position:relative;
+  line-height:0;
+  flex:none;
 }
+
+#screen canvas,
+#screen > div,
+#screen > img{
+  margin:0 !important;
+  padding:0 !important;
+}
+
+/* v86のマウス座標基準をcanvasの実表示領域と一致させる */
+#screenArea.fullscreen-only,
+#screenArea:fullscreen{
+  padding:0 !important;
+  margin:0 !important;
+  overflow:hidden !important;
+}
+#screenArea:fullscreen #screen{
+  min-width:100vw;
+  min-height:100vh;
+  width:100vw;
+  height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:0 !important;
+  margin:0 !important;
+}
+#screenArea:fullscreen #screen canvas{
+  margin:0 !important;
+}
+
+/* 全画面中はOS画面以外を完全に隠す */
+body.super-os-fullscreen #app > *:not(#workspace),
+body.super-os-fullscreen #app header,
+body.super-os-fullscreen #app aside,
+body.super-os-fullscreen #app #functionBar,
+body.super-os-fullscreen #app .topbar,
+body.super-os-fullscreen #app .toolbar{
+  display:none !important;
+}
+body.super-os-fullscreen #app,
+body.super-os-fullscreen #workspace,
+body.super-os-fullscreen #screenArea{
+  width:100vw !important;
+  height:100vh !important;
+  min-width:100vw !important;
+  min-height:100vh !important;
+  grid-template-columns:1fr !important;
+  overflow:hidden !important;
+}
+body.super-os-fullscreen #screen{
+  width:100vw !important;
+  height:100vh !important;
+  min-width:100vw !important;
+  min-height:100vh !important;
+}
+
 
 #screen canvas{
   display:block;
@@ -1302,6 +1360,11 @@ button, input, select, label, a, [role="button"] { pointer-events:auto !importan
       <label class="label">大容量HDD URL（16/32GB以上・推奨）</label>
       <input class="field" id="diskImageURL" type="url" placeholder="./disk32gb.img">
       <button class="ctrl-btn" id="connectDiskURLBtn">URLのHDDを接続</button>
+      <div class="row" style="margin-top:8px">
+        <button class="ctrl-btn" id="downloadDiskBtn" type="button">💾 選択容量の .img を保存</button>
+        <button class="ctrl-btn" id="downloadCurrentDiskBtn" type="button">⬇️ 現在のHDDを保存</button>
+      </div>
+      <div id="diskDownloadStatus" class="help" style="margin-top:8px">選択容量の空のRAW .imgを保存できます。大容量は保存先へ直接書き込みます。</div>
       <button class="ctrl-btn" id="rebuildDiskBtn">仮想ディスクを再作成</button>
       <div style="height:8px"></div><button class="ctrl-btn" id="clearDiskImageBtn">選択ディスクを解除</button>
       <div style="height:10px"></div>
@@ -2245,6 +2308,7 @@ diskImageFile.addEventListener("change",()=>{
     diskStatus.textContent=`${selectedDiskName} / ${formatBytes(selectedDiskFile.size)}`;
     log(`ディスクイメージ選択: ${selectedDiskName}`);
   }
+  saveSetupState();
 });
 
 document.getElementById("connectDiskURLBtn").onclick=async()=>{
@@ -2265,17 +2329,166 @@ document.getElementById("connectDiskURLBtn").onclick=async()=>{
     diskImageFile.value="";
     diskStatus.textContent=`URL HDD / ${len?formatBytes(len):"サイズ不明"} / ${accept||"Range確認不可"}`;
     log(`大容量HDD URL接続: ${url} / ${len?formatBytes(len):"size unknown"} / Accept-Ranges=${accept||"unknown"}`);
+    saveSetupState();
   }catch(e){
     log("HDD URL確認失敗: "+(e?.message||e),"ERROR");
     alert("HDD URLを読み込めませんでした。HTTP(S)で配信し、Range/Content-Lengthに対応したサーバーを使用してください。");
   }
 };
+/* =========================================================
+   RAW HDD .IMG DOWNLOAD / SAVE
+========================================================= */
+function diskSizeBytesFromSelect(){
+  let mb=Math.max(512,Number(diskSize?.value)||512);
+  if(["win95","win98","winme"].includes(selectedOS) && mb>512){
+    mb=512;
+  }
+  return mb*1024*1024;
+}
+
+function diskSizeLabel(bytes){
+  const gb=bytes/(1024*1024*1024);
+  if(Number.isInteger(gb)) return `${gb}GB`;
+  return `${Math.round(bytes/(1024*1024))}MB`;
+}
+
+async function saveSparseRawImg(bytes, suggestedName, statusEl){
+  if(!Number.isSafeInteger(bytes) || bytes < 512){
+    throw new Error("HDD容量が不正です");
+  }
+
+  const status=statusEl || document.getElementById("diskDownloadStatus");
+  const name=suggestedName.endsWith(".img") ? suggestedName : suggestedName+".img";
+
+  /* Chrome/ChromiumのFile System Access APIなら、RAMに32GBを展開せず直接保存できる */
+  if(typeof window.showSaveFilePicker === "function"){
+    const handle=await window.showSaveFilePicker({
+      suggestedName:name,
+      types:[{description:"RAW disk image",accept:{"application/octet-stream":[".img"]}}]
+    });
+    const writable=await handle.createWritable();
+    const chunkSize=4*1024*1024;
+    const zeroChunk=new Uint8Array(chunkSize);
+    let written=0;
+    try{
+      /* 先頭セクタを明示的に0で書き、最後の1バイトまでシークして長さを確定 */
+      await writable.write(new Uint8Array(512));
+      written=512;
+      if(bytes>512){
+        await writable.seek(bytes-1);
+        await writable.write(new Uint8Array([0]));
+        written=bytes;
+      }
+      await writable.close();
+    }catch(e){
+      try{await writable.abort();}catch(_){}
+      throw e;
+    }
+    if(status) status.textContent=`保存完了: ${name} / ${diskSizeLabel(bytes)} / ${formatBytes(written)}`;
+    log(`空のRAW HDDを保存: ${name} / ${diskSizeLabel(bytes)}`);
+    return true;
+  }
+
+  /* File System Access APIがない環境では、安全のため512MBまでだけBlob保存 */
+  if(bytes>512*1024*1024){
+    throw new Error("このブラウザでは大容量ファイルの直接保存APIが使えません。Chrome/ChromiumのGitHub Pages上で実行してください。");
+  }
+
+  if(status) status.textContent="IMGを作成中...";
+  const chunkSize=8*1024*1024;
+  const chunks=[];
+  const zeroChunk=new Uint8Array(chunkSize);
+  let remaining=bytes;
+  while(remaining>0){
+    const n=Math.min(remaining,chunkSize);
+    chunks.push(n===chunkSize ? zeroChunk : new Uint8Array(n));
+    remaining-=n;
+    if(status) status.textContent=`IMGを作成中... ${Math.round((bytes-remaining)/bytes*100)}%`;
+    await new Promise(r=>setTimeout(r,0));
+  }
+  const blob=new Blob(chunks,{type:"application/octet-stream"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;
+  a.download=name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),30000);
+  if(status) status.textContent=`保存開始: ${name} / ${diskSizeLabel(bytes)}`;
+  log(`RAW HDDダウンロード開始: ${name} / ${diskSizeLabel(bytes)}`);
+  return true;
+}
+
+async function downloadSelectedDiskImage(){
+  if(emulator){
+    alert("安全のため、仮想HDDの容量ファイルを作るときはエミュレーターを停止してください。");
+    return;
+  }
+  const bytes=diskSizeBytesFromSelect();
+  const label=diskSizeLabel(bytes);
+  const status=document.getElementById("diskDownloadStatus");
+  if(status) status.textContent=`${label} の .img を準備しています...`;
+  try{
+    await saveSparseRawImg(bytes,`superEmulator-${label}-blank.img`,status);
+  }catch(e){
+    if(status) status.textContent="保存失敗";
+    if(e?.name!=="AbortError"){
+      log("RAW HDD保存失敗: "+(e?.message||e),"ERROR");
+      alert(".imgの保存に失敗しました。\n"+(e?.message||e));
+    }
+  }
+}
+
+async function downloadCurrentDiskImage(){
+  if(emulator){
+    alert("安全のため、仮想HDDの保存はエミュレーター停止後に行ってください。");
+    return;
+  }
+  const status=document.getElementById("diskDownloadStatus");
+  try{
+    if(selectedDiskFile){
+      const buf=await selectedDiskFile.arrayBuffer();
+      const blob=new Blob([buf],{type:"application/octet-stream"});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement("a");
+      a.href=url;
+      a.download=selectedDiskName||"superEmulator-disk.img";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),30000);
+      if(status) status.textContent=`既存IMGを保存開始: ${selectedDiskName}`;
+      log(`既存ディスクイメージ保存開始: ${selectedDiskName}`);
+      return;
+    }
+    if(virtualDisk){
+      const blob=new Blob([virtualDisk],{type:"application/octet-stream"});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement("a");
+      a.href=url;
+      a.download=`superEmulator-${diskSizeLabel(virtualDisk.byteLength)}-ram.img`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),30000);
+      if(status) status.textContent=`RAM HDDを保存開始: ${diskSizeLabel(virtualDisk.byteLength)}`;
+      log(`RAM HDD保存開始: ${diskSizeLabel(virtualDisk.byteLength)}`);
+      return;
+    }
+    alert("保存できるローカルHDDがありません。『選択容量の .img を保存』を使ってください。");
+  }catch(e){
+    log("現在のHDD保存失敗: "+(e?.message||e),"ERROR");
+    alert("HDD保存に失敗しました。\n"+(e?.message||e));
+  }
+}
+
+document.getElementById("downloadDiskBtn")?.addEventListener("click",downloadSelectedDiskImage);
+document.getElementById("downloadCurrentDiskBtn")?.addEventListener("click",downloadCurrentDiskImage);
+
 floppyFile.addEventListener("change",()=>{selectedFloppy=floppyFile.files[0]||null; selectedFloppyName=selectedFloppy?selectedFloppy.name:""; if(floppyStatus) floppyStatus.textContent=selectedFloppy?`${selectedFloppyName} / ${formatBytes(selectedFloppy.size)}`:"未接続"; if(selectedFloppy) log(`フロッピー選択: ${selectedFloppyName}`);});
 clearDiskImageBtn.addEventListener("click",()=>{
   selectedDiskFile=null; selectedDiskName="";
   selectedDiskURL=""; selectedDiskURLSize=0;
   diskImageFile.value="";
   document.getElementById("diskImageURL").value="";
+  saveSetupState();
   createVirtualDisk();
 });
 
@@ -3019,7 +3232,7 @@ async function startEmulator(options={})
        */
       screen:{
         container:screen,
-        scaling:1
+        scaling:screenScale
       },
 
       /*
@@ -3580,38 +3793,81 @@ document.getElementById("resetBtn")
 
 
 function applyScreenScale(){
+  const canvas=screen.querySelector("canvas");
+  if(!canvas) return;
+
   /*
-   * v86自身のScreenAdapterにスケールを任せる。
-   * Canvasへ別途CSS倍率を掛けると、表示座標とPS/2マウス座標の変換が
-   * 二重に行われてクリック位置がズレることがある。
+   * v86自身に倍率を管理させる。CSS transform/width/heightは使わない。
+   * これによりgetBoundingClientRect()とPS/2マウス座標の基準が一致する。
    */
   if(emulator && typeof emulator.screen_set_scale==="function"){
     try{
       emulator.screen_set_scale(screenScale,screenScale);
-      return;
     }catch(e){
       log("v86画面スケール設定失敗: "+e,"WARN");
     }
   }
-  const canvas=screen.querySelector("canvas");
-  if(canvas){
-    canvas.style.width="";
-    canvas.style.height="";
-  }
-}
 
+  canvas.style.transform="none";
+  canvas.style.transformOrigin="0 0";
+  canvas.style.margin="0";
+  canvas.style.padding="0";
+  canvas.style.maxWidth="none";
+  canvas.style.maxHeight="none";
+  canvas.style.display="block";
+
+  /* v86のcanvas実表示サイズが確定した後にも座標基準を再計算させる */
+  requestAnimationFrame(()=>{
+    const c=screen.querySelector("canvas");
+    if(c){
+      c.style.transform="none";
+      c.style.margin="0";
+    }
+  });
+}
 /* =========================================================
    FULLSCREEN
 ========================================================= */
 
 document.getElementById("fullscreenBtn").onclick=async()=>{
   if(!emulator){alert("先にエミュレーターを起動してください。");return;}
-  try{if(typeof emulator.screen_go_fullscreen==="function"){emulator.screen_go_fullscreen();log("v86全画面を要求");return;}}catch(e){log("v86 fullscreen失敗: "+e,"WARN");}
-  try{const target=document.getElementById("screenArea"); if(document.fullscreenElement) await document.exitFullscreen(); else if(target.requestFullscreen) await target.requestFullscreen({navigationUI:"hide"});}catch(e){log("ブラウザ全画面失敗: "+e,"ERROR");}
+  const target=document.getElementById("screenArea");
+  try{
+    if(document.fullscreenElement){
+      await document.exitFullscreen();
+      log("全画面解除");
+      return;
+    }
+    if(target && target.requestFullscreen){
+      await target.requestFullscreen({navigationUI:"hide"});
+      log("OS画面のみを全画面表示");
+      return;
+    }
+    if(typeof emulator.screen_go_fullscreen==="function"){
+      emulator.screen_go_fullscreen();
+      log("v86全画面を要求");
+    }
+  }catch(e){
+    log("ブラウザ全画面失敗: "+e,"ERROR");
+  }
 };
+
+document.addEventListener("fullscreenchange",()=>{
+  const active=!!document.fullscreenElement;
+  document.body.classList.toggle("super-os-fullscreen",active);
+  const appEl=document.getElementById("app");
+  if(appEl) appEl.classList.toggle("super-os-fullscreen",active);
+  const area=document.getElementById("screenArea");
+  if(area) area.classList.toggle("fullscreen-only",active);
+  if(active){
+    requestAnimationFrame(()=>applyScreenScale());
+  }
+});
 screen.addEventListener("dblclick",()=>{if(emulator)document.getElementById("fullscreenBtn").click();});
-screen.addEventListener("click",()=>{if(emulator&&typeof emulator.lock_mouse==="function"){try{emulator.lock_mouse();}catch(e){}}});
 screen.tabIndex=0;
+// v86自身のマウスイベント処理に任せる。HTML側で二重にpointer lockしない。
+window.addEventListener("resize",()=>{ if(emulator) requestAnimationFrame(applyScreenScale); });
+window.addEventListener("scroll",()=>{ if(emulator) requestAnimationFrame(applyScreenScale); },{passive:true});
 
 
 /* =========================================================
