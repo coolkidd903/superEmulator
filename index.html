@@ -1494,6 +1494,8 @@ let storageType = localStorage.getItem("superEmulator.storageType") || "hdd";
 let screenScale = Number(localStorage.getItem("superEmulator.screenScale") || "1");
 let selectedISO = null;
 let selectedISOName = "";
+let isoLoading = false;
+let isoReady = false;
 let selectedFloppy = null;
 let selectedFloppyName = "";
 const VALID_OS_KEYS = new Set([
@@ -2361,23 +2363,62 @@ isoFile.addEventListener(
   "change",
   async () =>
 {
-  const file =
-    isoFile.files[0];
-
-  if(!file)
-    return;
+  const file = isoFile.files[0];
+  if(!file) return;
 
   selectedISO = file;
   selectedISOName = file.name;
+  isoLoading = true;
+  isoReady = false;
+  window.superEmulatorIsoLoading = true;
 
-  cdStatus.textContent =
-    file.name;
+  cdStatus.textContent = file.name;
+  log(`ISO選択: ${file.name} / ${formatBytes(file.size)}`);
+  setStatus("ISO読み込み中", "busy");
+  if(bootText) bootText.textContent = "ISOを読み込み・判定中…";
 
-  log(
-    `ISO選択: ${file.name} / ${formatBytes(file.size)}`
-  );
+  const startButtons = [landingStart, heroStart, finalStart, document.getElementById("startBtn")]
+    .filter(Boolean);
+  startButtons.forEach(btn => {
+    btn.disabled = true;
+    btn.dataset.isoLocked = "1";
+    btn.style.opacity = ".55";
+    btn.style.cursor = "not-allowed";
+    btn.setAttribute("aria-disabled", "true");
+  });
 
-  try{ await detectISOFile(file); }catch(e){ log("ISO選択後の自動判定失敗: "+e,"ERROR"); }
+  const result = document.getElementById("isoDetectResult");
+  if(result) result.innerHTML = '<span style="color:#ffcc66">⏳ ISOを読み込み・判定中… 起動は一時的に無効です。</span>';
+
+  try
+  {
+    // まずファイルが実際に読めることを確認してから自動判定する。
+    await file.slice(0, Math.min(file.size, 1024 * 1024)).arrayBuffer();
+    await detectISOFile(file);
+    isoReady = true;
+    if(result) result.innerHTML += '<div style="margin-top:6px;color:#8dffb0">✓ ISOの読み込み・判定が完了しました。起動できます。</div>';
+    setStatus("待機中", "ready");
+  }
+  catch(e)
+  {
+    isoReady = false;
+    log("ISO読み込み/判定失敗: " + (e?.message || e), "ERROR");
+    errorSound();
+    if(result) result.innerHTML = '<span style="color:#ff7d7d">❌ ISO読み込み/判定失敗: ' + String(e?.message || e).replace(/[<>]/g, "") + '</span>';
+    setStatus("ISOエラー", "error");
+  }
+  finally
+  {
+    isoLoading = false;
+    window.superEmulatorIsoLoading = false;
+    startButtons.forEach(btn => {
+      btn.disabled = false;
+      btn.dataset.isoLocked = "";
+      btn.style.opacity = "";
+      btn.style.cursor = "";
+      btn.removeAttribute("aria-disabled");
+    });
+  }
 });
 
 
@@ -2710,6 +2751,13 @@ document.getElementById("startBtn")
 
 async function startEmulator(options={})
 {
+  if(isoLoading)
+  {
+    log("ISOの読み込み・自動判定中のため起動をブロックしました", "WARN");
+    alert("ISOの読み込み中です。読み込みと判定が完了するまで起動できません。");
+    return;
+  }
+
   if(emulatorStarting)
   {
     log(
@@ -2801,8 +2849,10 @@ async function startEmulator(options={})
           options.uploadedFile
         );
 
+      // v86には「File」ではなく、独立したArrayBufferを渡す。
+      // slice()で元のFile由来バッファとの共有を避ける。
       cdromImage = {
-        buffer
+        buffer: buffer.slice(0)
       };
 
       cdStatus.textContent =
@@ -2815,8 +2865,10 @@ async function startEmulator(options={})
           selectedISO
         );
 
+      // v86には「File」ではなく、独立したArrayBufferを渡す。
+      // slice()で元のFile由来バッファとの共有を避ける。
       cdromImage = {
-        buffer
+        buffer: buffer.slice(0)
       };
 
       cdStatus.textContent =
@@ -2835,9 +2887,26 @@ async function startEmulator(options={})
 
 
     if(cdromImage?.buffer){
+      // 2048バイト境界を確認。CD-ROMはセクタ単位で読むため、端数があるISOは
+      // v86/SeaBIOSで読めないケースがある。必要ならゼロ埋めして渡す。
+      const raw = cdromImage.buffer;
+      const alignedSize = Math.ceil(raw.byteLength / 2048) * 2048;
+      if(alignedSize !== raw.byteLength){
+        const aligned = new Uint8Array(alignedSize);
+        aligned.set(new Uint8Array(raw));
+        cdromImage.buffer = aligned.buffer;
+        log(`ISOサイズをCDセクタ境界へ補正: ${formatBytes(raw.byteLength)} → ${formatBytes(alignedSize)}`);
+      }
+
       const isoInfo=inspectISOBuffer(cdromImage.buffer);
       log(`ISO診断: ${formatBytes(isoInfo.size)} / ISO9660=${isoInfo.pvd} / El Torito=${isoInfo.elTorito} / ブートエントリ=${isoInfo.bootable}`);
-      if(isoInfo.pvd && !isoInfo.bootable) log("このCDイメージはISO9660ですがブートエントリがありません。非ブートCDなら起動フロッピーを併用してください。","WARN");
+      if(!isoInfo.pvd){
+        throw new Error("選択したファイルはISO9660 CDイメージとして認識できません。別のISOを選択してください。");
+      }
+      if(!isoInfo.elTorito || !isoInfo.bootable){
+        throw new Error("ISO9660としては読めますが、起動用El Toritoブートエントリが見つかりません。SeaBIOSのCD起動はできません。");
+      }
+      log("CD-ROM: 起動可能ISOを確認。SeaBIOSのCD起動を優先します。","OK");
     }
 
     setBoot(
@@ -2971,8 +3040,10 @@ async function startEmulator(options={})
       /*
        * CD → HDD
        */
+      // v86公式UIと同じ「CD → Floppy → HDD」を使用。
+      // ISO起動時はCDを必ず最優先にする。
       boot_order:
-        (selectedFloppy ? 0x213 : 0x123),
+        (cdromImage ? (selectedFloppy ? 0x213 : 0x123) : (selectedFloppy ? 0x231 : 0x132)),
 
       acpi:
         cfg.acpi,
@@ -4449,6 +4520,62 @@ document.addEventListener("keyup",e=>{
 
 })();
 
+</script>
+
+
+<!-- ISO判定ボタンの最終UIブリッジ。メイン処理が途中でエラーになってもボタンを操作可能にする。 -->
+<script>
+(function(){
+  function runISODetect(e){
+    if(e){ e.preventDefault(); e.stopImmediatePropagation(); }
+    const btn=document.getElementById("detectBtn");
+    const fileInput=document.getElementById("isoFile");
+    const file=(window.__superEmulatorSelectedISO || (fileInput && fileInput.files && fileInput.files[0])) || null;
+    if(!file){
+      const result=document.getElementById("isoDetectResult");
+      if(result) result.innerHTML='<span style="color:#ffcc66">⚠️ 先にISOファイルを選択してください。</span>';
+      if(fileInput) fileInput.focus();
+      return;
+    }
+    window.__superEmulatorSelectedISO=file;
+    const fn=window.detectISOFile;
+    if(typeof fn!=="function"){
+      const result=document.getElementById("isoDetectResult");
+      if(result) result.innerHTML='<span style="color:#ff7d7d">❌ ISO判定機能の読み込みに失敗しました。ページを再読み込みしてください。</span>';
+      return;
+    }
+    Promise.resolve(fn(file)).catch(err=>{
+      console.error(err);
+      const result=document.getElementById("isoDetectResult");
+      if(result) result.innerHTML='<span style="color:#ff7d7d">❌ ISO自動判定失敗: '+String(err && (err.message||err)).replace(/[<>]/g,"")+'</span>';
+    });
+  }
+  document.addEventListener("click",function(e){
+    const b=e.target.closest && e.target.closest("#detectBtn");
+    if(!b) return;
+    runISODetect(e);
+  },true);
+  document.addEventListener("change",function(e){
+    if(!e.target || e.target.id!=="isoFile") return;
+    const f=e.target.files && e.target.files[0];
+    if(f) window.__superEmulatorSelectedISO=f;
+  },true);
+})();
+</script>
+
+
+<script>
+(function(){
+  document.addEventListener("click", function(e){
+    if(!window.superEmulatorIsoLoading) return;
+    const b=e.target.closest && e.target.closest("#landingStart,#heroStart,#finalStart,#startBtn");
+    if(!b) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    const r=document.getElementById("isoDetectResult");
+    if(r) r.innerHTML='<span style="color:#ffcc66">⏳ ISO読み込み中です。完了するまで起動できません。</span>';
+  }, true);
+})();
 </script>
 
 </body>
