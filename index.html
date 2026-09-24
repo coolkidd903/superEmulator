@@ -2475,7 +2475,10 @@ async function downloadCurrentDiskImage(){
   const status=document.getElementById("diskDownloadStatus");
   try{
     if(selectedDiskFile){
-      const buf=await selectedDiskFile.arrayBuffer();
+      const liveDisk=(diskImageFile?.files?.[0]) || selectedDiskFile;
+      selectedDiskFile=liveDisk;
+      selectedDiskName=liveDisk?.name || selectedDiskName;
+      const buf=await fileToBuffer(liveDisk,diskImageFile,"HDDイメージ");
       const blob=new Blob([buf],{type:"application/octet-stream"});
       const url=URL.createObjectURL(blob);
       const a=document.createElement("a");
@@ -2808,20 +2811,39 @@ function getOSName(key){
    FILE → ARRAYBUFFER
 ========================================================= */
 
-async function fileToBuffer(file)
+async function fileToBuffer(file, inputElement=null, label="ファイル")
 {
-  log(
-    `ISOをメモリへ読み込み中: ${formatBytes(file.size)}`
-  );
+  /*
+   * Chromiumでは、ファイル選択後に元ファイルが移動・変更されたり、
+   * File参照が古くなった場合に
+   * 「The requested file could not be read」が出ることがあります。
+   * 起動ロジックは変えず、読み込み部分だけ現在のFile参照へ再取得して
+   * 最大2回まで安全にリトライします。
+   */
+  let current=file;
+  let lastError=null;
 
-  const buffer =
-    await file.arrayBuffer();
+  for(let attempt=0; attempt<2; attempt++){
+    if(!current && inputElement?.files?.[0]) current=inputElement.files[0];
+    if(!current) throw new Error(`${label}が選択されていません。`);
 
-  log(
-    "ISOメモリ読み込み完了"
-  );
+    try{
+      log(`${label}をメモリへ読み込み中: ${formatBytes(current.size)}${attempt ? " / 再取得" : ""}`);
+      const buffer=await current.arrayBuffer();
+      log(`${label}メモリ読み込み完了`);
+      return buffer;
+    }catch(e){
+      lastError=e;
+      log(`${label}読み込み試行${attempt+1}失敗: ${e?.message||e}`,"WARN");
+      if(inputElement?.files?.[0]){
+        current=inputElement.files[0];
+        continue;
+      }
+      break;
+    }
+  }
 
-  return buffer;
+  throw new Error(`${label}を読み込めませんでした。ファイルが移動・削除されていないか確認して、もう一度ファイルを選択してください。${lastError?.message ? "\n\n詳細: "+lastError.message : ""}`);
 }
 
 
@@ -3103,7 +3125,9 @@ async function startEmulator(options={})
     {
       const buffer =
         await fileToBuffer(
-          options.uploadedFile
+          options.uploadedFile,
+          null,
+          "ISO"
         );
 
       // v86には「File」ではなく、独立したArrayBufferを渡す。
@@ -3117,9 +3141,14 @@ async function startEmulator(options={})
     }
     else if(selectedISO)
     {
+      const liveISO = (isoFile?.files?.[0]) || selectedISO;
+      selectedISO = liveISO;
+      selectedISOName = liveISO?.name || selectedISOName;
       const buffer =
         await fileToBuffer(
-          selectedISO
+          liveISO,
+          isoFile,
+          "ISO"
         );
 
       // v86には「File」ではなく、独立したArrayBufferを渡す。
@@ -3287,7 +3316,7 @@ async function startEmulator(options={})
             use_parts:false
           }}
         : (selectedDiskFile
-            ? { hda:{buffer:await selectedDiskFile.arrayBuffer()} }
+            ? { hda:{buffer:await fileToBuffer(selectedDiskFile, diskImageFile, "HDDイメージ")} }
             : (virtualDisk
                 ? { hda:{buffer:virtualDisk} }
                 : {}))),
@@ -3295,7 +3324,7 @@ async function startEmulator(options={})
       /*
        * フロッピー
        */
-      ...(selectedFloppy ? { fda:{buffer:await selectedFloppy.arrayBuffer()} } : {}),
+      ...(selectedFloppy ? { fda:{buffer:await fileToBuffer(selectedFloppy, floppyFile, "フロッピーイメージ")} } : {}),
 
       /*
        * CD-ROM
