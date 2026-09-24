@@ -814,9 +814,16 @@ code{color:#8fc3ff;}
 @media(max-width:700px){.settings-grid{grid-template-columns:1fr}}
 
 /* SUPER CURSOR: all screens */
-:root, body, #landing, #landing *, #app, #app * { cursor: var(--super-cursor, auto) !important; }
+:root, body, #landing, #landing *, #app, #app * { cursor: var(--super-cursor, pointer) !important; }
 button, input, select, label, a, [role="button"] { pointer-events:auto !important; }
 #screenPlaceholder { pointer-events:none !important; }
+
+/* カスタム手カーソルを確実にUIへ適用 */
+#landing button, #landing a, #landing [role="button"],
+#app button, #app a, #app [role="button"],
+#settingsModal button, #settingsModal label {
+  cursor: var(--super-cursor, pointer) !important;
+}
 
 
 .iso-detected{padding:10px;border:1px solid rgba(255,255,255,.08);background:#080c12;border-radius:10px;color:#cfd9e8;font-size:12px;line-height:1.6}
@@ -1738,68 +1745,25 @@ const cursorStatus =
 
 
 const cursorStages = [
-  {
-    name:"Windows 95風",
-    fill:"#ffffff",
-    outline:"#000000"
-  },
-  {
-    name:"Windows 98風",
-    fill:"#ffffff",
-    outline:"#111111"
-  },
-  {
-    name:"Windows 2000風",
-    fill:"#ffffff",
-    outline:"#111111"
-  },
-  {
-    name:"Windows XP風",
-    fill:"#ffffff",
-    outline:"#0b1728"
-  },
-  {
-    name:"Windows 7風",
-    fill:"#ffffff",
-    outline:"#111111"
-  },
-  {
-    name:"Windows 8風",
-    fill:"#ffffff",
-    outline:"#111111"
-  },
-  {
-    name:"Windows 10風",
-    fill:"#ffffff",
-    outline:"#111111"
-  }
+  { name:"指差し手カーソル", fill:"#ffffff", outline:"#000000" }
 ];
 
 
 function makeCursor(stage)
 {
+  /*
+   * Windows風の「指差し手」カーソル。
+   * 以前の矢印SVGはChromeOS/Chromium環境によって無視されることがあったため、
+   * PNG不要・外部ファイル不要のSVG data URLをbase64化して確実に指定する。
+   */
   const svg = `
-  <svg xmlns="http://www.w3.org/2000/svg"
-       width="32"
-       height="32"
-       viewBox="0 0 32 32">
+  <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+    <path d="M10.7 29.2c-1.1-.3-1.8-1-2.4-2L3.5 18.6c-.8-1.4-.3-3.1 1.1-3.9 1.1-.6 2.4-.4 3.3.5l3.1 3.1V7.1c0-1.6 1.1-2.8 2.6-2.8s2.7 1.1 2.7 2.8v6.5h.5V5.4c0-1.5 1.1-2.7 2.6-2.7s2.6 1.1 2.6 2.7v8.2h.5V7.2c0-1.5 1.1-2.7 2.6-2.7s2.6 1.1 2.6 2.7v9.5h.4v-4.4c0-1.4 1-2.4 2.3-2.4s2.2 1 2.2 2.4v7.9c0 4.7-3.6 8.6-8.3 9.1l-7.1.7c-1 .1-1.8 0-2.5-.2Z" fill="#fff" stroke="#000" stroke-width="1.8" stroke-linejoin="round"/>
+  </svg>`;
 
-    <path
-      d="M4 2
-         L5 24
-         L11 19
-         L15 29
-         L20 27
-         L15 17
-         L25 17
-         Z"
-      fill="${stage.fill}"
-      stroke="${stage.outline}"
-      stroke-width="2"/>
-  </svg>
-  `;
-
-  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 4 2, auto`;
+  /* btoa はASCII化したSVGを安全にdata: URIへ変換する */
+  const base64 = btoa(unescape(encodeURIComponent(svg)));
+  return `url("data:image/svg+xml;base64,${base64}") 10 4, pointer`;
 }
 
 
