@@ -1382,6 +1382,8 @@ button, input, select, label, a, [role="button"] { pointer-events:auto !importan
       <div class="storage-note">512MB～512GBを選択できます。RAM上の新規仮想ディスクはホストの安全上限に合わせて実体容量が制限されます。『選択容量の .img を保存』では選択した容量のRAW .imgを作成します。</div>
       <label class="label">既存ディスクイメージ（任意）</label>
       <input class="field" id="diskImageFile" type="file" accept=".img,.vhd,.bin">
+      <div class="row" style="margin-top:8px"><button class="ctrl-btn primary" id="connectDiskBtn" type="button">🔌 選択したHDD/SSDを接続</button><button class="ctrl-btn" id="checkDiskConnectionBtn" type="button">🔎 接続状態を確認</button></div>
+      <div id="diskConnectionStatus" class="help" style="margin-top:8px">接続状態: 未接続</div>
       <label class="label">大容量HDD URL（16/32GB以上・推奨）</label>
       <input class="field" id="diskImageURL" type="url" placeholder="./disk32gb.img">
       <button class="ctrl-btn" id="connectDiskURLBtn">URLのHDDを接続</button>
@@ -1583,6 +1585,7 @@ let emulatorStarting = false;
 let startGeneration = 0;
 let virtualDisk = null;
 let selectedDiskFile = null;
+let selectedDiskBuffer = null;
 let selectedDiskName = "";
 let selectedDiskURL = "";
 let selectedDiskURLSize = 0;
@@ -2315,31 +2318,24 @@ screenScaleSelect.addEventListener("change",()=>{screenScale=Number(screenScaleS
 async function handleDiskImageSelection(file)
 {
   if(!file) return;
+  // 選択だけでは接続しない。Fileオブジェクトも起動処理へ渡さず、接続ボタンで再取得する。
   selectedDiskFile=file;
+  selectedDiskBuffer=null;
   selectedDiskName=file.name||"disk.img";
   selectedDiskURL="";
   selectedDiskURLSize=0;
   virtualDisk=null;
   window.__superEmulatorSelectedDisk=file;
+  window.__superEmulatorDiskConnected=false;
+  window.__superEmulatorDiskConnectionMode="file";
   const sizeText=formatBytes(file.size);
-  if(diskStatus) diskStatus.textContent=`${selectedDiskName} / ${sizeText} / 自動接続準備完了`;
+  if(diskStatus) diskStatus.textContent=`${selectedDiskName} / ${sizeText} / 接続待ち`;
   const sizeEl=document.getElementById("diskImageSize");
   if(sizeEl) sizeEl.textContent=`容量: ${sizeText}`;
-  log(`仮想HDDアップロード: ${selectedDiskName} / ${sizeText}`);
+  const connection=document.getElementById("diskConnectionStatus");
+  if(connection) connection.textContent="接続状態: 未接続（接続ボタンを押してください）";
+  log(`仮想HDD/SSD選択: ${selectedDiskName} / ${sizeText} / 接続待ち`);
   saveSetupState();
-
-  /* 起動中のv86にはHDA差し替えAPIがないため、現在のインスタンスを安全に再起動して適用。
-     これはHDDアップロード専用の独立処理で、startEmulator本体の設定は変更しない。 */
-  if(emulator && !emulatorStarting){
-    try{
-      log("アップロードしたHDDを現在のOSへ自動適用します…");
-      await stopAndDestroy();
-      await startEmulator();
-    }catch(e){
-      log("アップロードHDDの自動適用失敗: "+(e?.message||e),"ERROR");
-      errorSound();
-    }
-  }
 }
 
 diskImageFile.addEventListener("change",async()=>{
@@ -3275,15 +3271,17 @@ async function startEmulator(options={})
     screen.innerHTML = "";
 
 
-    /* 起動直前にHDD入力の最新Fileを同期。古いFile参照を使わない。 */
-    const liveDiskAtStart = diskImageFile?.files?.[0] || window.__superEmulatorSelectedDisk || selectedDiskFile;
-    if(liveDiskAtStart){
-      selectedDiskFile = liveDiskAtStart;
-      selectedDiskName = liveDiskAtStart.name || selectedDiskName;
+    /* 接続ボタンで確定したHDD/SSDだけを起動構成へ入れる。
+       選択しただけのFileは絶対に自動接続しない。 */
+    const liveDiskBuffer = window.__superEmulatorSelectedDiskBuffer || selectedDiskBuffer || null;
+    if(liveDiskBuffer instanceof ArrayBuffer){
+      selectedDiskBuffer = liveDiskBuffer;
+      selectedDiskFile = window.__superEmulatorSelectedDisk || selectedDiskFile;
+      if(selectedDiskFile) selectedDiskName = selectedDiskFile.name || selectedDiskName;
       selectedDiskURL = "";
       selectedDiskURLSize = 0;
       virtualDisk = null;
-      if(diskStatus) diskStatus.textContent = `${selectedDiskName} / ${formatBytes(liveDiskAtStart.size)} / 接続済み`;
+      if(diskStatus) diskStatus.textContent = `${selectedDiskName || "HDD/SSD"} / ${formatBytes(liveDiskBuffer.byteLength)} / 接続済み`;
     }
 
     /*
@@ -3338,8 +3336,8 @@ async function startEmulator(options={})
             size:selectedDiskURLSize,
             use_parts:false
           }}
-        : (liveDiskAtStart
-            ? { hda:{buffer:await fileToBuffer(liveDiskAtStart, diskImageFile, "HDDイメージ")} }
+        : (liveDiskBuffer instanceof ArrayBuffer
+            ? { hda:{buffer:liveDiskBuffer} }
             : (virtualDisk
                 ? { hda:{buffer:virtualDisk} }
                 : {}))),
@@ -5157,30 +5155,42 @@ document.addEventListener("keyup",e=>{
       return;
     }
     if(typeof selectedDiskFile!=="undefined") selectedDiskFile=f;
+    if(typeof selectedDiskBuffer!=="undefined") selectedDiskBuffer=null;
     if(typeof selectedDiskName!=="undefined") selectedDiskName=fileName(f);
     if(typeof selectedDiskURL!=="undefined") selectedDiskURL="";
     if(typeof selectedDiskURLSize!=="undefined") selectedDiskURLSize=0;
     if(typeof virtualDisk!=="undefined") virtualDisk=null;
     window.__superEmulatorSelectedDisk=f;
+    window.__superEmulatorSelectedDiskBuffer=null;
     window.__superEmulatorDiskConnectionMode="file";
     window.__superEmulatorDiskConnected=false;
     if(status) status.textContent=`${fileName(f)} / ${fileSize(f)} / 接続処理中`;
     if(connection) connection.textContent=`接続状態: 接続処理中`;
-    if(typeof log==="function") log(`[HDD/SSD] 接続ボタン押下: ${fileName(f)} / ${fileSize(f)}`);
+    if(typeof log==="function") log(`[HDD/SSD] 接続ボタン押下: ${fileName(f)} / ${fileSize(f)} / 読み込み開始`);
 
     (async()=>{
       try{
-        if(window.emulator){
-          if(window.emulatorStarting) throw new Error("エミュレーター起動処理中です");
+        // 接続ボタンを押した瞬間のFileをArrayBufferへ固定する。
+        // v86起動時にChromeOSのFile参照を再利用しないため、permission/referenceエラーを回避する。
+        const fresh=input.files?.[0];
+        if(!fresh) throw new Error("HDD/SSDファイルを再取得できませんでした。もう一度選択してください。");
+        const buffer=await fileToBuffer(fresh,input,"HDD/SSDイメージ");
+        if(!(buffer instanceof ArrayBuffer) || buffer.byteLength===0) throw new Error("HDD/SSDイメージのデータが空です。");
+        if(typeof selectedDiskBuffer!=="undefined") selectedDiskBuffer=buffer;
+        window.__superEmulatorSelectedDiskBuffer=buffer;
+        if(typeof log==="function") log(`[HDD/SSD] メモリ読み込み完了: ${formatBytes(buffer.byteLength)}`);
+
+        if(typeof emulator!=="undefined" && emulator){
+          if(typeof emulatorStarting!=="undefined" && emulatorStarting) throw new Error("エミュレーター起動処理中です");
           if(typeof stopAndDestroy!=="function" || typeof startEmulator!=="function") throw new Error("独立接続処理に必要な関数が見つかりません");
           if(typeof log==="function") log("[HDD/SSD] 実行中のv86へ適用するため接続専用再起動を実行");
           await stopAndDestroy();
           await startEmulator();
         }
         window.__superEmulatorDiskConnected=true;
-        if(status) status.textContent=`${fileName(f)} / ${fileSize(f)} / 接続済み`;
-        if(connection) connection.textContent=`接続状態: 接続済み（${fileName(f)} / ${fileSize(f)}）`;
-        if(typeof log==="function") log(`[HDD/SSD] 接続完了: ${fileName(f)} / ${fileSize(f)}`);
+        if(status) status.textContent=`${fileName(f)} / ${formatBytes(buffer.byteLength)} / 接続済み`;
+        if(connection) connection.textContent=`接続状態: 接続済み（${fileName(f)} / ${formatBytes(buffer.byteLength)}）`;
+        if(typeof log==="function") log(`[HDD/SSD] 接続完了: ${fileName(f)} / ${formatBytes(buffer.byteLength)}`);
       }catch(err){
         window.__superEmulatorDiskConnected=false;
         if(status) status.textContent=`${fileName(f)} / ${fileSize(f)} / 接続失敗`;
@@ -5224,6 +5234,8 @@ document.addEventListener("keyup",e=>{
       window.__superEmulatorDiskConnected=false;
       window.__superEmulatorDiskConnectionMode="none";
       if(typeof selectedDiskFile!=="undefined") selectedDiskFile=null;
+      if(typeof selectedDiskBuffer!=="undefined") selectedDiskBuffer=null;
+      window.__superEmulatorSelectedDiskBuffer=null;
       if(typeof selectedDiskName!=="undefined") selectedDiskName="";
       if(typeof selectedDiskURL!=="undefined") selectedDiskURL="";
       if(typeof selectedDiskURLSize!=="undefined") selectedDiskURLSize=0;
@@ -5237,10 +5249,16 @@ document.addEventListener("keyup",e=>{
   /* 起動時に選択済みディスクが実際にconfigへ入った後の状態確認用。 */
   window.__superEmulatorMarkDiskConnected=function(){
     const f=selectedFile();
+    const b=window.__superEmulatorSelectedDiskBuffer || (typeof selectedDiskBuffer!=="undefined" ? selectedDiskBuffer : null);
     window.__superEmulatorDiskConnected=true;
     if(f){
-      if(status) status.textContent=`${fileName(f)} / ${fileSize(f)} / 接続済み`;
-      if(connection) connection.textContent=`接続状態: 接続済み（${fileName(f)} / ${fileSize(f)}）`;
+      const sz=b instanceof ArrayBuffer ? fileSize({size:b.byteLength}) : fileSize(f);
+      if(status) status.textContent=`${fileName(f)} / ${sz} / 接続済み`;
+      if(connection) connection.textContent=`接続状態: 接続済み（${fileName(f)} / ${sz}）`;
+    }else if(b instanceof ArrayBuffer){
+      const sz=fileSize({size:b.byteLength});
+      if(status) status.textContent=`HDD/SSD / ${sz} / 接続済み`;
+      if(connection) connection.textContent=`接続状態: 接続済み（${sz}）`;
     }else{
       if(status) status.textContent="仮想ディスク / 接続済み";
       if(connection) connection.textContent="接続状態: 接続済み（仮想ディスク）";
