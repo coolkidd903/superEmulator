@@ -5098,5 +5098,155 @@ document.addEventListener("keyup",e=>{
     const x=document.createElement("div"); x.id="diskImageSize"; x.style.cssText="font-size:12px;opacity:.85;margin-top:4px"; status.parentNode?.appendChild(x);
   }
 })();
+
+<script>
+/* =========================================================
+   HDD / SSD 接続UIの独立コントローラ（最終オーバーライド）
+   - ファイル選択だけでは接続しない
+   - 「接続」ボタンでのみv86へ適用
+   - 「接続状態を確認」で現在状態を確認
+   - 既存の起動ボタン処理には触れない
+   ========================================================= */
+(function(){
+  const $=id=>document.getElementById(id);
+  const input=$("diskImageFile");
+  const status=$("diskStatus");
+  const connection=$("diskConnectionStatus");
+  const sizeEl=$("diskImageSize");
+  if(!input) return;
+
+  window.__superEmulatorDiskConnected=!!window.__superEmulatorDiskConnected;
+  window.__superEmulatorDiskConnectionMode=window.__superEmulatorDiskConnectionMode||"none";
+
+  function setStatus(text,level){
+    if(status) status.textContent=text;
+    if(connection) connection.textContent=`接続状態: ${text}`;
+    if(typeof log==="function") log(`[HDD/SSD] ${text}`,level||"INFO");
+  }
+  function selectedFile(){
+    return input.files?.[0] || window.__superEmulatorSelectedDisk || window.selectedDiskFile || null;
+  }
+  function fileName(f){ return f?.name || window.selectedDiskName || "disk.img"; }
+  function fileSize(f){ return typeof formatBytes==="function" ? formatBytes(f?.size||0) : `${((f?.size||0)/1024/1024).toFixed(2)} MB`; }
+
+  /* 既存の自動接続change処理を捕捉段階で停止 */
+  input.addEventListener("change",function(e){
+    e.stopImmediatePropagation();
+    const f=input.files?.[0];
+    if(!f) return;
+    window.__superEmulatorSelectedDisk=f;
+    window.__superEmulatorDiskConnected=false;
+    window.__superEmulatorDiskConnectionMode="file";
+    if(typeof selectedDiskFile!=="undefined") selectedDiskFile=f;
+    if(typeof selectedDiskName!=="undefined") selectedDiskName=fileName(f);
+    if(typeof selectedDiskURL!=="undefined") selectedDiskURL="";
+    if(typeof selectedDiskURLSize!=="undefined") selectedDiskURLSize=0;
+    if(typeof virtualDisk!=="undefined") virtualDisk=null;
+    if(sizeEl) sizeEl.textContent=`容量: ${fileSize(f)}`;
+    if(status) status.textContent=`${fileName(f)} / ${fileSize(f)} / 接続待ち`;
+    if(connection) connection.textContent=`接続状態: 未接続（接続ボタンを押してください）`;
+    if(typeof log==="function") log(`[HDD/SSD] 選択: ${fileName(f)} / ${fileSize(f)} / 接続待ち`);
+  },true);
+
+  function connect(){
+    const f=selectedFile();
+    if(!f){
+      if(connection) connection.textContent="接続状態: 未接続（HDD/SSDイメージを選択してください）";
+      if(typeof log==="function") log("[HDD/SSD] 接続ボタン: 対象ファイルなし","WARN");
+      alert("先にHDD/SSDの .img / .vhd / .bin を選択してください。");
+      return;
+    }
+    if(typeof selectedDiskFile!=="undefined") selectedDiskFile=f;
+    if(typeof selectedDiskName!=="undefined") selectedDiskName=fileName(f);
+    if(typeof selectedDiskURL!=="undefined") selectedDiskURL="";
+    if(typeof selectedDiskURLSize!=="undefined") selectedDiskURLSize=0;
+    if(typeof virtualDisk!=="undefined") virtualDisk=null;
+    window.__superEmulatorSelectedDisk=f;
+    window.__superEmulatorDiskConnectionMode="file";
+    window.__superEmulatorDiskConnected=false;
+    if(status) status.textContent=`${fileName(f)} / ${fileSize(f)} / 接続処理中`;
+    if(connection) connection.textContent=`接続状態: 接続処理中`;
+    if(typeof log==="function") log(`[HDD/SSD] 接続ボタン押下: ${fileName(f)} / ${fileSize(f)}`);
+
+    (async()=>{
+      try{
+        if(window.emulator){
+          if(window.emulatorStarting) throw new Error("エミュレーター起動処理中です");
+          if(typeof stopAndDestroy!=="function" || typeof startEmulator!=="function") throw new Error("独立接続処理に必要な関数が見つかりません");
+          if(typeof log==="function") log("[HDD/SSD] 実行中のv86へ適用するため接続専用再起動を実行");
+          await stopAndDestroy();
+          await startEmulator();
+        }
+        window.__superEmulatorDiskConnected=true;
+        if(status) status.textContent=`${fileName(f)} / ${fileSize(f)} / 接続済み`;
+        if(connection) connection.textContent=`接続状態: 接続済み（${fileName(f)} / ${fileSize(f)}）`;
+        if(typeof log==="function") log(`[HDD/SSD] 接続完了: ${fileName(f)} / ${fileSize(f)}`);
+      }catch(err){
+        window.__superEmulatorDiskConnected=false;
+        if(status) status.textContent=`${fileName(f)} / ${fileSize(f)} / 接続失敗`;
+        if(connection) connection.textContent=`接続状態: 接続失敗（${err?.message||err}）`;
+        if(typeof log==="function") log(`[HDD/SSD] 接続失敗: ${err?.message||err}`,"ERROR");
+        if(typeof errorSound==="function") errorSound();
+        alert(`HDD/SSDの接続に失敗しました。\n${err?.message||err}`);
+      }
+    })();
+  }
+
+  function check(){
+    const f=selectedFile();
+    if(window.__superEmulatorDiskConnected && f){
+      const msg=`接続済み（${fileName(f)} / ${fileSize(f)}）`;
+      if(status) status.textContent=`${fileName(f)} / ${fileSize(f)} / 接続済み`;
+      if(connection) connection.textContent=`接続状態: ${msg}`;
+      if(typeof log==="function") log(`[HDD/SSD] 接続状態確認: ${msg}`);
+      return;
+    }
+    const msg=f ? (window.emulator ? `未接続（${fileName(f)} を選択中）` : `接続予約（${fileName(f)} / 次回起動時に接続）`) : "未接続";
+    if(connection) connection.textContent=`接続状態: ${msg}`;
+    if(typeof log==="function") log(`[HDD/SSD] 接続状態確認: ${msg}`,"WARN");
+  }
+
+  const connectBtn=$("connectDiskBtn");
+  if(connectBtn){
+    connectBtn.addEventListener("click",e=>{ e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); connect(); },true);
+  }
+  const checkBtn=$("checkDiskConnectionBtn");
+  if(checkBtn){
+    checkBtn.addEventListener("click",e=>{ e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); check(); },true);
+  }
+
+  const clearBtn=$("clearDiskImageBtn");
+  if(clearBtn){
+    clearBtn.addEventListener("click",e=>{
+      e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+      input.value="";
+      window.__superEmulatorSelectedDisk=null;
+      window.__superEmulatorDiskConnected=false;
+      window.__superEmulatorDiskConnectionMode="none";
+      if(typeof selectedDiskFile!=="undefined") selectedDiskFile=null;
+      if(typeof selectedDiskName!=="undefined") selectedDiskName="";
+      if(typeof selectedDiskURL!=="undefined") selectedDiskURL="";
+      if(typeof selectedDiskURLSize!=="undefined") selectedDiskURLSize=0;
+      if(status) status.textContent="未作成";
+      if(connection) connection.textContent="接続状態: 未接続";
+      if(sizeEl) sizeEl.textContent="";
+      if(typeof log==="function") log("[HDD/SSD] 選択ディスクを解除: 未接続");
+    },true);
+  }
+
+  /* 起動時に選択済みディスクが実際にconfigへ入った後の状態確認用。 */
+  window.__superEmulatorMarkDiskConnected=function(){
+    const f=selectedFile();
+    window.__superEmulatorDiskConnected=true;
+    if(f){
+      if(status) status.textContent=`${fileName(f)} / ${fileSize(f)} / 接続済み`;
+      if(connection) connection.textContent=`接続状態: 接続済み（${fileName(f)} / ${fileSize(f)}）`;
+    }else{
+      if(status) status.textContent="仮想ディスク / 接続済み";
+      if(connection) connection.textContent="接続状態: 接続済み（仮想ディスク）";
+    }
+  };
+})();
+</script>
 </body>
 </html>
