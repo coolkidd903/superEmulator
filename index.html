@@ -2595,13 +2595,26 @@ window.OS_CONFIG = window.OS_CONFIG || {};
 // 起動時は「最後に使用したOS」を最優先。保存値が壊れていてもXP固定には戻さない。
 if(!VALID_OS_KEYS.has(selectedOS)) selectedOS = "other";
 if(osSelect) osSelect.value = selectedOS;
+window.currentOSConfig = window.OS_CONFIG?.[selectedOS] || window.OS_CONFIG?.other || {memory:128,acpi:false};
+
+function setSelectedOS(key, source="手動設定"){
+  if(!VALID_OS_KEYS.has(key)) return false;
+  selectedOS=key;
+  lastDetectedOS=(source==="ISO自動判定") ? key : lastDetectedOS;
+  const cfg=window.OS_CONFIG?.[key] || window.OS_CONFIG?.other || {memory:128,acpi:false};
+  window.currentOSConfig={key,name:getOSName(key),memory:Number(cfg.memory)||128,acpi:!!cfg.acpi,source};
+  if(osSelect && osSelect.value!==key) osSelect.value=key;
+  try{ localStorage.setItem("superEmulator.lastOS",key); }catch(_){ }
+  saveSetupState();
+  if(detectedOS && source!=="ISO自動判定"){
+    detectedOS.textContent=`手動選択 / 定義OS: ${getOSName(key)} / RAM ${window.currentOSConfig.memory}MB / ACPI ${window.currentOSConfig.acpi?"ON":"OFF"}`;
+  }
+  log(`OS定義を変更: ${getOSName(key)} / RAM=${window.currentOSConfig.memory}MB / ACPI=${window.currentOSConfig.acpi?"ON":"OFF"} / ${source}`);
+  return true;
+}
 
 function saveLastOS(key){
-  if(!VALID_OS_KEYS.has(key)) return;
-  selectedOS = key;
-  localStorage.setItem("superEmulator.lastOS", key);
-  if(osSelect) osSelect.value = key;
-  log("最後に使用したOSを保存: " + getOSName(key));
+  setSelectedOS(key,"手動設定");
 }
 
 
@@ -2693,64 +2706,139 @@ async function detectISOFile(file){
   const bar=document.getElementById("isoDetectProgress");
   const text=document.getElementById("isoDetectText");
   const resultBox=document.getElementById("isoDetectResult");
-  if(!file) return;
-  if(wrap){wrap.style.display="block";}
+  if(!file) return null;
+  if(wrap) wrap.style.display="block";
   if(bar) bar.value=0;
-  if(text) text.textContent=`ISO解析開始: ${file.name} (${formatBytes(file.size)})`;
-  if(resultBox) resultBox.textContent="判定中...";
+  if(text) text.textContent=`高速ISO解析開始: ${file.name} (${formatBytes(file.size)})`;
+  if(resultBox) resultBox.textContent="高速判定中...";
+
   try{
+    /*
+     * 高速・高精度判定:
+     * 以前はISO全体を4MBずつ最後まで走査していたため、大きなISOでは非常に遅く、
+     * 「I386」などの汎用文字列だけでWindows XP等と誤判定することもありました。
+     *
+     * 今回は ISO9660 のPVD/ルートディレクトリ + ブート領域 + 先頭/末尾の
+     * 限定ウィンドウだけを読む。OS固有の強い署名を優先し、汎用文字列は判定根拠にしない。
+     */
     const score={win95:0,win98:0,winme:0,win2000:0,winxp:0,winvista:0,win7:0,win8:0,win10:0,winnt4:0,win31:0,win2:0,win1:0,freedos:0,msdos:0,linux:0,reactos:0,haiku:0,freebsd:0,openbsd:0,netbsd:0,android:0,other:0};
-    const markers={
-      winxp:["WIN51","WIN51IP","WIN51IC","V3ACOEM_EN","WINDOWS XP","I386"],win2000:["WINDOWS 2000","WIN2000","WINNT"],
-      win95:["WIN95","WINDOWS 95"],win98:["WIN98","WINDOWS 98"],winme:["WINME","WINDOWS ME"],win31:["WINDOWS 3.1","WIN31"],
-      win7:["WINDOWS 7","WIN7"],win8:["WINDOWS 8","WIN8"],win10:["WINDOWS 10","WIN10"],winnt4:["WINDOWS NT 4","WINNT4"],
-      freedos:["FREEDOS","FREE-DOS"],msdos:["MS-DOS","MSDOS"],linux:["LINUX","ISOLINUX","SYSLINUX","BOOTX64"],reactos:["REACTOS"],
-      haiku:["HAIKU"],freebsd:["FREEBSD"],openbsd:["OPENBSD"],netbsd:["NETBSD"],android:["ANDROID-X86","ANDROID"]
-    };
-    const pvd=await readFileWindow(file,16*2048,2048);
+    const hits={};
+    const add=(key,points,why)=>{score[key]+=points;(hits[key]??=[]).push(why);};
+    const decoder=new TextDecoder("latin1",{fatal:false});
+    const upper=(u)=>decoder.decode(u).toUpperCase();
+    const read=async(start,length)=>new Uint8Array(await file.slice(start,Math.min(file.size,start+length)).arrayBuffer());
+    const mark=(bytes,needle)=>upper(bytes).includes(needle);
+
+    const pvd=await read(16*2048,2048);
+    if(bar) bar.value=10;
     const isPVD=pvd.length>=6 && pvd[0]===1 && String.fromCharCode(...pvd.slice(1,6))==="CD001";
+    let volumeLabel="";
+    let rootExtent=0, rootSize=0;
     if(isPVD){
-      const volumeLabel=new TextDecoder("latin1").decode(pvd.slice(40,72)).replace(/\0/g,"").trim();
+      volumeLabel=decoder.decode(pvd.slice(40,72)).replace(/\0/g,"").trim();
+      rootExtent=(pvd[156]|(pvd[157]<<8)|(pvd[158]<<16)|(pvd[159]<<24))>>>0;
+      rootSize=(pvd[166]|(pvd[167]<<8)|(pvd[168]<<16)|(pvd[169]<<24))>>>0;
       log(`ISO9660 PVD確認: OK / Volume="${volumeLabel}"`);
-      if(volumeLabel.toUpperCase().includes("V3ACOEM")) score.winxp+=220;
-      if(volumeLabel.toUpperCase().includes("WIN95")) score.win95+=160;
-      if(volumeLabel.toUpperCase().includes("WIN98")) score.win98+=160;
-      if(volumeLabel.toUpperCase().includes("WINME")) score.winme+=160;
-    } else log("ISO9660 PVDを確認できません。生ディスク/特殊ISOの可能性があります。","WARN");
-    const chunkSize=4*1024*1024;
-    const total=Math.max(1,Math.ceil(file.size/chunkSize));
-    for(let i=0,start=0;start<file.size;start+=chunkSize,i++){
-      const bytes=await readFileWindow(file,start,chunkSize);
-      for(const key of Object.keys(markers)) for(const marker of markers[key]){
-        if(containsText(bytes,marker)) score[key]+=(key==="winxp" && marker==="WIN51" ? 220 : 50);
-      }
-      const pct=Math.min(99,Math.round(((i+1)/total)*100));
-      if(bar) bar.value=pct;
-      if(text) text.textContent=`ISO解析中… ${pct}% (${i+1}/${total})`;
-      await new Promise(r=>setTimeout(r,0));
+    }else{
+      log("ISO9660 PVDを確認できません。ISO9660以外のイメージとして限定判定します。","WARN");
     }
-    if(score.winxp>0){score.msdos=Math.max(0,score.msdos-80);score.freedos=Math.max(0,score.freedos-20);}
-    if(score.win95||score.win98||score.winme){score.msdos=Math.max(0,score.msdos-60);score.freedos=Math.max(0,score.freedos-20);}
-    let best="other",bestScore=0;
-    for(const key of Object.keys(score)){if(score[key]>bestScore){best=key;bestScore=score[key];}}
+
+    const chunks=[];
+    // PVD付近
+    chunks.push({start:0,length:Math.min(file.size,8*1024*1024),name:"先頭"});
+    // Windows/Linuxのブート関連データが入ることが多い領域
+    chunks.push({start:8*1024*1024,length:Math.min(24*1024*1024,Math.max(0,file.size-8*1024*1024)),name:"ブート領域"});
+    // 末尾も小さく確認（特殊ISO/追記セッション対策）
+    if(file.size>36*1024*1024) chunks.push({start:Math.max(0,file.size-4*1024*1024),length:4*1024*1024,name:"末尾"});
+
+    let rootBytes=new Uint8Array();
+    if(isPVD && rootExtent && rootSize){
+      rootBytes=await read(rootExtent*2048,Math.min(rootSize,2*1024*1024));
+      chunks.push({start:rootExtent*2048,length:Math.min(rootSize,2*1024*1024),name:"ISOルートディレクトリ"});
+    }
+
+    // ISOルート/主要領域をまとめて検索。setTimeoutは使わず、無駄な全ISO走査をしない。
+    const seen=new Set();
+    for(const c of chunks){
+      if(c.start>=file.size || c.length<=0) continue;
+      const b=await read(c.start,c.length);
+      const key=`${c.start}:${b.byteLength}`;
+      if(seen.has(key)) continue; seen.add(key);
+      const u=upper(b);
+      if(bar) bar.value=Math.min(55,bar.value+10);
+
+      // 非常に強いWindows署名
+      if(u.includes("WIN51")){ add("winxp",260,"WIN51"); }
+      if(u.includes("WIN51IP")||u.includes("WIN51IC")){ add("winxp",180,"XP edition marker"); }
+      if(u.includes("V3ACOEM_EN")){ add("winxp",260,"XP OEM volume marker"); }
+      if(u.includes("WIN2000") || u.includes("WINNT32.EXE") || u.includes("WINDOWS 2000")){ add("win2000",220,"Windows 2000 marker"); }
+      if(u.includes("WIN95") || u.includes("WINDOWS 95") || u.includes("WIN95UPG")){ add("win95",220,"Windows 95 marker"); }
+      if(u.includes("WIN98") || u.includes("WINDOWS 98") || u.includes("WIN98UPG")){ add("win98",220,"Windows 98 marker"); }
+      if(u.includes("WINME") || u.includes("WINDOWS ME") || u.includes("WINMEUPG")){ add("winme",220,"Windows Me marker"); }
+      if(u.includes("WINNT4") || u.includes("WINDOWS NT 4.0")){ add("winnt4",220,"Windows NT 4 marker"); }
+      if(u.includes("WINDOWS 3.1") || u.includes("WIN31")){ add("win31",200,"Windows 3.x marker"); }
+      if(u.includes("WINDOWS 2.0") || u.includes("WIN2")){ add("win2",180,"Windows 2.x marker"); }
+      if(u.includes("WINDOWS 1.0") || u.includes("WIN1")){ add("win1",180,"Windows 1.x marker"); }
+      if(u.includes("WINDOWS 7") || u.includes("\u005cSOURCES\u005cINSTALL.WIM") || u.includes("\u005cSOURCES\u005cBOOT.WIM")){ add("win7",170,"Windows 7 media structure"); }
+      if(u.includes("WINDOWS 8") || u.includes("\u005cSOURCES\u005cINSTALL.ESD")){ add("win8",170,"Windows 8 media structure"); }
+      if(u.includes("WINDOWS 10") || u.includes("\u005cSOURCES\u005cINSTALL.ESD")){ add("win10",130,"Windows 10 media marker"); }
+
+      // 他OSは固有名/ブートローダーを組み合わせて判定。汎用I386等は使わない。
+      if(u.includes("REACTOS") || u.includes("\u005cREACTOS\u005c")){ add("reactos",180,"ReactOS marker"); }
+      if(u.includes("FREEDOS") || u.includes("FREE-DOS")){ add("freedos",190,"FreeDOS marker"); }
+      if(u.includes("ISOLINUX") || u.includes("SYSLINUX")){ add("linux",120,"Linux bootloader"); }
+      if(u.includes("LINUX") && (u.includes("KERNEL")||u.includes("VMLINUX")||u.includes("INITRD"))){ add("linux",120,"Linux kernel/initrd marker"); }
+      if(u.includes("ANDROID-X86") || u.includes("ANDROID X86")){ add("android",200,"Android-x86 marker"); }
+      if(u.includes("HAIKU")){ add("haiku",200,"Haiku marker"); }
+      if(u.includes("FREEBSD")){ add("freebsd",200,"FreeBSD marker"); }
+      if(u.includes("OPENBSD")){ add("openbsd",200,"OpenBSD marker"); }
+      if(u.includes("NETBSD")){ add("netbsd",200,"NetBSD marker"); }
+      if(u.includes("MS-DOS") || u.includes("MSDOS")){ add("msdos",160,"MS-DOS marker"); }
+      if(bar) bar.value=Math.min(85,bar.value+8);
+    }
+
+    // ルートディレクトリのファイル名をさらに強く判定
+    if(rootBytes.length){
+      const rootText=upper(rootBytes);
+      if(/WIN51|V3ACOEM_EN/.test(rootText)) add("winxp",300,"ISO root marker");
+      if(/WIN95/.test(rootText)) add("win95",260,"ISO root marker");
+      if(/WIN98/.test(rootText)) add("win98",260,"ISO root marker");
+      if(/WINME/.test(rootText)) add("winme",260,"ISO root marker");
+      if(/WIN2000|WINNT32\.EXE/.test(rootText)) add("win2000",260,"ISO root marker");
+      if(/FREEDOS/.test(rootText)) add("freedos",220,"ISO root marker");
+    }
+
+    // 「I386」単独などの弱い根拠ではOSを決めない。
+    const ordered=Object.entries(score).sort((a,b)=>b[1]-a[1]);
+    const bestPair=ordered[0]||["other",0];
+    const secondPair=ordered[1]||["other",0];
+    let best=bestPair[0], bestScore=bestPair[1];
+    if(bestScore<100) best="other";
+    // XPとWin9xなど強い署名が複数ある場合は強い署名を優先。差が小さいときは自動判定を確定しない。
+    const ambiguous = best!=="other" && secondPair[1]>=bestScore-35 && bestScore<220;
+    if(ambiguous){
+      log(`ISO判定: 候補が近いため自動確定しません (${getOSName(best)} ${bestScore} / ${getOSName(secondPair[0])} ${secondPair[1]})`,"WARN");
+      best="other";
+    }
+
     lastDetectedOS=best;
-    selectedOS=best;
-    if(osSelect) osSelect.value=best;
-    localStorage.setItem("superEmulator.lastOS",best);
-    const inspection=inspectISOBuffer(await file.slice(0,Math.min(file.size,40*1024*1024)).arrayBuffer());
+    if(best!=="other"){
+      setSelectedOS(best,"ISO自動判定");
+    }
+
+    const inspection=inspectISOBuffer(await file.slice(0,Math.min(file.size,2*1024*1024)).arrayBuffer());
     if(bar) bar.value=100;
-    if(text) text.textContent=`判定完了: ${getOSName(best)}`;
-    const confidence=bestScore>=150?"高":bestScore>=60?"中":"低";
     const bootText=inspection.bootable?"ブート可能":inspection.pvd?"ISO9660 / ブートエントリ未確認":"ISO形式を確認できず";
-    const html=`推定OS: <strong>${getOSName(best)}</strong><br>信頼度: ${confidence} / スコア: ${bestScore}<br>媒体: ${bootText}`;
+    const confidence=bestScore>=260?"高":bestScore>=160?"中":"低";
+    const reason=(hits[best]||[]).slice(0,4).join(" / ")||"強いOS固有署名なし";
+    if(text) text.textContent=`判定完了: ${getOSName(best)}`;
+    const html=best!=="other"
+      ? `推定OS: <strong>${getOSName(best)}</strong><br>信頼度: ${confidence} / スコア: ${bestScore}<br>根拠: ${reason}<br>媒体: ${bootText}`
+      : `推定OS: <strong>自動確定できません</strong><br>強いOS固有署名が不足しています。手動OSを選択してください。<br>媒体: ${bootText}`;
     if(resultBox) resultBox.innerHTML=html;
     if(detectedOS) detectedOS.innerHTML=html;
-    log(`ISO判定完了: ${getOSName(best)} / score=${bestScore} / ${bootText}`);
-    if(best==="other" || bestScore<40){
-      log("ISO自動判定失敗: OSを特定できるマーカーが見つかりませんでした。","ERROR");
-      if(resultBox) resultBox.innerHTML+=`<br><span style="color:#ff7d7d">❌ 自動判定失敗：手動OS選択を使用してください。</span>`;
-      errorSound();
-    }
+    log(`ISO判定完了: ${getOSName(best)} / score=${bestScore} / ${bootText} / ${reason}`);
+    if(best==="other") errorSound();
     return best;
   }catch(e){
     log("ISO自動判定失敗: "+(e.stack||e),"ERROR");
@@ -2782,16 +2870,12 @@ manualDetectButton.onclick=toggleManualOSArea;
 manualDetectButton.addEventListener("pointerdown",e=>e.stopPropagation(),true);
 
 
-osSelect.addEventListener(
-  "change",
-  () =>
-{
-  selectedOS=osSelect.value;
-  saveLastOS(osSelect.value);
-
-  detectedOS.textContent =
-    "手動選択 / 次回起動優先: " +
-    getOSName(selectedOS);
+osSelect.addEventListener("change", () => {
+  const key=osSelect.value;
+  if(!setSelectedOS(key,"手動設定")) return;
+  // 手動設定を選んだ瞬間に、自動判定結果より優先する。
+  window.__superEmulatorManualOSOverride=true;
+  log(`手動OS設定を適用: ${getOSName(key)}（次回起動からこの定義を使用）`);
 });
 
 
@@ -3223,14 +3307,14 @@ async function startEmulator(options={})
     /*
      * 4. OS settings
      */
-    const persistedOS = localStorage.getItem("superEmulator.lastOS");
-    if(VALID_OS_KEYS.has(persistedOS)) selectedOS = persistedOS;
-    if(osSelect) osSelect.value = selectedOS;
-    localStorage.setItem("superEmulator.lastOS", selectedOS);
-    saveSetupState();
-
+    // 起動時は現在のUI選択を最優先。手動変更を古いlocalStorage値で上書きしない。
+    if(!VALID_OS_KEYS.has(selectedOS)) selectedOS="other";
+    if(osSelect) osSelect.value=selectedOS;
+    localStorage.setItem("superEmulator.lastOS",selectedOS);
     const safeOSConfig = (window.OS_CONFIG && typeof window.OS_CONFIG === "object") ? window.OS_CONFIG : {};
-    const cfg = (window.OS_CONFIG && window.OS_CONFIG[selectedOS]) || (window.OS_CONFIG && window.OS_CONFIG.other) || {memory:128,acpi:false};
+    const cfg = safeOSConfig[selectedOS] || safeOSConfig.other || {memory:128,acpi:false};
+    window.currentOSConfig={key:selectedOS,name:getOSName(selectedOS),memory:Number(cfg.memory)||128,acpi:!!cfg.acpi,source:window.__superEmulatorManualOSOverride?"手動設定":"保存設定"};
+    saveSetupState();
 
 
     let selectedMemoryMB=chooseInitialMemory(selectedOS);
