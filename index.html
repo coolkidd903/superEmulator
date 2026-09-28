@@ -479,6 +479,9 @@ button{
   background:#0b1017;
   border-bottom:1px solid rgba(255,255,255,.07);
 }
+#functionBar{position:relative;z-index:50;pointer-events:auto;}
+#functionBar .fkey{pointer-events:auto !important;position:relative;z-index:51;user-select:none;-webkit-user-select:none;}
+
 
 .fkey{
   min-width:55px;
@@ -4136,24 +4139,6 @@ const FKEY_CODES = {
 };
 
 
-document.querySelectorAll(".fkey")
-  .forEach(btn =>
-{
-  btn.addEventListener(
-    "click",
-    () =>
-    {
-      const f =
-        Number(
-          btn.dataset.f
-        );
-
-      sendFunctionKey(f);
-    }
-  );
-});
-
-
 function sendFunctionKey(f)
 {
   if(!emulator)
@@ -4223,33 +4208,40 @@ function sendFunctionKey(f)
 
 /* =========================================================
    PHYSICAL KEYBOARD F1-F12
+   Chrome/ChromeOS のブラウザショートカットを可能な範囲で止め、
+   KeyboardEvent.code を物理キーとして v86 のPS/2へ直接送る。
 ========================================================= */
-
-window.addEventListener(
-  "keydown",
-  e =>
-  {
-    if(
-      e.key >= "F1" &&
-      e.key <= "F12"
-    )
-    {
-      /*
-       * ブラウザのFキー動作を防ぐ
-       */
-      e.preventDefault();
-
-      const n =
-        Number(
-          e.key.substring(1)
-        );
-
-      sendFunctionKey(n);
-    }
-  },
-  true
-);
-
+(function installPhysicalFunctionKeys(){
+  const codes={
+    F1:0x3B,F2:0x3C,F3:0x3D,F4:0x3E,F5:0x3F,F6:0x40,
+    F7:0x41,F8:0x42,F9:0x43,F10:0x44,F11:0x57,F12:0x58
+  };
+  const down=new Set();
+  window.addEventListener('keydown',function(e){
+    const code=codes[e.code];
+    if(!code || !window.emulator || typeof window.emulator.keyboard_send_scancodes!=='function') return;
+    if(down.has(e.code)) return;
+    down.add(e.code);
+    e.preventDefault();
+    e.stopPropagation();
+    try{ window.emulator.keyboard_send_scancodes([code]); }
+    catch(err){ if(typeof window.log==='function') window.log(`Fキー送信失敗: ${err}`,'ERROR'); }
+  },true);
+  window.addEventListener('keyup',function(e){
+    const code=codes[e.code];
+    if(!code || !window.emulator || typeof window.emulator.keyboard_send_scancodes!=='function') return;
+    down.delete(e.code);
+    e.preventDefault();
+    e.stopPropagation();
+    try{ window.emulator.keyboard_send_scancodes([code|0x80]); }
+    catch(err){ if(typeof window.log==='function') window.log(`Fキー解放失敗: ${err}`,'ERROR'); }
+  },true);
+  window.addEventListener('blur',function(){
+    if(!window.emulator || typeof window.emulator.keyboard_send_scancodes!=='function') { down.clear(); return; }
+    for(const key of down){ const code=codes[key]; if(code) { try{window.emulator.keyboard_send_scancodes([code|0x80]);}catch(_){}} }
+    down.clear();
+  });
+})();
 
 /* =========================================================
    COMMAND INPUT
@@ -5150,10 +5142,20 @@ document.addEventListener("keyup",e=>{
   document.querySelectorAll('.command[data-command]').forEach(b=>{b.onclick=function(e){e.preventDefault();e.stopPropagation();const v=b.dataset.command||"";const x=el('commandInput');if(x)x.value=v;if(typeof window.sendCommand==='function')window.sendCommand(v);};});
   wire("repairBtn",()=>{if(typeof window.generateRepairBash==='function')window.generateRepairBash();else if(typeof window.repairBash==='function')window.repairBash();else alert("修復Bash生成機能がまだ読み込まれていません。");});
 
-  /* F1～F12 */
+  /* F1～F12: UIボタンは pointerdown で即時送信。押しただけで確実に反応させる。 */
   const F={1:0x3B,2:0x3C,3:0x3D,4:0x3E,5:0x3F,6:0x40,7:0x41,8:0x42,9:0x43,10:0x44,11:0x57,12:0x58};
-  document.querySelectorAll('.fkey[data-f]').forEach(b=>{b.onclick=function(e){e.preventDefault();e.stopPropagation();const em=window.emulator,c=F[Number(b.dataset.f)];if(em&&c&&typeof em.keyboard_send_scancodes==='function')em.keyboard_send_scancodes([c,c|0x80]);};});
-  wire("windowsKeyBtn",()=>{const em=window.emulator;if(em&&typeof em.keyboard_send_scancodes==='function')em.keyboard_send_scancodes([0xE0,0x5B,0xE0,0xDB]);});
+  document.querySelectorAll('.fkey[data-f]').forEach(b=>{
+    b.style.pointerEvents='auto'; b.style.touchAction='manipulation'; b.style.position='relative'; b.style.zIndex='30';
+    b.onpointerdown=function(e){
+      e.preventDefault(); e.stopPropagation();
+      const em=window.emulator, c=F[Number(b.dataset.f)];
+      if(!em){ if(typeof window.log==='function')window.log(`F${b.dataset.f}: エミュレーター未起動`,'WARN'); return; }
+      if(typeof em.keyboard_send_scancodes!=='function'){ if(typeof window.log==='function')window.log(`F${b.dataset.f}: キーボードAPIなし`,'ERROR'); return; }
+      try{ em.keyboard_send_scancodes([c]); em.keyboard_send_scancodes([c|0x80]); if(typeof window.log==='function')window.log(`F${b.dataset.f}送信`); }catch(err){ if(typeof window.log==='function')window.log(`F${b.dataset.f}送信失敗: ${err}`,'ERROR'); }
+    };
+    b.onclick=function(e){ e.preventDefault(); e.stopPropagation(); };
+  });
+  wire("windowsKeyBtn",()=>{const em=window.emulator;if(em&&typeof em.keyboard_send_scancodes==='function'){try{em.keyboard_send_scancodes([0xE0,0x5B]);em.keyboard_send_scancodes([0xE0,0xDB]);}catch(e){if(typeof window.log==='function')window.log(`Winキー送信失敗: ${e}`,'ERROR');}}});
 
   /* HDD入力は独立処理。選択した瞬間に容量測定→接続状態更新。 */
   const diskInput=el("diskImageFile");
@@ -5172,14 +5174,6 @@ document.addEventListener("keyup",e=>{
   window.__superEmulatorIndependentUI=true;
 })();
 </script>
-
-(function(){
-  const f=document.getElementById("diskImageFile");
-  const status=document.getElementById("diskStatus");
-  if(f && status && !document.getElementById("diskImageSize")){
-    const x=document.createElement("div"); x.id="diskImageSize"; x.style.cssText="font-size:12px;opacity:.85;margin-top:4px"; status.parentNode?.appendChild(x);
-  }
-})();
 
 <script>
 /* =========================================================
@@ -5347,6 +5341,17 @@ document.addEventListener("keyup",e=>{
       if(status) status.textContent="仮想ディスク / 接続済み";
       if(connection) connection.textContent="接続状態: 接続済み（仮想ディスク）";
     }
+  };
+})();
+</script>
+
+<script>
+/* 最終キーボード健全性チェック。UIクリックとは完全に独立。 */
+(function(){
+  window.superEmulatorKeyboardSelfTest=function(){
+    const ok=!!(window.emulator&&typeof window.emulator.keyboard_send_scancodes==='function');
+    if(typeof window.log==='function') window.log(`キーボードAPI確認: ${ok?'OK':'未接続'}`,ok?'INFO':'WARN');
+    return ok;
   };
 })();
 </script>
