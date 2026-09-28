@@ -41,7 +41,7 @@ button{
   pointer-events:auto;
 }
 #manualDetectBtn{position:relative;z-index:20;pointer-events:auto;}
-#manualArea{position:relative;z-index:19;}
+#manualArea{position:relative;z-index:19;display:block !important;}
 
 /* =========================================================
    LANDING
@@ -906,7 +906,9 @@ button, input, select, label, a, [role="button"] { pointer-events:auto !importan
 #screenArea { position:relative; z-index:1; }
 #settingsModal { z-index:9000 !important; }
 #settingsModal .modal-card { position:relative; z-index:9001; pointer-events:auto !important; }
-#confirmManualOSBtn{pointer-events:auto !important;position:relative;z-index:10002 !important;}
+#confirmManualOSBtn{pointer-events:auto !important;position:relative;z-index:10002 !important;display:inline-flex !important;visibility:visible !important;opacity:1 !important;}
+#settingsModal .modal-card *, #settingsModal button, #settingsModal input, #settingsModal select{pointer-events:auto !important;}
+#detectBtn,#manualDetectBtn,#connectDiskBtn,#checkDiskConnectionBtn,#confirmManualOSBtn{touch-action:manipulation;}
 
 
 .iso-detected{padding:10px;border:1px solid rgba(255,255,255,.08);background:#080c12;border-radius:10px;color:#cfd9e8;font-size:12px;line-height:1.6}
@@ -1354,7 +1356,7 @@ button, input, select, label, a, [role="button"] { pointer-events:auto !importan
       <label class="label">ISO / ディスクイメージ</label>
       <input class="field" id="isoFile" type="file" accept=".iso,.img,.bin">
       <div class="row">
-        <button class="ctrl-btn primary" id="detectBtn">ISOを自動判定</button>
+        <button class="ctrl-btn primary" id="detectBtn" type="button">💿 ISOを安全に選択・自動判定</button>
         <button class="ctrl-btn" id="manualDetectBtn">手動OS</button>
       </div>
       <div id="isoDetectProgressWrap" style="display:none;margin-top:9px">
@@ -1362,10 +1364,18 @@ button, input, select, label, a, [role="button"] { pointer-events:auto !importan
         <progress id="isoDetectProgress" value="0" max="100"></progress>
       </div>
       <div id="isoDetectResult" class="setting-card" style="margin-top:9px">OS: 未判定</div>
-      <div id="manualArea" style="display:none;margin-top:10px">
+      <div id="manualArea" style="display:block;margin-top:10px">
         <label class="label">手動OS</label>
         <select class="field" id="osSelect">
-          <option value="win10">Windows 10 (32bit)</option><option value="win8">Windows 8</option><option value="win7">Windows 7</option><option value="winvista">Windows Vista</option><option value="winxp">Windows XP</option><option value="win2000">Windows 2000</option><option value="winnt4">Windows NT 4.0</option><option value="winme">Windows Me</option><option value="win98">Windows 98</option><option value="win95">Windows 95</option><option value="win31">Windows 3.1 / 3.x</option><option value="win2">Windows 2.x</option><option value="win1">Windows 1.x</option><option value="msdos">MS-DOS</option><option value="freedos">FreeDOS</option><option value="linux">Linux (x86)</option><option value="reactos">ReactOS</option><option value="haiku">Haiku</option><option value="freebsd">FreeBSD</option><option value="openbsd">OpenBSD</option><option value="netbsd">NetBSD</option><option value="android">Android-x86</option><option value="other">その他</option>
+          <optgroup label="Windows">
+            <option value="win10">Windows 10 (32bit)</option><option value="win8">Windows 8 / 8.1</option><option value="win7">Windows 7</option><option value="winvista">Windows Vista</option><option value="winxp">Windows XP</option><option value="win2000">Windows 2000</option><option value="winnt4">Windows NT 4.0</option><option value="winme">Windows Me</option><option value="win98">Windows 98</option><option value="win95">Windows 95</option><option value="win31">Windows 3.0 / 3.1 / 3.x</option><option value="win2">Windows 2.x</option><option value="win1">Windows 1.x / 1.01</option>
+          </optgroup>
+          <optgroup label="DOS / Linux">
+            <option value="msdos">MS-DOS</option><option value="freedos">FreeDOS</option><option value="linux">Linux (x86 / 32bit)</option><option value="debian">Debian (i386)</option><option value="ubuntu">Ubuntu (i386 / supported releases)</option><option value="alpine">Alpine Linux (x86)</option><option value="arch32">Arch Linux 32</option>
+          </optgroup>
+          <optgroup label="その他のv86対応OS">
+            <option value="reactos">ReactOS</option><option value="kolibrios">KolibriOS</option><option value="haiku">Haiku</option><option value="android">Android-x86 (tested up to 4.4-r2)</option><option value="freebsd">FreeBSD</option><option value="openbsd">OpenBSD</option><option value="netbsd">NetBSD</option><option value="serenity">SerenityOS (32bit)</option><option value="9front">9front</option><option value="skift">SkiftOS</option><option value="qnx">QNX</option><option value="other">その他</option>
+          </optgroup>
         </select>
         <div class="row" style="margin-top:8px">
           <button class="ctrl-btn primary" id="confirmManualOSBtn" type="button">✅ このOSを確定</button>
@@ -1476,9 +1486,11 @@ window.OS_CONFIG = window.OS_CONFIG || {
   winvista:{memory:2048,acpi:true}, winxp:{memory:384,acpi:false}, win2000:{memory:256,acpi:false},
   winnt4:{memory:128,acpi:false}, winme:{memory:128,acpi:false}, win98:{memory:128,acpi:false},
   win95:{memory:64,acpi:false}, win31:{memory:32,acpi:false}, win2:{memory:16,acpi:false}, win1:{memory:8,acpi:false},
-  msdos:{memory:16,acpi:false}, freedos:{memory:32,acpi:false}, linux:{memory:4096,acpi:true},
-  reactos:{memory:256,acpi:false}, haiku:{memory:256,acpi:true}, freebsd:{memory:512,acpi:true},
-  openbsd:{memory:256,acpi:true}, netbsd:{memory:256,acpi:true}, android:{memory:512,acpi:true}, other:{memory:128,acpi:false}
+  msdos:{memory:16,acpi:false}, freedos:{memory:32,acpi:false}, linux:{memory:2048,acpi:true},
+  debian:{memory:1024,acpi:true}, ubuntu:{memory:1024,acpi:true}, alpine:{memory:512,acpi:true}, arch32:{memory:512,acpi:true},
+  reactos:{memory:256,acpi:false}, kolibrios:{memory:64,acpi:false}, haiku:{memory:256,acpi:true}, freebsd:{memory:512,acpi:true},
+  openbsd:{memory:256,acpi:true}, netbsd:{memory:256,acpi:true}, android:{memory:512,acpi:true}, serenity:{memory:512,acpi:true},
+  "9front":{memory:128,acpi:false}, skift:{memory:256,acpi:true}, qnx:{memory:256,acpi:false}, other:{memory:128,acpi:false}
 };
 </script>
 
@@ -1617,9 +1629,8 @@ let isoReady = false;
 let selectedFloppy = null;
 let selectedFloppyName = "";
 const VALID_OS_KEYS = new Set([
-  "win10","win8","win7","winvista","winxp","win2000","winnt4",
-  "winme","win98","win95","win31","win2","win1","msdos","freedos",
-  "linux","reactos","haiku","freebsd","openbsd","netbsd","android","other"
+  "win10","win8","win7","winvista","winxp","win2000","winnt4","winme","win98","win95","win31","win2","win1",
+  "msdos","freedos","linux","debian","ubuntu","alpine","arch32","reactos","kolibrios","haiku","freebsd","openbsd","netbsd","android","serenity","9front","skift","qnx","other"
 ]);
 const savedOS = localStorage.getItem("superEmulator.lastOS");
 let selectedOS = VALID_OS_KEYS.has(savedOS) ? savedOS : "other";
@@ -2644,47 +2655,33 @@ window.OS_CONFIG = Object.assign(window.OS_CONFIG || {}, {
 window.OS_CONFIG = window.OS_CONFIG || {};
 
 if(!VALID_OS_KEYS.has(selectedOS)) selectedOS = "other";
-var pendingManualOS = selectedOS;
-var confirmedOS = selectedOS;
-window.__superEmulatorConfirmedOS = confirmedOS;
-if(osSelect) osSelect.value = pendingManualOS;
-window.currentOSConfig = window.OS_CONFIG?.[confirmedOS] || window.OS_CONFIG?.other || {memory:128,acpi:false};
-
-function getOSConfig(key){
-  const cfg=window.OS_CONFIG?.[key] || window.OS_CONFIG?.other || {memory:128,acpi:false};
-  return {memory:Number(cfg.memory)||128,acpi:!!cfg.acpi};
-}
-function updateManualOSStatus(){
-  const el=document.getElementById("manualOSConfirmStatus");
-  if(!el) return;
-  const same=pendingManualOS===confirmedOS;
-  el.textContent=same ? `確定済み: ${getOSName(confirmedOS)}` : `未確定: ${getOSName(pendingManualOS)}`;
-  el.style.color=same ? "#8ff0b0" : "#ffd27a";
-}
-function setSelectedOS(key, source="手動設定", confirm=false){
-  if(!VALID_OS_KEYS.has(key)) return false;
+let pendingManualOS = selectedOS;
+let confirmedOSKey = VALID_OS_KEYS.has(window.__superEmulatorConfirmedOS) ? window.__superEmulatorConfirmedOS : selectedOS;
+if(!VALID_OS_KEYS.has(confirmedOSKey)) confirmedOSKey="other";
+window.__superEmulatorConfirmedOS=confirmedOSKey;
+window.currentOSConfig=window.OS_CONFIG?.[confirmedOSKey] || window.OS_CONFIG?.other || {memory:128,acpi:false};
+function getOSConfig(key){const cfg=window.OS_CONFIG?.[key]||window.OS_CONFIG?.other||{memory:128,acpi:false};return {memory:Number(cfg.memory)||128,acpi:!!cfg.acpi};}
+function updateManualOSStatus(){const el=document.getElementById("manualOSConfirmStatus");if(!el)return;const same=pendingManualOS===confirmedOSKey;el.textContent=same?`確定済み: ${getOSName(confirmedOSKey)}`:`未確定: ${getOSName(pendingManualOS)}`;el.style.color=same?"#8ff0b0":"#ffd27a";}
+function setSelectedOS(key,source="手動設定",confirm=false){
+  if(!VALID_OS_KEYS.has(key))return false;
   const cfg=getOSConfig(key);
-  if(source==="手動選択中"){
-    pendingManualOS=key;
-    if(osSelect && osSelect.value!==key) osSelect.value=key;
-    updateManualOSStatus();
-    log(`OS選択中: ${getOSName(key)} / 「このOSを確定」で確定してください`);
-    return true;
-  }
-  if(source==="手動設定" && !confirm) return setSelectedOS(key,"手動選択中",false);
-  selectedOS=key; confirmedOS=key; pendingManualOS=key;
-  window.__superEmulatorConfirmedOS=key;
-  lastDetectedOS=(source==="ISO自動判定") ? key : lastDetectedOS;
+  if(source==="手動選択中"){pendingManualOS=key;if(osSelect)osSelect.value=key;updateManualOSStatus();log(`OS選択中: ${getOSName(key)} / 「このOSを確定」で確定してください`);return true;}
+  if(source==="手動設定"&&!confirm)return setSelectedOS(key,"手動選択中",false);
+  selectedOS=key;confirmedOSKey=key;pendingManualOS=key;window.__superEmulatorConfirmedOS=key;
+  lastDetectedOS=(source==="ISO自動判定")?key:lastDetectedOS;
   window.currentOSConfig={key,name:getOSName(key),memory:cfg.memory,acpi:cfg.acpi,source};
   window.__superEmulatorManualOSOverride=(source!=="ISO自動判定");
-  if(osSelect && osSelect.value!==key) osSelect.value=key;
-  try{ localStorage.setItem("superEmulator.lastOS",key); }catch(_){}
-  saveSetupState(); updateManualOSStatus();
-  if(detectedOS && source!=="ISO自動判定") detectedOS.textContent=`手動OS確定: ${getOSName(key)} / RAM ${cfg.memory}MB / ACPI ${cfg.acpi?"ON":"OFF"}`;
+  if(osSelect)osSelect.value=key;
+  try{localStorage.setItem("superEmulator.lastOS",key);}catch(_){}
+  try{saveSetupState();}catch(_){}
+  updateManualOSStatus();
+  if(detectedOS&&source!=="ISO自動判定")detectedOS.textContent=`手動OS確定: ${getOSName(key)} / RAM ${cfg.memory}MB / ACPI ${cfg.acpi?"ON":"OFF"}`;
   log(`OS定義を確定: ${getOSName(key)} / RAM=${cfg.memory}MB / ACPI=${cfg.acpi?"ON":"OFF"} / ${source}`);
   return true;
 }
-function saveLastOS(key){ return setSelectedOS(key,"手動設定",true); }
+function saveLastOS(key){return setSelectedOS(key,"手動設定",true);}
+window.superEmulatorSetSelectedOS=setSelectedOS;
+window.superEmulatorGetConfirmedOS=()=>confirmedOSKey;
 updateManualOSStatus();
 
 
@@ -2730,12 +2727,14 @@ isoFile.addEventListener(
     await file.slice(0, Math.min(file.size, 1024 * 1024)).arrayBuffer();
     await detectISOFile(file);
     isoReady = true;
+    window.__superEmulatorISOReady=true;
     if(result) result.innerHTML += '<div style="margin-top:6px;color:#8dffb0">✓ ISOの読み込み・判定が完了しました。起動できます。</div>';
     setStatus("待機中", "ready");
   }
   catch(e)
   {
     isoReady = false;
+    window.__superEmulatorISOReady=false;
     log("ISO読み込み/判定失敗: " + (e?.message || e), "ERROR");
     errorSound();
     if(result) result.innerHTML = '<span style="color:#ff7d7d">❌ ISO読み込み/判定失敗: ' + String(e?.message || e).replace(/[<>]/g, "") + '</span>';
@@ -2881,6 +2880,16 @@ async function detectISOFile(file){
       if(/FREEDOS/.test(rootText)) add("freedos",220,"ISO root marker");
     }
 
+    // ISO9660 Volume IdentifierはWindowsメディアの強い署名として、候補順位を作る前に加点。
+    const vol=String(volumeLabel||"").toUpperCase();
+    if(/^CCCOMA_(X86|X64)FRE/.test(vol))add("win10",500,"ISO9660 Volume Identifier: "+vol);
+    else if(/^(IR3|IR5|CPRA)_/.test(vol))add("win8",500,"ISO9660 Volume Identifier: "+vol);
+    else if(/^GSP1R|^GRMCUL/.test(vol))add("win7",500,"ISO9660 Volume Identifier: "+vol);
+    else if(/WIN51|V3ACOEM_EN/.test(vol))add("winxp",500,"ISO9660 Volume Identifier: "+vol);
+    else if(/WIN95/.test(vol))add("win95",450,"ISO9660 Volume Identifier: "+vol);
+    else if(/WIN98/.test(vol))add("win98",450,"ISO9660 Volume Identifier: "+vol);
+    else if(/WINME/.test(vol))add("winme",450,"ISO9660 Volume Identifier: "+vol);
+
     // 「I386」単独などの弱い根拠ではOSを決めない。
     const ordered=Object.entries(score).sort((a,b)=>b[1]-a[1]);
     const bestPair=ordered[0]||["other",0];
@@ -2925,10 +2934,36 @@ async function detectISOFile(file){
   }
 }
 
-document.getElementById("detectBtn").onclick = async () => {
-  if(!selectedISO){ alert("先にISOファイルを選択してください。"); return; }
-  await detectISOFile(selectedISO);
-};
+window.detectISOFile=detectISOFile;
+async function chooseFreshISO(){
+  if(typeof window.showOpenFilePicker==="function"){
+    const handles=await window.showOpenFilePicker({multiple:false,types:[{description:"CD/DVD ISO",accept:{"application/octet-stream":[".iso",".img",".bin"]}}]});
+    if(!handles?.[0])return null;const handle=handles[0];const file=await handle.getFile();if(!file||!file.size)throw new Error("選択したISOが空です。");window.__superEmulatorSelectedISOHandle=handle;return file;
+  }
+  return await new Promise(resolve=>{const input=document.createElement("input");input.type="file";input.accept=".iso,.img,.bin";input.style.display="none";input.onchange=()=>{const f=input.files?.[0]||null;input.remove();resolve(f);};document.body.appendChild(input);input.click();});
+}
+async function runSafeISOSelectionAndDetection(){
+  const result=document.getElementById("isoDetectResult"),btn=document.getElementById("detectBtn");
+  try{
+    if(btn)btn.disabled=true;
+    const fresh=await chooseFreshISO();
+    if(!fresh){if(result)result.innerHTML='<span style="color:#ffcc66">⏹ ISO選択をキャンセルしました。</span>';return false;}
+    selectedISO=fresh;selectedISOName=fresh.name;window.__superEmulatorSelectedISO=fresh;isoReady=false;window.__superEmulatorISOReady=false;isoLoading=true;window.superEmulatorIsoLoading=true;
+    if(cdStatus)cdStatus.textContent=fresh.name;if(bootText)bootText.textContent="ISOを読み込み・判定中…";setStatus("ISO読み込み中","busy");
+    if(result)result.innerHTML='<span style="color:#ffcc66">⏳ 新しいFile参照でISOを安全に読み込み・判定中…</span>';
+    const probe=await fresh.slice(0,Math.min(fresh.size,1024*1024)).arrayBuffer();if(!(probe instanceof ArrayBuffer)||!probe.byteLength)throw new Error("ISOの読み込み結果が空です。");
+    const detected=await detectISOFile(fresh);
+    isoReady=true;window.__superEmulatorISOReady=true;isoLoading=false;window.superEmulatorIsoLoading=false;setStatus("待機中","ready");
+    if(result)result.innerHTML+='<div style="margin-top:6px;color:#8dffb0">✓ ISOの読み込み・判定が完了しました。起動できます。</div>';
+    log(`ISO安全選択・判定完了: ${fresh.name} / result=${getOSName(detected||"other")}`);return true;
+  }catch(e){
+    isoReady=false;window.__superEmulatorISOReady=false;isoLoading=false;window.superEmulatorIsoLoading=false;log(`ISO安全選択・判定失敗: ${e?.stack||e}`,"ERROR");
+    if(result)result.innerHTML='<span style="color:#ff7d7d">❌ ISOを読み込めませんでした。新しいFile参照を取得できませんでした。<br><small>'+String(e?.message||e).replace(/[<>]/g,"")+'</small></span>';setStatus("ISOエラー","error");try{errorSound();}catch(_){}return false;
+  }finally{if(btn)btn.disabled=false;}
+}
+window.__superEmulatorRunSafeISOSelectionAndDetection=runSafeISOSelectionAndDetection;
+window.runSafeISOSelectionAndDetection=runSafeISOSelectionAndDetection;
+document.getElementById("detectBtn").onclick=function(e){if(e){e.preventDefault();e.stopPropagation();}return runSafeISOSelectionAndDetection();};
 
 
 function toggleManualOSArea(e){
@@ -2939,43 +2974,28 @@ function toggleManualOSArea(e){
   if(!visible) manualArea.scrollIntoView({behavior:"smooth",block:"nearest"});
 }
 const manualDetectButton=document.getElementById("manualDetectBtn");
-manualDetectButton.onclick=toggleManualOSArea;
+manualDetectButton.onclick=function(e){if(e){e.preventDefault();e.stopPropagation();}manualArea.style.display="block";manualArea.hidden=false;manualArea.scrollIntoView({behavior:"smooth",block:"nearest"});};
 manualDetectButton.addEventListener("pointerdown",e=>e.stopPropagation(),true);
 
 
 osSelect.addEventListener("change", () => { setSelectedOS(osSelect.value,"手動選択中",false); });
 const confirmManualOSBtn=document.getElementById("confirmManualOSBtn");
 if(confirmManualOSBtn){
-  const confirmOSNow=(e)=>{
-    if(e){ e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); }
-    const key=(osSelect?.value || pendingManualOS || "other");
+  confirmManualOSBtn.onclick=function(e){
+    if(e){e.preventDefault();e.stopPropagation();}
+    const key=osSelect?.value||pendingManualOS||"other";
     try{
-      if(!VALID_OS_KEYS.has(key)){
-        log(`[OS CONFIRM] 無効なOSキー: ${key}`,"ERROR");
-        return false;
-      }
-      const ok=setSelectedOS(key,"手動設定",true);
-      if(!ok) throw new Error("OS確定処理がfalseを返しました");
-      const status=document.getElementById("manualOSConfirmStatus");
-      if(status){ status.textContent=`確定済み: ${getOSName(key)}`; status.style.color="#8ff0b0"; }
+      if(!VALID_OS_KEYS.has(key))throw new Error("無効なOSキー: "+key);
+      if(!setSelectedOS(key,"手動設定",true))throw new Error("OS確定処理が完了しませんでした");
       log(`[OS CONFIRM] 完了: ${getOSName(key)} / key=${key}`,"OK");
-      confirmManualOSBtn.blur();
-      return true;
     }catch(err){
       log(`[OS CONFIRM] 失敗: ${err?.message||err}`,"ERROR");
-      const status=document.getElementById("manualOSConfirmStatus");
-      if(status){ status.textContent=`確定失敗: ${err?.message||err}`; status.style.color="#ff8d8d"; }
-      return false;
+      const st=document.getElementById("manualOSConfirmStatus");if(st){st.textContent=`確定失敗: ${err?.message||err}`;st.style.color="#ff8d8d";}
     }
+    return false;
   };
-  confirmManualOSBtn.addEventListener("pointerdown",confirmOSNow,{capture:true});
-  confirmManualOSBtn.addEventListener("click",confirmOSNow,{capture:true});
-  confirmManualOSBtn.onclick=confirmOSNow;
-  confirmManualOSBtn.style.pointerEvents="auto";
-  confirmManualOSBtn.style.position="relative";
-  confirmManualOSBtn.style.zIndex="10002";
+  confirmManualOSBtn.style.pointerEvents="auto";confirmManualOSBtn.disabled=false;
 }
-
 
 
 const settingsFullscreenBtn=document.getElementById("settingsFullscreenBtn");
@@ -2991,7 +3011,7 @@ function getOSName(key){
     win95:"Windows 95",win31:"Windows 3.1 / 3.x",win2:"Windows 2.x",
     win1:"Windows 1.x",msdos:"MS-DOS",freedos:"FreeDOS",linux:"Linux (x86)",
     reactos:"ReactOS",haiku:"Haiku",freebsd:"FreeBSD",openbsd:"OpenBSD",
-    netbsd:"NetBSD",android:"Android-x86",other:"その他"
+    netbsd:"NetBSD",android:"Android-x86",serenity:"SerenityOS (32bit)","9front":"9front",skift:"SkiftOS",qnx:"QNX",debian:"Debian (i386)",ubuntu:"Ubuntu (i386 / supported releases)",alpine:"Alpine Linux (x86)",arch32:"Arch Linux 32",kolibrios:"KolibriOS",other:"その他"
   };
   return names[key]||key;
 }
@@ -3232,7 +3252,7 @@ async function startEmulator(options={})
     {
       selectedISO = recovery;
       selectedISOName = recovery.name || "ISO";
-      if(!isoReady)
+      if(!(isoReady || window.__superEmulatorISOReady))
       {
         log("ISOは選択されていますが、読み込み・判定が未完了のため起動をブロックしました", "WARN");
         alert("ISOの読み込み・判定が完了するまで起動できません。");
@@ -3432,7 +3452,7 @@ async function startEmulator(options={})
     if(VALID_OS_KEYS.has(confirmedForBoot)) selectedOS=confirmedForBoot;
     if(!VALID_OS_KEYS.has(selectedOS)) selectedOS="other";
     if(osSelect) osSelect.value=selectedOS;
-    confirmedOS=selectedOS; pendingManualOS=selectedOS; window.__superEmulatorConfirmedOS=selectedOS; updateManualOSStatus();
+    confirmedOSKey=selectedOS; pendingManualOS=selectedOS; window.__superEmulatorConfirmedOS=selectedOS; updateManualOSStatus();
     localStorage.setItem("superEmulator.lastOS",selectedOS);
     const safeOSConfig = (window.OS_CONFIG && typeof window.OS_CONFIG === "object") ? window.OS_CONFIG : {};
     const cfg = safeOSConfig[selectedOS] || safeOSConfig.other || {memory:128,acpi:false};
@@ -4026,6 +4046,8 @@ async function stopAndDestroy()
   );
 }
 
+
+window.stopAndDestroy=stopAndDestroy;
 
 document.getElementById("powerBtn")
   .onclick = async () =>
@@ -5178,44 +5200,9 @@ document.addEventListener("keyup",e=>{
 </script>
 
 
-<!-- ISO判定ボタンの最終UIブリッジ。メイン処理が途中でエラーになってもボタンを操作可能にする。 -->
+<!-- ISO判定ボタン最終ブリッジ -->
 <script>
-(function(){
-  function runISODetect(e){
-    if(e){ e.preventDefault(); e.stopImmediatePropagation(); }
-    const btn=document.getElementById("detectBtn");
-    const fileInput=document.getElementById("isoFile");
-    const file=(window.__superEmulatorSelectedISO || (fileInput && fileInput.files && fileInput.files[0])) || null;
-    if(!file){
-      const result=document.getElementById("isoDetectResult");
-      if(result) result.innerHTML='<span style="color:#ffcc66">⚠️ 先にISOファイルを選択してください。</span>';
-      if(fileInput) fileInput.focus();
-      return;
-    }
-    window.__superEmulatorSelectedISO=file;
-    const fn=window.detectISOFile;
-    if(typeof fn!=="function"){
-      const result=document.getElementById("isoDetectResult");
-      if(result) result.innerHTML='<span style="color:#ff7d7d">❌ ISO判定機能の読み込みに失敗しました。ページを再読み込みしてください。</span>';
-      return;
-    }
-    Promise.resolve(fn(file)).catch(err=>{
-      console.error(err);
-      const result=document.getElementById("isoDetectResult");
-      if(result) result.innerHTML='<span style="color:#ff7d7d">❌ ISO自動判定失敗: '+String(err && (err.message||err)).replace(/[<>]/g,"")+'</span>';
-    });
-  }
-  document.addEventListener("click",function(e){
-    const b=e.target.closest && e.target.closest("#detectBtn");
-    if(!b) return;
-    runISODetect(e);
-  },true);
-  document.addEventListener("change",function(e){
-    if(!e.target || e.target.id!=="isoFile") return;
-    const f=e.target.files && e.target.files[0];
-    if(f) window.__superEmulatorSelectedISO=f;
-  },true);
-})();
+(function(){const b=document.getElementById("detectBtn");if(!b)return;b.onclick=function(e){if(e){e.preventDefault();e.stopPropagation();}const fn=window.__superEmulatorRunSafeISOSelectionAndDetection;return typeof fn==="function"?fn():null;};b.style.pointerEvents="auto";b.style.zIndex="10003";b.disabled=false;})();
 </script>
 
 
@@ -5655,6 +5642,15 @@ document.addEventListener("keyup",e=>{
     return ok;
   };
 })();
+</script>
+
+<script>
+(function(){
+  const b=document.getElementById("confirmManualOSBtn"),s=document.getElementById("osSelect");if(!b||!s)return;
+  const run=function(e){if(e){e.preventDefault();e.stopPropagation();}try{const fn=window.superEmulatorSetSelectedOS;if(typeof fn!=="function")throw new Error("OS確定APIが未準備");if(fn(s.value,"手動設定",true)!==true)throw new Error("OS確定処理が完了しませんでした");const st=document.getElementById("manualOSConfirmStatus");if(st){st.textContent="確定済み: "+s.options[s.selectedIndex].text;st.style.color="#8ff0b0";}if(typeof window.log==="function")window.log("[OS CONFIRM BRIDGE] "+s.value+" を確定","OK");}catch(err){if(typeof window.log==="function")window.log("[OS CONFIRM BRIDGE] 失敗: "+(err?.message||err),"ERROR");}return false;};
+  b.onclick=run;b.addEventListener("pointerup",run,false);b.disabled=false;b.style.pointerEvents="auto";b.style.touchAction="manipulation";
+})();
+window.superEmulatorAuditButtons=function(){const ids=["detectBtn","manualDetectBtn","confirmManualOSBtn","startBtn","powerBtn","resetBtn","fullscreenBtn","screenshotBtn","connectDiskBtn","checkDiskConnectionBtn","connectDiskURLBtn","downloadDiskBtn","downloadCurrentDiskBtn","rebuildDiskBtn","clearDiskImageBtn","settingsFullscreenBtn","settingsScreenshotBtn","debugPathBtn","debugUploadBtn","sendCommand","repairBtn","openSettingsMain"];const rows=ids.map(id=>{const e=document.getElementById(id);if(!e)return id+": MISSING";const r=e.getBoundingClientRect(),c=getComputedStyle(e);return `${id}: disabled=${!!e.disabled} pointer=${c.pointerEvents} display=${c.display} z=${c.zIndex} rect=${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)}x${Math.round(r.height)}`;});const out=rows.join("\n");console.log("[UI AUDIT]\n"+out);if(typeof window.log==="function")window.log("[UI AUDIT]\n"+out);return out;};
 </script>
 </body>
 </html>
