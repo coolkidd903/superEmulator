@@ -479,8 +479,8 @@ button{
   background:#0b1017;
   border-bottom:1px solid rgba(255,255,255,.07);
 }
-#functionBar{position:relative;z-index:50;pointer-events:auto;}
-#functionBar .fkey{pointer-events:auto !important;position:relative;z-index:51;user-select:none;-webkit-user-select:none;}
+#functionBar{position:relative;z-index:10000;pointer-events:auto !important;}
+#functionBar .fkey{pointer-events:auto !important;position:relative;z-index:10001;user-select:none;-webkit-user-select:none;}
 
 
 .fkey{
@@ -906,6 +906,7 @@ button, input, select, label, a, [role="button"] { pointer-events:auto !importan
 #screenArea { position:relative; z-index:1; }
 #settingsModal { z-index:9000 !important; }
 #settingsModal .modal-card { position:relative; z-index:9001; pointer-events:auto !important; }
+#confirmManualOSBtn{pointer-events:auto !important;position:relative;z-index:10002 !important;}
 
 
 .iso-detected{padding:10px;border:1px solid rgba(255,255,255,.08);background:#080c12;border-radius:10px;color:#cfd9e8;font-size:12px;line-height:1.6}
@@ -1393,10 +1394,11 @@ button, input, select, label, a, [role="button"] { pointer-events:auto !importan
         <option value="524288">512 GB</option>
       </select>
       <div class="storage-note">512MB～512GBを選択できます。RAM上の新規仮想ディスクはホストの安全上限に合わせて実体容量が制限されます。『選択容量の .img を保存』では選択した容量のRAW .imgを作成します。</div>
-      <label class="label">既存ディスクイメージ（任意）</label>
-      <input class="field" id="diskImageFile" type="file" accept=".img,.vhd,.bin">
-      <div id="diskReadHint" style="font-size:10px;color:#8290a4;margin:-2px 0 8px;line-height:1.5">選択後に安全な読み込み準備を行います。接続ボタンを押すまでv86には接続しません。</div>
-      <div class="row" style="margin-top:8px"><button class="ctrl-btn primary" id="connectDiskBtn" type="button">🔌 HDD/SSDを安全に再取得して接続</button><button class="ctrl-btn" id="checkDiskConnectionBtn" type="button">🔎 接続状態を確認</button></div>
+      <!-- HDD/SSDは専用の「接続」ボタンからファイルピッカーを開く。
+           旧inputは内部互換用として非表示で保持し、ユーザーにはアップロードUIを見せない。 -->
+      <input id="diskImageFile" type="file" accept=".img,.vhd,.bin" style="display:none" aria-hidden="true" tabindex="-1">
+      <div id="diskReadHint" style="font-size:10px;color:#8290a4;margin:-2px 0 8px;line-height:1.5">「HDD/SSDを安全に取得して接続」を押すとファイル選択が開き、選択した実ファイルをその場で接続します。</div>
+      <div class="row" style="margin-top:8px"><button class="ctrl-btn primary" id="connectDiskBtn" type="button">🔌 HDD/SSDを安全に取得して接続</button><button class="ctrl-btn" id="checkDiskConnectionBtn" type="button">🔎 接続状態を確認</button></div>
       <div id="diskConnectionStatus" class="help" style="margin-top:8px">接続状態: 未接続</div>
       <label class="label">大容量HDD URL（16/32GB以上・推奨）</label>
       <input class="field" id="diskImageURL" type="url" placeholder="./disk32gb.img">
@@ -2642,8 +2644,8 @@ window.OS_CONFIG = Object.assign(window.OS_CONFIG || {}, {
 window.OS_CONFIG = window.OS_CONFIG || {};
 
 if(!VALID_OS_KEYS.has(selectedOS)) selectedOS = "other";
-let pendingManualOS = selectedOS;
-let confirmedOS = selectedOS;
+var pendingManualOS = selectedOS;
+var confirmedOS = selectedOS;
 window.__superEmulatorConfirmedOS = confirmedOS;
 if(osSelect) osSelect.value = pendingManualOS;
 window.currentOSConfig = window.OS_CONFIG?.[confirmedOS] || window.OS_CONFIG?.other || {memory:128,acpi:false};
@@ -2943,12 +2945,36 @@ manualDetectButton.addEventListener("pointerdown",e=>e.stopPropagation(),true);
 
 osSelect.addEventListener("change", () => { setSelectedOS(osSelect.value,"手動選択中",false); });
 const confirmManualOSBtn=document.getElementById("confirmManualOSBtn");
-if(confirmManualOSBtn){ confirmManualOSBtn.addEventListener("click",e=>{
-  e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
-  const key=osSelect?.value || pendingManualOS;
-  if(VALID_OS_KEYS.has(key)) setSelectedOS(key,"手動設定",true);
-  confirmManualOSBtn.blur();
-},true); }
+if(confirmManualOSBtn){
+  const confirmOSNow=(e)=>{
+    if(e){ e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); }
+    const key=(osSelect?.value || pendingManualOS || "other");
+    try{
+      if(!VALID_OS_KEYS.has(key)){
+        log(`[OS CONFIRM] 無効なOSキー: ${key}`,"ERROR");
+        return false;
+      }
+      const ok=setSelectedOS(key,"手動設定",true);
+      if(!ok) throw new Error("OS確定処理がfalseを返しました");
+      const status=document.getElementById("manualOSConfirmStatus");
+      if(status){ status.textContent=`確定済み: ${getOSName(key)}`; status.style.color="#8ff0b0"; }
+      log(`[OS CONFIRM] 完了: ${getOSName(key)} / key=${key}`,"OK");
+      confirmManualOSBtn.blur();
+      return true;
+    }catch(err){
+      log(`[OS CONFIRM] 失敗: ${err?.message||err}`,"ERROR");
+      const status=document.getElementById("manualOSConfirmStatus");
+      if(status){ status.textContent=`確定失敗: ${err?.message||err}`; status.style.color="#ff8d8d"; }
+      return false;
+    }
+  };
+  confirmManualOSBtn.addEventListener("pointerdown",confirmOSNow,{capture:true});
+  confirmManualOSBtn.addEventListener("click",confirmOSNow,{capture:true});
+  confirmManualOSBtn.onclick=confirmOSNow;
+  confirmManualOSBtn.style.pointerEvents="auto";
+  confirmManualOSBtn.style.position="relative";
+  confirmManualOSBtn.style.zIndex="10002";
+}
 
 
 
@@ -4092,6 +4118,8 @@ function syncScreenContainerGeometry(reason="unknown"){
   const target=canvas && getComputedStyle(canvas).display!=="none" ? canvas : text;
   if(!target) return;
 
+  /* v86の公式screen_container基準に合わせ、container自身を実描画サイズへ。
+     CSS transform/width:100%/余白をここでは一切使わない。 */
   screen.style.width="fit-content";
   screen.style.height="fit-content";
   screen.style.minWidth="0";
@@ -4099,28 +4127,17 @@ function syncScreenContainerGeometry(reason="unknown"){
   screen.style.transform="none";
   screen.style.margin="0";
   screen.style.padding="0";
+  screen.style.lineHeight="0";
 
   const sr=screen.getBoundingClientRect();
   const tr=target.getBoundingClientRect();
-  const dx=Math.round((sr.left-tr.left)*100)/100;
-  const dy=Math.round((sr.top-tr.top)*100)/100;
-  const dw=Math.round((sr.width-tr.width)*100)/100;
-  const dh=Math.round((sr.height-tr.height)*100)/100;
-
-  window.__superEmulatorMouseGeometry={
-    reason,
-    screen:{left:sr.left,top:sr.top,width:sr.width,height:sr.height},
-    target:{left:tr.left,top:tr.top,width:tr.width,height:tr.height},
-    delta:{x:dx,y:dy,width:dw,height:dh},
-    dpr:window.devicePixelRatio||1,
-    scale:screenScale
-  };
-
-  /* 小さな小数誤差は許容するが、明らかなズレはログへ残す。 */
-  if(Math.abs(dx)>0.5 || Math.abs(dy)>0.5 || Math.abs(dw)>0.5 || Math.abs(dh)>0.5){
-    log(`[MOUSE] 座標基準確認(${reason}): screen=${Math.round(sr.width)}x${Math.round(sr.height)} target=${Math.round(tr.width)}x${Math.round(tr.height)} offset=${dx},${dy} diff=${dw},${dh}`,"WARN");
+  const dx=sr.left-tr.left, dy=sr.top-tr.top;
+  const dw=sr.width-tr.width, dh=sr.height-tr.height;
+  window.__superEmulatorMouseGeometry={reason,screen:{left:sr.left,top:sr.top,width:sr.width,height:sr.height},target:{left:tr.left,top:tr.top,width:tr.width,height:tr.height},delta:{x:dx,y:dy,width:dw,height:dh},dpr:devicePixelRatio||1,scale:screenScale};
+  if(Math.abs(dx)>0.5||Math.abs(dy)>0.5||Math.abs(dw)>0.5||Math.abs(dh)>0.5){
+    log(`[MOUSE] 座標基準ズレ検出(${reason}): container=${Math.round(sr.width)}x${Math.round(sr.height)} target=${Math.round(tr.width)}x${Math.round(tr.height)} offset=${dx.toFixed(2)},${dy.toFixed(2)} diff=${dw.toFixed(2)},${dh.toFixed(2)}`,"WARN");
   }else{
-    log(`[MOUSE] 座標基準OK(${reason}): ${Math.round(tr.width)}x${Math.round(tr.height)} / DPR=${window.devicePixelRatio||1} / scale=${screenScale}`);
+    log(`[MOUSE] 座標基準OK(${reason}): ${Math.round(tr.width)}x${Math.round(tr.height)} / DPR=${devicePixelRatio||1} / scale=${screenScale}`);
   }
 }
 
@@ -4173,7 +4190,15 @@ screen.addEventListener("pointerdown",e=>{
   log(`[MOUSE] pointerdown client=${Math.round(e.clientX)},${Math.round(e.clientY)} local=${Math.round(e.clientX-r.left)},${Math.round(e.clientY-r.top)} rect=${Math.round(r.width)}x${Math.round(r.height)}`);
 },true);
 screen.tabIndex=0;
+screen.style.pointerEvents="auto";
 // v86自身のマウスイベント処理に任せる。HTML側で二重にpointer lockしない。
+window.__superEmulatorEnableMouse=function(){
+  try{
+    if(window.emulator && typeof window.emulator.mouse_set_enabled==="function") window.emulator.mouse_set_enabled(true);
+  }catch(err){ log(`[MOUSE] mouse_set_enabled失敗: ${err?.message||err}`,"WARN"); }
+  requestAnimationFrame(()=>syncScreenContainerGeometry("mouse-enable"));
+};
+screen.addEventListener("click",()=>{ if(window.__superEmulatorEnableMouse) window.__superEmulatorEnableMouse(); },true);
 window.addEventListener("resize",()=>{ if(emulator) requestAnimationFrame(applyScreenScale); });
 window.addEventListener("scroll",()=>{ if(emulator) requestAnimationFrame(applyScreenScale); },{passive:true});
 
@@ -5297,31 +5322,43 @@ document.addEventListener("keyup",e=>{
   document.querySelectorAll('.command[data-command]').forEach(b=>{b.onclick=function(e){e.preventDefault();e.stopPropagation();const v=b.dataset.command||"";const x=el('commandInput');if(x)x.value=v;if(typeof window.sendCommand==='function')window.sendCommand(v);};});
   wire("repairBtn",()=>{if(typeof window.generateRepairBash==='function')window.generateRepairBash();else if(typeof window.repairBash==='function')window.repairBash();else alert("修復Bash生成機能がまだ読み込まれていません。");});
 
-  /* F1～F12: UIボタンも完全独立。各ボタンに個別pointerdownを登録する。 */
-  function wireFButton(id, number, scanCode){
-    const b=el(id); if(!b) return;
-    b.style.pointerEvents='auto'; b.style.touchAction='manipulation'; b.style.position='relative'; b.style.zIndex='30';
-    b.onpointerdown=function(e){
-      e.preventDefault(); e.stopPropagation();
+  /* F1～F12: 完全独立。各ボタンは別々のハンドラを持ち、
+     pointerdown/click のどちらでも確実にv86へ make+break を送る。 */
+  function installIndependentFButton(id, number, scanCode){
+    const b=el(id);
+    if(!b) return;
+    const send=()=>{
       const em=window.emulator;
-      if(!em){ if(typeof window.log==='function')window.log(`F${number}: エミュレーター未起動`,'WARN'); return; }
-      if(typeof em.keyboard_send_scancodes!=='function'){ if(typeof window.log==='function')window.log(`F${number}: キーボードAPIなし`,'ERROR'); return; }
-      try{ em.keyboard_send_scancodes([scanCode]); em.keyboard_send_scancodes([scanCode|0x80]); if(typeof window.log==='function')window.log(`[FKEY UI F${number}] DOWN/UP 0x${scanCode.toString(16)}`); }catch(err){ if(typeof window.log==='function')window.log(`[FKEY UI F${number}] 失敗: ${err?.message||err}`,'ERROR'); }
+      if(!em){ if(typeof window.log==='function')window.log(`[FKEY UI F${number}] エミュレーター未起動`,"WARN"); return; }
+      if(typeof em.keyboard_send_scancodes!=="function"){ if(typeof window.log==='function')window.log(`[FKEY UI F${number}] keyboard_send_scancodes APIなし`,"ERROR"); return; }
+      try{
+        em.keyboard_send_scancodes([scanCode, scanCode|0x80]);
+        if(typeof window.log==='function')window.log(`[FKEY UI F${number}] 送信成功 make=0x${scanCode.toString(16)} break=0x${(scanCode|0x80).toString(16)}`,"OK");
+      }catch(err){
+        if(typeof window.log==='function')window.log(`[FKEY UI F${number}] 送信失敗: ${err?.message||err}`,"ERROR");
+      }
     };
-    b.onclick=function(e){e.preventDefault();e.stopPropagation();};
+    b.addEventListener("pointerdown",e=>{ e.preventDefault(); e.stopImmediatePropagation(); send(); },true);
+    b.addEventListener("click",e=>{ e.preventDefault(); e.stopImmediatePropagation(); },true);
+    b.onclick=send;
+    b.style.pointerEvents="auto";
+    b.style.touchAction="none";
+    b.style.position="relative";
+    b.style.zIndex="10001";
   }
-  wireFButton("fkey1",1,0x3B);
-  wireFButton("fkey2",2,0x3C);
-  wireFButton("fkey3",3,0x3D);
-  wireFButton("fkey4",4,0x3E);
-  wireFButton("fkey5",5,0x3F);
-  wireFButton("fkey6",6,0x40);
-  wireFButton("fkey7",7,0x41);
-  wireFButton("fkey8",8,0x42);
-  wireFButton("fkey9",9,0x43);
-  wireFButton("fkey10",10,0x44);
-  wireFButton("fkey11",11,0x57);
-  wireFButton("fkey12",12,0x58);
+  installIndependentFButton("fkey1",1,0x3B);
+  installIndependentFButton("fkey2",2,0x3C);
+  installIndependentFButton("fkey3",3,0x3D);
+  installIndependentFButton("fkey4",4,0x3E);
+  installIndependentFButton("fkey5",5,0x3F);
+  installIndependentFButton("fkey6",6,0x40);
+  installIndependentFButton("fkey7",7,0x41);
+  installIndependentFButton("fkey8",8,0x42);
+  installIndependentFButton("fkey9",9,0x43);
+  installIndependentFButton("fkey10",10,0x44);
+  installIndependentFButton("fkey11",11,0x57);
+  installIndependentFButton("fkey12",12,0x58);
+
   wire("windowsKeyBtn",()=>{const em=window.emulator;if(em&&typeof em.keyboard_send_scancodes==='function'){try{em.keyboard_send_scancodes([0xE0,0x5B]);em.keyboard_send_scancodes([0xE0,0xDB]);}catch(e){if(typeof window.log==='function')window.log(`Winキー送信失敗: ${e}`,'ERROR');}}});
 
   /* HDD入力は独立処理。選択した瞬間に容量測定→接続状態更新。 */
@@ -5434,94 +5471,113 @@ document.addEventListener("keyup",e=>{
     return f;
   }
 
-  async function connect(){
-    let f=selectedFile();
-    if(!f){
-      if(connection) connection.textContent="接続状態: 未接続（HDD/SSDイメージを選択してください）";
-      if(typeof log==="function") log("[HDD/SSD] 接続ボタン: 対象ファイルなし","WARN");
-      alert("先にHDD/SSDの .img / .vhd / .bin を選択してください。");
-      return;
+  function chooseDiskFileFromPicker(){
+    /* 接続ボタン自体がファイル選択UI。ユーザーに別の「アップロード」ボタンは見せない。 */
+    if(typeof window.showOpenFilePicker==="function") {
+      return window.showOpenFilePicker({
+        multiple:false,
+        types:[{description:"HDD/SSD image",accept:{"application/octet-stream":[".img",".vhd",".bin"]}}]
+      }).then(async handles=>{
+        if(!handles?.[0]) return null;
+        const handle=handles[0];
+        const f=await handle.getFile();
+        if(!f || !f.size) throw new Error("選択したHDD/SSDイメージが空です。");
+        window.__superEmulatorSelectedDiskHandle=handle;
+        return f;
+      });
     }
-    if(typeof selectedDiskFile!=="undefined") selectedDiskFile=f;
-    if(typeof selectedDiskName!=="undefined") selectedDiskName=fileName(f);
-    if(typeof selectedDiskURL!=="undefined") selectedDiskURL="";
-    if(typeof selectedDiskURLSize!=="undefined") selectedDiskURLSize=0;
-    if(typeof virtualDisk!=="undefined") virtualDisk=null;
-    window.__superEmulatorSelectedDisk=f;
-    window.__superEmulatorDiskConnectionMode="file";
-    window.__superEmulatorDiskConnected=false;
-    if(status) status.textContent=`${fileName(f)} / ${fileSize(f)} / 接続処理中`;
-    if(connection) connection.textContent="接続状態: 接続処理中";
-    if(typeof log==="function") log(`[HDD/SSD] 接続ボタン押下: ${fileName(f)} / ${fileSize(f)} / 読み込み開始`);
+    /* showOpenFilePicker非対応時だけ、非表示inputを一時生成して同じボタンから選択する。 */
+    return new Promise((resolve,reject)=>{
+      const picker=document.createElement("input");
+      picker.type="file";
+      picker.accept=".img,.vhd,.bin";
+      picker.style.display="none";
+      picker.onchange=()=>{
+        const f=picker.files?.[0]||null;
+        picker.remove();
+        resolve(f);
+      };
+      picker.oncancel=()=>{ picker.remove(); resolve(null); };
+      document.body.appendChild(picker);
+      picker.click();
+    });
+  }
+
+  async function connect(){
+    if(connection) connection.textContent="接続状態: ファイル選択待ち";
+    if(typeof log==="function") log("[HDD/SSD] 接続ボタン押下: ファイルピッカーを開始");
+    let f=null;
     try{
-      let buffer=window.__superEmulatorSelectedDiskBuffer || (typeof selectedDiskBuffer!=="undefined" ? selectedDiskBuffer : null);
-      if(!(buffer instanceof ArrayBuffer) || buffer.byteLength===0){
-        if(selectedDiskReadPromise) buffer=await selectedDiskReadPromise;
+      f=await chooseDiskFileFromPicker();
+      if(!f){
+        if(connection) connection.textContent="接続状態: キャンセル（未接続）";
+        if(typeof log==="function") log("[HDD/SSD] ファイル選択をキャンセルしました");
+        return;
       }
-      if(!(buffer instanceof ArrayBuffer) || buffer.byteLength===0 || selectedDiskReadError){
-        /* 読み込み済みバッファが無い/NotReadableErrorなら、必ず新しいFile参照を取り直す。 */
-        f=await acquireFreshFileIfNeeded(null,true);
-        if(!f) throw new Error("HDD/SSDファイルを再取得できませんでした。");
-        selectedDiskFile=f;
-        selectedDiskName=f.name||selectedDiskName;
-        window.__superEmulatorSelectedDisk=f;
-        selectedDiskReadError=null;
-        if(f.size/1024/1024 > LOCAL_DISK_BUFFER_LIMIT_MB){
-          /* 大容量はFileをBlob URLへ固定し、v86のasync HDDで読む。
-             これなら巨大ArrayBuffer確保もNotReadableError再発も避けられる。 */
-          if(window.__superEmulatorSelectedDiskObjectURL){
-            try{ URL.revokeObjectURL(window.__superEmulatorSelectedDiskObjectURL); }catch(_){}
-          }
-          const blobURL=URL.createObjectURL(f);
-          window.__superEmulatorSelectedDiskObjectURL=blobURL;
-          selectedDiskURL=blobURL;
-          selectedDiskURLSize=f.size;
-          selectedDiskFile=f;
-          selectedDiskName=f.name||selectedDiskName;
-          window.__superEmulatorSelectedDisk=f;
-          buffer=null;
-          log(`[HDD/SSD] 大容量FileをBlob URLへ固定: ${formatBytes(f.size)} / async HDD接続`);
-        }else{
-          const freshBuffer=await f.arrayBuffer();
-          if(!(freshBuffer instanceof ArrayBuffer)||freshBuffer.byteLength!==f.size) throw new Error(`読み込みサイズ不一致: ${freshBuffer?.byteLength||0} / ${f.size}`);
-          buffer=freshBuffer.slice(0);
-          selectedDiskFile=f;
-          selectedDiskName=f.name||selectedDiskName;
-          window.__superEmulatorSelectedDisk=f;
-          log(`[HDD/SSD] 新しいFile参照から読み込み完了: ${formatBytes(buffer.byteLength)}`);
+
+      /* 選択直後の新鮮なFileだけを使う。古いinput File参照は再利用しない。 */
+      selectedDiskFile=f;
+      selectedDiskName=f.name||"disk.img";
+      selectedDiskReadError=null;
+      selectedDiskReadPromise=null;
+      window.__superEmulatorSelectedDisk=f;
+      window.__superEmulatorDiskConnectionMode="file";
+      window.__superEmulatorDiskConnected=false;
+      if(status) status.textContent=`${fileName(f)} / ${fileSize(f)} / 接続処理中`;
+      if(connection) connection.textContent="接続状態: 安全な読み込みを実行中";
+      if(typeof log==="function") log(`[HDD/SSD] 新しいFile参照を取得: ${f.name} / ${formatBytes(f.size)}`);
+
+      selectedDiskURL=""; selectedDiskURLSize=0; virtualDisk=null;
+      window.__superEmulatorSelectedDiskBuffer=null;
+      selectedDiskBuffer=null;
+
+      const sizeMB=f.size/1024/1024;
+      let buffer=null;
+      if(sizeMB>LOCAL_DISK_BUFFER_LIMIT_MB){
+        /* 大容量は巨大ArrayBufferにしない。Blob URL + v86 async HDD。 */
+        if(window.__superEmulatorSelectedDiskObjectURL){
+          try{URL.revokeObjectURL(window.__superEmulatorSelectedDiskObjectURL);}catch(_){}
         }
-      }
-      if(!(buffer instanceof ArrayBuffer) || buffer.byteLength===0){
-        if(!(selectedDiskURL && selectedDiskURLSize>0)) throw new Error("HDD/SSDイメージのデータが空です。");
-        selectedDiskBuffer=null;
-        window.__superEmulatorSelectedDiskBuffer=null;
-        if(typeof log==="function") log(`[HDD/SSD] async HDD接続を確定: ${formatBytes(selectedDiskURLSize)}`);
+        const blobURL=URL.createObjectURL(f);
+        window.__superEmulatorSelectedDiskObjectURL=blobURL;
+        selectedDiskURL=blobURL;
+        selectedDiskURLSize=f.size;
+        if(typeof log==="function") log(`[HDD/SSD] 大容量FileをBlob URLへ固定: ${formatBytes(f.size)} / async HDD接続`);
       }else{
-        selectedDiskBuffer=buffer.slice(0);
-        window.__superEmulatorSelectedDiskBuffer=selectedDiskBuffer;
-        selectedDiskURL="";
-        selectedDiskURLSize=0;
-        if(typeof log==="function") log(`[HDD/SSD] 接続用ArrayBuffer確定: ${formatBytes(selectedDiskBuffer.byteLength)}`);
+        const raw=await f.arrayBuffer();
+        if(!(raw instanceof ArrayBuffer)||raw.byteLength!==f.size) throw new Error(`読み込みサイズ不一致: ${raw?.byteLength||0} / ${f.size}`);
+        buffer=raw.slice(0);
+        selectedDiskBuffer=buffer;
+        window.__superEmulatorSelectedDiskBuffer=buffer;
+        if(typeof log==="function") log(`[HDD/SSD] ArrayBuffer読み込み完了: ${formatBytes(buffer.byteLength)}`);
       }
-      if(typeof emulator!=="undefined" && emulator){
-        if(typeof emulatorStarting!=="undefined" && emulatorStarting) throw new Error("エミュレーター起動処理中です");
-        if(typeof stopAndDestroy!=="function" || typeof startEmulator!=="function") throw new Error("独立接続処理に必要な関数が見つかりません");
-        if(typeof log==="function") log("[HDD/SSD] 実行中v86へ適用するため接続専用再起動を実行");
+
+      if(emulator){
+        if(emulatorStarting) throw new Error("エミュレーター起動処理中です");
+        if(typeof stopAndDestroy!=="function"||typeof startEmulator!=="function") throw new Error("v86再起動関数が見つかりません");
+        if(typeof log==="function") log("[HDD/SSD] 接続内容をv86へ適用するため再起動します");
         await stopAndDestroy();
         await startEmulator();
       }
+
       window.__superEmulatorDiskConnected=true;
-      const connectedSize = selectedDiskBuffer instanceof ArrayBuffer ? formatBytes(selectedDiskBuffer.byteLength) : formatBytes(selectedDiskURLSize);
+      const connectedSize=selectedDiskURL?formatBytes(selectedDiskURLSize):formatBytes(selectedDiskBuffer?.byteLength||0);
       if(status) status.textContent=`${fileName(f)} / ${connectedSize} / 接続済み`;
       if(connection) connection.textContent=`接続状態: 接続済み（${fileName(f)} / ${connectedSize}）`;
       if(typeof log==="function") log(`[HDD/SSD] 接続完了: ${fileName(f)} / ${connectedSize}`);
     }catch(err){
       window.__superEmulatorDiskConnected=false;
+      const aborted=err?.name==="AbortError" || /aborted|cancel/i.test(String(err?.message||""));
+      if(aborted){
+        if(connection) connection.textContent="接続状態: キャンセル（未接続）";
+        if(typeof log==="function") log("[HDD/SSD] ファイル選択をキャンセルしました");
+        return;
+      }
       if(status) status.textContent=`${fileName(f)} / ${fileSize(f)} / 接続失敗`;
       if(connection) connection.textContent=`接続状態: 接続失敗（${err?.message||err}）`;
       if(typeof log==="function") log(`[HDD/SSD] 接続失敗: ${err?.message||err}`,"ERROR");
       if(typeof errorSound==="function") errorSound();
-      alert(`HDD/SSDの接続に失敗しました。\n${err?.message||err}\n\n接続ボタンからファイルを再選択すると、新しいFile参照で再試行できます。`);
+      alert(`HDD/SSDの接続に失敗しました。\n\n${err?.message||err}`);
     }
   }
   function check(){
