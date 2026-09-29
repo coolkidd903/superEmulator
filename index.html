@@ -1436,6 +1436,17 @@ button, input, select, label, a, [role="button"] { pointer-events:auto !importan
 
       <label class="label">画面倍率</label>
       <select class="field" id="screenScale"><option value="0.75">75%</option><option value="1" selected>100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option><option value="3">300%</option></select>
+      <div class="display-settings-block" id="displaySettingsBlock">
+        <label class="label" for="displayModeSelect">ディスプレイ方式</label>
+        <select class="field" id="displayModeSelect">
+          <option value="crt">ブラウン管（CRT）</option>
+          <option value="vga">液晶（VGA / 初期液晶）</option>
+          <option value="oled">有機EL / 現代液晶</option>
+          <option value="composite">コンポジット（三色ケーブル）</option>
+          <option value="rgb">RGB / コンポーネント接続</option>
+        </select>
+        <div class="display-mode-preview" id="displayModeStatus"></div>
+      </div>
       <div class="help">画面はスクロール可能です。大きな解像度でも画面外へスクロールできます。</div>
     </div>
 
@@ -5775,6 +5786,446 @@ window.superEmulatorAuditButtons=function(){const ids=["detectBtn","manualDetect
   direct("showLogsBtn",function(){const l=byId("logs");if(l)l.scrollIntoView({behavior:'smooth',block:'nearest'});});
   direct("clearLogs",function(){const l=byId("logs");if(l)l.textContent="";});
   direct("refreshDebugInfo",function(){const x=byId("debugInfo");if(x)x.value=[`protocol=${location.protocol}`,`viewport=${innerWidth}x${innerHeight}`,`devicePixelRatio=${devicePixelRatio}`,`hardwareConcurrency=${navigator.hardwareConcurrency||"unknown"}`,`deviceMemory=${navigator.deviceMemory||"unknown"}GB`,`emulator=${!!window.emulator}`,`canvas=${byId("screen")?.querySelector("canvas")?"OK":"not yet"}`].join("\n");});
+})();
+</script>
+
+
+
+<!-- =========================================================
+     FINAL FILE-PICKER / UI INPUT RESCUE v3
+     ISO/HDDの「ボタンを押しても反応しない」を、File System Access APIに依存せず修正。
+     ISOは通常の <input type=file> をユーザークリックから同期的に開く。
+========================================================= -->
+<script id="superEmulator-file-picker-rescue-v3">
+(function(){
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const isoInput = $("isoFile");
+  const detectBtn = $("detectBtn");
+  const result = $("isoDetectResult");
+  const progressWrap = $("isoDetectProgressWrap");
+  const progress = $("isoDetectProgress");
+  const progressText = $("isoDetectText");
+  const startButtons = [$("landingStart"),$("heroStart"),$("finalStart"),$("startBtn")].filter(Boolean);
+
+  function logSafe(msg, level){
+    try{ if(typeof window.log === "function") window.log(msg, level || "INFO"); }
+    catch(_){ console.log(msg); }
+  }
+  function setBusy(busy){
+    startButtons.forEach(btn=>{
+      btn.disabled = !!busy;
+      btn.dataset.isoLocked = busy ? "1" : "";
+      btn.setAttribute("aria-disabled", busy ? "true" : "false");
+      btn.style.opacity = busy ? ".55" : "";
+      btn.style.cursor = busy ? "not-allowed" : "";
+    });
+  }
+  function setISOState(ready, loading){
+    window.__superEmulatorISOReady = !!ready;
+    window.superEmulatorIsoLoading = !!loading;
+    window.isoReady = !!ready;
+    window.isoLoading = !!loading;
+  }
+
+  /*
+   * 重要:
+   * detectBtn -> input.click() は「ユーザーのclickイベント中」に同期実行する。
+   * showOpenFilePicker() の非同期経路を使わないので、Chromium側のユーザー操作判定に依存しない。
+   */
+  if(detectBtn && isoInput){
+    detectBtn.disabled = false;
+    detectBtn.style.pointerEvents = "auto";
+    detectBtn.style.position = "relative";
+    detectBtn.style.zIndex = "10004";
+    detectBtn.type = "button";
+
+    detectBtn.onclick = function(e){
+      if(e){ e.preventDefault(); e.stopPropagation(); }
+      logSafe("[ISO UI] ISO選択ボタン押下: native file inputを開きます");
+      try{
+        /* 同じISOを連続選択してもchangeを発火できるように毎回valueを空にする */
+        isoInput.value = "";
+        isoInput.click();
+      }catch(err){
+        logSafe("[ISO UI] ファイル選択ダイアログ起動失敗: "+(err?.message||err),"ERROR");
+        alert("ISOファイル選択を開けませんでした。もう一度ボタンを押してください。\n\n"+(err?.message||err));
+      }
+      return false;
+    };
+  }
+
+  async function handleSelectedISO(file){
+    if(!file){ return false; }
+    if(!file.size){
+      setISOState(false,false);
+      if(result) result.innerHTML='<span style="color:#ff7d7d">❌ 選択したISOが空です。</span>';
+      return false;
+    }
+
+    /* 古いFile参照ではなく、今回のchangeイベントで取得した新しいFileだけを使用 */
+    window.__superEmulatorSelectedISO = file;
+    window.__superEmulatorSelectedISOName = file.name;
+    if(typeof window.selectedISO !== "undefined") window.selectedISO = file;
+    if(typeof window.selectedISOName !== "undefined") window.selectedISOName = file.name;
+    setISOState(false,true);
+
+    const cd = $("cdStatus");
+    const boot = $("bootText");
+    if(cd) cd.textContent = file.name;
+    if(boot) boot.textContent = "ISOを読み込み・判定中…";
+    if(progressWrap) progressWrap.style.display = "block";
+    if(progress) progress.value = 0;
+    if(progressText) progressText.textContent = `ISO読み込み開始: ${file.name}`;
+    if(result) result.innerHTML='<span style="color:#ffcc66">⏳ 選択したISOを読み込み・判定中…</span>';
+    setBusy(true);
+    try{
+      /* File参照が実際に読めるか最初に確認 */
+      const probe = await file.slice(0, Math.min(file.size, 1024*1024)).arrayBuffer();
+      if(!(probe instanceof ArrayBuffer) || probe.byteLength === 0) throw new Error("ISOの読み込み結果が空です。");
+      logSafe(`[ISO UI] 新しいFile参照を正常に読み込み: ${file.name} / ${typeof formatBytes==='function'?formatBytes(file.size):file.size+" bytes"}`);
+
+      if(typeof window.detectISOFile !== "function") throw new Error("ISO判定関数がまだ準備されていません。");
+      const detected = await window.detectISOFile(file);
+
+      /* 判定処理が正常終了した時点で、OSがotherでも「ISO処理完了」とする */
+      setISOState(true,false);
+      if(typeof window.setStatus === "function") window.setStatus("待機中","ready");
+      if(boot) boot.textContent = "待機中";
+      if(result) result.innerHTML += '<div style="margin-top:6px;color:#8dffb0">✓ ISOの読み込み・判定が完了しました。起動できます。</div>';
+      logSafe(`[ISO UI] 読み込み・判定完了: ${file.name} / result=${typeof window.getOSName==='function'?window.getOSName(detected||"other"):(detected||"other")}`);
+      return true;
+    }catch(err){
+      setISOState(false,false);
+      logSafe("[ISO UI] 読み込み/判定失敗: "+(err?.stack||err),"ERROR");
+      if(result) result.innerHTML='<span style="color:#ff7d7d">❌ ISOを読み込めませんでした。<br><small>'+String(err?.message||err).replace(/[<>]/g,"")+'</small><br><small>もう一度「ISOを安全に選択・自動判定」を押して選び直してください。</small></span>';
+      if(typeof window.setStatus === "function") window.setStatus("ISOエラー","error");
+      try{ if(typeof window.errorSound === "function") window.errorSound(); }catch(_){ }
+      return false;
+    }finally{
+      setBusy(false);
+      if(detectBtn) detectBtn.disabled = false;
+      window.__superEmulatorIsoDirectBusy = false;
+    }
+  }
+
+  if(isoInput){
+    /* 既存のISO change handlerより先に実行し、二重判定を完全に防ぐ */
+    isoInput.addEventListener("change", function(e){
+      const file = isoInput.files && isoInput.files[0];
+      if(!file) return;
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      if(window.__superEmulatorIsoDirectBusy) return;
+      window.__superEmulatorIsoDirectBusy = true;
+      handleSelectedISO(file);
+    }, true);
+    isoInput.style.pointerEvents = "auto";
+    isoInput.style.position = "relative";
+    isoInput.style.zIndex = "10004";
+  }
+
+  /* 既存のshowOpenFilePicker経路は残しても、main ISOボタンからは呼ばせない */
+  window.__superEmulatorOpenNativeISOInput = function(){
+    if(!isoInput) return false;
+    isoInput.value = "";
+    isoInput.click();
+    return true;
+  };
+
+  /* 主要な「選択」系ボタンも、無反応にならないよう最終確認 */
+  ["debugPathBtn","debugUploadBtn","connectDiskURLBtn","downloadDiskBtn","downloadCurrentDiskBtn","rebuildDiskBtn","clearDiskImageBtn","sendCommand","repairBtn","clearLogs","refreshDebugInfo"].forEach(id=>{
+    const b=$(id); if(!b) return;
+    b.disabled=false;
+    b.style.pointerEvents="auto";
+  });
+
+  window.superEmulatorISOFilePickerSelfTest=function(){
+    const b=!!detectBtn, i=!!isoInput;
+    const out={detectButton:b,input:i,inputType:isoInput?.type||null,pointer:isoInput?getComputedStyle(isoInput).pointerEvents:null};
+    console.log("[ISO SELF TEST]",out);
+    logSafe("[ISO SELF TEST] "+JSON.stringify(out));
+    return out;
+  };
+})();
+</script>
+
+
+<!-- =========================================================
+     DISPLAY OUTPUT MODES
+     Existing boot/control buttons are intentionally not rewired here.
+========================================================= -->
+<style id="superEmulator-display-modes-css">
+  /* Display effects are visual-only. They NEVER receive pointer input. */
+  #screen > #displayFxLayer,
+  #screen > #displayGhostCanvas{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    pointer-events:none !important;
+    user-select:none;
+    -webkit-user-select:none;
+  }
+  #screen > #displayFxLayer{
+    z-index:20;
+    overflow:hidden;
+    border-radius:0;
+    transition:filter .18s ease, border-radius .18s ease, box-shadow .18s ease;
+  }
+  #screen > #displayFxLayer::before,
+  #screen > #displayFxLayer::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    pointer-events:none !important;
+    opacity:0;
+    transition:opacity .18s ease;
+  }
+  #screen > #displayFxLayer::before{
+    background:
+      repeating-linear-gradient(to bottom,
+        rgba(0,0,0,.18) 0 1px,
+        rgba(255,255,255,.015) 1px 2px,
+        transparent 2px 4px);
+    mix-blend-mode:multiply;
+  }
+  #screen > #displayFxLayer::after{
+    background:radial-gradient(ellipse at center,
+      rgba(0,0,0,0) 52%,
+      rgba(0,0,0,.10) 78%,
+      rgba(0,0,0,.38) 100%);
+  }
+
+  #screenArea.display-crt #displayFxLayer{
+    inset:-1.2%;
+    border-radius:5% / 6%;
+    box-shadow:inset 0 0 32px rgba(0,0,0,.48);
+  }
+  #screenArea.display-crt #displayFxLayer::before{
+    opacity:1;
+    background:
+      repeating-linear-gradient(to bottom,
+        rgba(0,0,0,.20) 0 1px,
+        rgba(255,255,255,.018) 1px 2px,
+        transparent 2px 4px),
+      repeating-linear-gradient(to right,
+        rgba(255,0,0,.018) 0 1px,
+        rgba(0,255,0,.018) 1px 2px,
+        rgba(0,0,255,.018) 2px 3px,
+        transparent 3px 5px);
+    mix-blend-mode:multiply;
+  }
+  #screenArea.display-crt #displayFxLayer::after{opacity:1;}
+  #screenArea.display-crt #screen canvas{
+    image-rendering:auto;
+    filter:contrast(1.04) saturate(.94) brightness(.96);
+  }
+
+  #screenArea.display-vga #displayFxLayer::before{
+    opacity:.55;
+    background:
+      linear-gradient(rgba(80,80,80,.10) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(80,80,80,.08) 1px, transparent 1px);
+    background-size:3px 3px;
+    mix-blend-mode:multiply;
+  }
+  #screenArea.display-vga #displayFxLayer::after{
+    opacity:.16;
+    background:linear-gradient(180deg,rgba(255,255,255,.10),transparent 25%,transparent 75%,rgba(0,0,0,.08));
+  }
+  #screenArea.display-vga #screen canvas{
+    image-rendering:auto;
+    filter:saturate(.86) brightness(1.035) contrast(.96);
+  }
+
+  #screenArea.display-oled #screen canvas{
+    image-rendering:pixelated;
+    image-rendering:crisp-edges;
+    filter:none;
+  }
+
+  #screenArea.display-composite #displayFxLayer::before{
+    opacity:.70;
+    background:
+      repeating-linear-gradient(to bottom,
+        transparent 0 2px,
+        rgba(255,255,255,.035) 2px 3px,
+        transparent 3px 5px),
+      repeating-linear-gradient(90deg,
+        rgba(255,0,0,.018) 0 2px,
+        rgba(0,255,255,.018) 2px 4px,
+        transparent 4px 7px);
+    mix-blend-mode:screen;
+  }
+  #screenArea.display-composite #displayFxLayer::after{
+    opacity:.20;
+    background:linear-gradient(90deg,
+      rgba(255,0,0,.04), transparent 18%,
+      rgba(0,255,255,.035) 50%, transparent 82%,
+      rgba(255,0,0,.04));
+  }
+  #screenArea.display-composite #screen canvas{
+    image-rendering:auto;
+    filter:saturate(.86) contrast(.94) brightness(1.02);
+  }
+
+  #screenArea.display-rgb #displayFxLayer::before{
+    opacity:.12;
+    background:repeating-linear-gradient(to bottom,
+      transparent 0 2px, rgba(255,255,255,.025) 2px 3px);
+    mix-blend-mode:screen;
+  }
+  #screenArea.display-rgb #screen canvas{
+    image-rendering:auto;
+    filter:saturate(1.03) contrast(1.02);
+  }
+
+  #screen > #displayGhostCanvas{
+    z-index:19;
+    opacity:0;
+    display:block;
+    image-rendering:auto;
+  }
+  #screenArea.display-vga #displayGhostCanvas{
+    opacity:.10;
+    mix-blend-mode:normal;
+    filter:blur(.15px) saturate(.90);
+  }
+
+  .display-settings-block{
+    margin-top:12px;
+  }
+  .display-mode-preview{
+    min-height:58px;
+    margin-top:8px;
+    border:1px solid rgba(255,255,255,.09);
+    border-radius:10px;
+    padding:10px 12px;
+    background:#070a0f;
+    color:#b8c4d6;
+    font-size:11px;
+    line-height:1.55;
+  }
+  .display-mode-preview strong{display:block;color:#eef4ff;margin-bottom:3px}
+</style>
+
+<script id="superEmulator-display-modes">
+(function(){
+  "use strict";
+  /* DISPLAY-ONLY MODULE: no existing boot/control button handlers are changed here. */
+  const $=id=>document.getElementById(id);
+  const screenArea=$("screenArea"), screen=$("screen"), select=$("displayModeSelect");
+  if(!screenArea || !screen || !select) return;
+
+  const INFO={
+    crt:{label:"ブラウン管（CRT）",desc:"走査線・RGBアパーチャグリル・周辺減光・丸みのある表示。",scale:"通常スケール"},
+    vga:{label:"液晶（VGA / 初期液晶）",desc:"薄いピクセル格子と、遅い応答を表現するゴースト残像。",scale:"通常スケール"},
+    oled:{label:"有機EL / 現代液晶",desc:"補間を抑え、ドットをクッキリ表示。整数倍Pixel Perfect。",scale:"整数倍Pixel Perfect"},
+    composite:{label:"コンポジット（三色ケーブル）",desc:"色境界のにじみ・クロスカラー・水平干渉を弱く再現。",scale:"通常スケール"},
+    rgb:{label:"RGB / コンポーネント接続",desc:"色にじみを抑えたシャープなアナログ出力。",scale:"通常スケール"}
+  };
+  const keys=Object.keys(INFO);
+  let mode=localStorage.getItem("superEmulator.displayMode")||"oled";
+  if(!INFO[mode]) mode="oled";
+  let ghostTimer=0, ghostDelayTimer=0;
+
+  function log(msg,level="INFO"){
+    try{ if(typeof window.log==="function") window.log(msg,level); else console.log(msg); }catch(_){console.log(msg);}
+  }
+  function canvas(){return screen.querySelector("canvas");}
+  function syncGhostSize(){
+    const c=canvas(); if(!c)return;
+    const w=Math.max(1,c.width||1),h=Math.max(1,c.height||1);
+    if(ghost.width!==w)ghost.width=w;
+    if(ghost.height!==h)ghost.height=h;
+  }
+  function stopGhost(){
+    if(ghostTimer)clearInterval(ghostTimer); ghostTimer=0;
+    if(ghostDelayTimer)clearTimeout(ghostDelayTimer); ghostDelayTimer=0;
+    const ctx=ghost.getContext("2d"); if(ctx)ctx.clearRect(0,0,ghost.width,ghost.height);
+  }
+  function captureGhost(){
+    if(mode!=="vga")return;
+    const c=canvas(); if(!c)return;
+    try{
+      syncGhostSize();
+      const ctx=ghost.getContext("2d",{alpha:true}); if(!ctx)return;
+      ctx.clearRect(0,0,ghost.width,ghost.height);
+      ctx.globalAlpha=1;
+      ctx.drawImage(c,0,0,ghost.width,ghost.height);
+    }catch(e){log("[DISPLAY/VGA] ゴースト取得失敗: "+(e.message||e),"WARN");}
+  }
+  function startGhost(){
+    stopGhost();
+    if(mode!=="vga")return;
+    /* Capture at a low rate; the overlay is intentionally subtle. */
+    ghostTimer=setInterval(captureGhost,55);
+  }
+  function integerScale(){
+    const c=canvas(), em=window.emulator;
+    if(!c||!em||typeof em.screen_set_scale!=="function")return;
+    const w=Math.max(1,screenArea.clientWidth-12),h=Math.max(1,screenArea.clientHeight-12);
+    const baseW=Math.max(1,c.width||640),baseH=Math.max(1,c.height||480);
+    let n=Math.floor(Math.min(w/baseW,h/baseH));
+    if(!Number.isFinite(n)||n<1)n=1;
+    try{
+      em.screen_set_scale(n,n);
+      if(typeof window.syncScreenContainerGeometry==="function")requestAnimationFrame(()=>window.syncScreenContainerGeometry("display-oled-integer"));
+      log("[DISPLAY/OLED] Pixel Perfect倍率="+n+"x");
+    }catch(e){log("[DISPLAY/OLED] 倍率適用失敗: "+(e.message||e),"WARN");}
+  }
+  function applyCanvasMode(){
+    const c=canvas(); if(!c)return;
+    c.style.imageRendering=(mode==="oled")?"pixelated":(mode==="vga"?"auto":"auto");
+    syncGhostSize();
+  }
+  function setMode(next,source="ui"){
+    if(!INFO[next])next="oled";
+    mode=next;
+    localStorage.setItem("superEmulator.displayMode",mode);
+    keys.forEach(k=>screenArea.classList.toggle("display-"+k,k===mode));
+    if(select.value!==mode)select.value=mode;
+    const info=INFO[mode];
+    const status=$("displayModeStatus");
+    if(status)status.innerHTML="<strong>"+info.label+"</strong><br>"+info.desc+"<br><span>倍率: "+info.scale+"</span>";
+    if(mode==="vga")startGhost();else stopGhost();
+    applyCanvasMode();
+    if(mode==="oled")integerScale();
+    log("[DISPLAY] モード変更: "+info.label+" / source="+source);
+  }
+
+  /* Create visual layers INSIDE #screen, exactly over the guest canvas. */
+  let ghost=$("displayGhostCanvas");
+  if(!ghost){ghost=document.createElement("canvas");ghost.id="displayGhostCanvas";screen.appendChild(ghost);}
+  let fx=$("displayFxLayer");
+  if(!fx){fx=document.createElement("div");fx.id="displayFxLayer";screen.appendChild(fx);}
+  fx.setAttribute("aria-hidden","true");
+  ghost.setAttribute("aria-hidden","true");
+
+  select.addEventListener("change",()=>setMode(select.value,"settings"),{passive:true});
+
+  /* Observe only canvas replacement, not every v86 DOM mutation. */
+  const observer=new MutationObserver(()=>{
+    if(canvas()){
+      applyCanvasMode();
+      if(mode==="oled")requestAnimationFrame(integerScale);
+    }
+  });
+  observer.observe(screen,{childList:true});
+  window.addEventListener("resize",()=>{syncGhostSize();if(mode==="oled")integerScale();},{passive:true});
+  document.addEventListener("fullscreenchange",()=>setTimeout(()=>{syncGhostSize();if(mode==="oled")integerScale();},80),{passive:true});
+
+  window.superEmulatorSetDisplayMode=setMode;
+  window.superEmulatorGetDisplayMode=()=>({mode,info:INFO[mode]});
+  window.superEmulatorDisplaySelfTest=function(){
+    const c=canvas(),r=screen.getBoundingClientRect(),hit=document.elementFromPoint(Math.round(r.left+r.width/2),Math.round(r.top+r.height/2));
+    const out={mode,selector:true,selectorPointer:getComputedStyle(select).pointerEvents,screenRect:[r.left,r.top,r.width,r.height],canvas:c?[c.width,c.height]:null,fxPointer:getComputedStyle(fx).pointerEvents,ghostPointer:getComputedStyle(ghost).pointerEvents,centerHit:hit?{tag:hit.tagName,id:hit.id,cls:typeof hit.className==="string"?hit.className:""}:null};
+    console.log("[DISPLAY SELF TEST]",out);log("[DISPLAY SELF TEST] "+JSON.stringify(out));return out;
+  };
+
+  /* Apply after the existing page has finished wiring its normal controls. */
+  requestAnimationFrame(()=>setMode(mode,"initial"));
 })();
 </script>
 
