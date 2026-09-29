@@ -1635,6 +1635,8 @@ let storageType = localStorage.getItem("superEmulator.storageType") || "hdd";
 let screenScale = Number(localStorage.getItem("superEmulator.screenScale") || "1");
 let selectedISO = null;
 let selectedISOName = "";
+let selectedISOBuf = null;
+const ISO_PRELOAD_LIMIT_MB = Math.max(384, Math.min(768, Math.floor((Number(navigator.deviceMemory)||4)*160)));
 let isoLoading = false;
 let isoReady = false;
 let selectedFloppy = null;
@@ -2104,7 +2106,7 @@ async function fetchBuffer(
         await fetch(
           path,
           {
-            cache:"no-store"
+            cache:"default"
           }
         );
 
@@ -2148,36 +2150,22 @@ async function fetchBuffer(
    LOAD V86 ASSETS
 ========================================================= */
 
+let __superEmulatorAssetsPromise=null;
 async function loadV86Assets()
 {
-  if(
-    wasmBuffer &&
-    biosBuffer &&
-    vgaBuffer
-  )
-  {
-    return;
-  }
-
-  await ensureV86Loaded();
-
-  wasmBuffer =
-    await fetchBuffer(
-      FILE_PATHS.wasm,
-      "v86.wasm"
-    );
-
-  biosBuffer =
-    await fetchBuffer(
-      FILE_PATHS.bios,
-      "seabios.bin"
-    );
-
-  vgaBuffer =
-    await fetchBuffer(
-      FILE_PATHS.vga,
-      "vgabios.bin"
-    );
+  if(wasmBuffer && biosBuffer && vgaBuffer) return;
+  if(__superEmulatorAssetsPromise) return __superEmulatorAssetsPromise;
+  __superEmulatorAssetsPromise=(async()=>{
+    await ensureV86Loaded();
+    // 3つの独立した固定ファイルを並列取得。GitHub Pages等のHTTPキャッシュも尊重する。
+    const [wasm,bios,vga]=await Promise.all([
+      fetchBuffer(FILE_PATHS.wasm,"v86.wasm"),
+      fetchBuffer(FILE_PATHS.bios,"seabios.bin"),
+      fetchBuffer(FILE_PATHS.vga,"vgabios.bin")
+    ]);
+    wasmBuffer=wasm; biosBuffer=bios; vgaBuffer=vga;
+  })().catch(e=>{__superEmulatorAssetsPromise=null;throw e;});
+  return __superEmulatorAssetsPromise;
 }
 
 
@@ -2257,7 +2245,8 @@ function chooseInitialMemory(osKey){
 
   /* deviceMemory is deliberately only a hint. Try up to 4GB, then fall back
      automatically if the browser cannot reserve the requested guest RAM. */
-  const target=Math.min(4096, Math.max(256, Math.floor(hostGB*1024*0.75)));
+  // v86 + browser + ISO cache all share the same host memory. 4GB端末で無理に4GBを予約すると起動失敗しやすいので、速度と信頼性のバランスを取る。
+  const target=Math.min(3072, Math.max(256, Math.floor(hostGB*1024*0.58)));
   const osCap=Number((window.OS_CONFIG || {})[osKey]?.memory)||4096;
   const raw=Math.min(target,osCap,4096);
   let p=128; while(p*2<=raw) p*=2;
@@ -2666,19 +2655,25 @@ window.OS_CONFIG = Object.assign(window.OS_CONFIG || {}, {
 window.OS_CONFIG = window.OS_CONFIG || {};
 
 if(!VALID_OS_KEYS.has(selectedOS)) selectedOS = "other";
-let pendingManualOS = selectedOS;
-let confirmedOSKey = VALID_OS_KEYS.has(window.__superEmulatorConfirmedOS) ? window.__superEmulatorConfirmedOS : selectedOS;
+// OS状態はwindowにも保存し、TDZ(Temporal Dead Zone)や初期化順序の影響を受けないようにする。
+var pendingManualOS = VALID_OS_KEYS.has(window.__superEmulatorPendingOS) ? window.__superEmulatorPendingOS : selectedOS;
+var confirmedOSKey = VALID_OS_KEYS.has(window.__superEmulatorConfirmedOS) ? window.__superEmulatorConfirmedOS : selectedOS;
 if(!VALID_OS_KEYS.has(confirmedOSKey)) confirmedOSKey="other";
+window.__superEmulatorPendingOS=pendingManualOS;
 window.__superEmulatorConfirmedOS=confirmedOSKey;
 window.currentOSConfig=window.OS_CONFIG?.[confirmedOSKey] || window.OS_CONFIG?.other || {memory:128,acpi:false};
+function getConfirmedOSKey(){
+  const k=window.__superEmulatorConfirmedOS;
+  return VALID_OS_KEYS.has(k)?k:"other";
+}
 function getOSConfig(key){const cfg=window.OS_CONFIG?.[key]||window.OS_CONFIG?.other||{memory:128,acpi:false};return {memory:Number(cfg.memory)||128,acpi:!!cfg.acpi};}
-function updateManualOSStatus(){const el=document.getElementById("manualOSConfirmStatus");if(!el)return;const same=pendingManualOS===confirmedOSKey;el.textContent=same?`確定済み: ${getOSName(confirmedOSKey)}`:`未確定: ${getOSName(pendingManualOS)}`;el.style.color=same?"#8ff0b0":"#ffd27a";}
+function updateManualOSStatus(){const el=document.getElementById("manualOSConfirmStatus");if(!el)return;const confirmed=getConfirmedOSKey();const pending=VALID_OS_KEYS.has(window.__superEmulatorPendingOS)?window.__superEmulatorPendingOS:pendingManualOS;const same=pending===confirmed;el.textContent=same?`確定済み: ${getOSName(confirmed)}`:`未確定: ${getOSName(pending)}`;el.style.color=same?"#8ff0b0":"#ffd27a";}
 function setSelectedOS(key,source="手動設定",confirm=false){
   if(!VALID_OS_KEYS.has(key))return false;
   const cfg=getOSConfig(key);
-  if(source==="手動選択中"){pendingManualOS=key;if(osSelect)osSelect.value=key;updateManualOSStatus();log(`OS選択中: ${getOSName(key)} / 「このOSを確定」で確定してください`);return true;}
+  if(source==="手動選択中"){pendingManualOS=key;window.__superEmulatorPendingOS=key;if(osSelect)osSelect.value=key;updateManualOSStatus();log(`OS選択中: ${getOSName(key)} / 「このOSを確定」で確定してください`);return true;}
   if(source==="手動設定"&&!confirm)return setSelectedOS(key,"手動選択中",false);
-  selectedOS=key;confirmedOSKey=key;pendingManualOS=key;window.__superEmulatorConfirmedOS=key;
+  selectedOS=key;confirmedOSKey=key;pendingManualOS=key;window.__superEmulatorConfirmedOS=key;window.__superEmulatorPendingOS=key;
   lastDetectedOS=(source==="ISO自動判定")?key:lastDetectedOS;
   window.currentOSConfig={key,name:getOSName(key),memory:cfg.memory,acpi:cfg.acpi,source};
   window.__superEmulatorManualOSOverride=(source!=="ISO自動判定");
@@ -2692,7 +2687,13 @@ function setSelectedOS(key,source="手動設定",confirm=false){
 }
 function saveLastOS(key){return setSelectedOS(key,"手動設定",true);}
 window.superEmulatorSetSelectedOS=setSelectedOS;
-window.superEmulatorGetConfirmedOS=()=>confirmedOSKey;
+window.superEmulatorGetConfirmedOS=()=>getConfirmedOSKey();
+window.superEmulatorOSSelfTest=function(){
+  const r={api:typeof window.superEmulatorSetSelectedOS,confirmed:getConfirmedOSKey(),pending:window.__superEmulatorPendingOS||pendingManualOS,selected:selectedOS,isoReady:!!(isoReady||window.__superEmulatorISOReady),isoLoading:!!isoLoading};
+  console.log("[superEmulator OS SELF TEST]",r);
+  log(`[OS SELF TEST] API=${r.api} / confirmed=${r.confirmed} / pending=${r.pending} / selected=${r.selected} / isoReady=${r.isoReady} / isoLoading=${r.isoLoading}`);
+  return r;
+};
 updateManualOSStatus();
 
 
@@ -2947,22 +2948,69 @@ async function detectISOFile(file){
 
 window.detectISOFile=detectISOFile;
 async function chooseFreshISO(){
-  if(typeof window.showOpenFilePicker==="function"){
+  // まず通常のinputを使う。Chromium/ChromeOSでFile参照が最も安定し、ユーザー操作も明確。
+  const file=await new Promise(resolve=>{
+    const input=document.createElement("input");
+    input.type="file";
+    input.accept=".iso,.img,.bin";
+    input.style.position="fixed";input.style.left="-9999px";input.style.width="1px";input.style.height="1px";input.style.opacity="0";
+    input.onchange=()=>{const f=input.files?.[0]||null;setTimeout(()=>input.remove(),0);resolve(f);};
+    document.body.appendChild(input);
+    input.click();
+  });
+  if(file) return file;
+  return null;
+}
+
+async function reacquireISOWithPicker(){
+  if(typeof window.showOpenFilePicker!=="function") return null;
+  try{
     const handles=await window.showOpenFilePicker({multiple:false,types:[{description:"CD/DVD ISO",accept:{"application/octet-stream":[".iso",".img",".bin"]}}]});
-    if(!handles?.[0])return null;const handle=handles[0];const file=await handle.getFile();if(!file||!file.size)throw new Error("選択したISOが空です。");window.__superEmulatorSelectedISOHandle=handle;return file;
+    if(!handles?.[0]) return null;
+    const handle=handles[0];
+    const fresh=await handle.getFile();
+    if(!fresh||!fresh.size) throw new Error("選択したISOが空です。");
+    window.__superEmulatorSelectedISOHandle=handle;
+    return fresh;
+  }catch(e){
+    if(e?.name==="AbortError") return null;
+    throw e;
   }
-  return await new Promise(resolve=>{const input=document.createElement("input");input.type="file";input.accept=".iso,.img,.bin";input.style.display="none";input.onchange=()=>{const f=input.files?.[0]||null;input.remove();resolve(f);};document.body.appendChild(input);input.click();});
 }
 async function runSafeISOSelectionAndDetection(){
   const result=document.getElementById("isoDetectResult"),btn=document.getElementById("detectBtn");
   try{
     if(btn)btn.disabled=true;
-    const fresh=await chooseFreshISO();
+    let fresh=await chooseFreshISO();
     if(!fresh){if(result)result.innerHTML='<span style="color:#ffcc66">⏹ ISO選択をキャンセルしました。</span>';return false;}
     selectedISO=fresh;selectedISOName=fresh.name;window.__superEmulatorSelectedISO=fresh;isoReady=false;window.__superEmulatorISOReady=false;isoLoading=true;window.superEmulatorIsoLoading=true;
     if(cdStatus)cdStatus.textContent=fresh.name;if(bootText)bootText.textContent="ISOを読み込み・判定中…";setStatus("ISO読み込み中","busy");
     if(result)result.innerHTML='<span style="color:#ffcc66">⏳ 新しいFile参照でISOを安全に読み込み・判定中…</span>';
-    const probe=await fresh.slice(0,Math.min(fresh.size,1024*1024)).arrayBuffer();if(!(probe instanceof ArrayBuffer)||!probe.byteLength)throw new Error("ISOの読み込み結果が空です。");
+    let probe;
+    try{
+      probe=await fresh.slice(0,Math.min(fresh.size,1024*1024)).arrayBuffer();
+    }catch(firstReadError){
+      log(`ISO最初のFile参照読み込み失敗: ${firstReadError?.message||firstReadError} / File Pickerで再取得します`,'WARN');
+      const reacquired=await reacquireISOWithPicker();
+      if(!reacquired) throw firstReadError;
+      fresh=reacquired;
+      selectedISO=fresh;selectedISOName=fresh.name;window.__superEmulatorSelectedISO=fresh;
+      probe=await fresh.slice(0,Math.min(fresh.size,1024*1024)).arrayBuffer();
+    }
+    if(!(probe instanceof ArrayBuffer)||!probe.byteLength)throw new Error("ISOの読み込み結果が空です。");
+    if(fresh.size <= ISO_PRELOAD_LIMIT_MB*1024*1024){
+      try{
+        log(`ISO高速起動用キャッシュ開始: ${formatBytes(fresh.size)}`);
+        selectedISOBuf=(await fresh.arrayBuffer()).slice(0);
+        log(`ISO高速起動用キャッシュ完了: ${formatBytes(selectedISOBuf.byteLength)}`,'OK');
+      }catch(cacheError){
+        selectedISOBuf=null;
+        log(`ISO高速起動用キャッシュ失敗。通常読み込みへフォールバック: ${cacheError?.message||cacheError}`,'WARN');
+      }
+    }else{
+      selectedISOBuf=null;
+      log(`ISOが大容量のため全体キャッシュを省略: ${formatBytes(fresh.size)} / 上限 ${ISO_PRELOAD_LIMIT_MB}MB`);
+    }
     const detected=await detectISOFile(fresh);
     isoReady=true;window.__superEmulatorISOReady=true;isoLoading=false;window.superEmulatorIsoLoading=false;setStatus("待機中","ready");
     if(result)result.innerHTML+='<div style="margin-top:6px;color:#8dffb0">✓ ISOの読み込み・判定が完了しました。起動できます。</div>';
@@ -3387,12 +3435,9 @@ async function startEmulator(options={})
       const liveISO = (isoFile?.files?.[0]) || selectedISO;
       selectedISO = liveISO;
       selectedISOName = liveISO?.name || selectedISOName;
-      const buffer =
-        await readFileBufferReliable(
-          liveISO,
-          isoFile,
-          "ISO"
-        );
+      const buffer = selectedISOBuf instanceof ArrayBuffer
+        ? selectedISOBuf.slice(0)
+        : await readFileBufferReliable(liveISO, isoFile, "ISO");
 
       // v86には「File」ではなく、独立したArrayBufferを渡す。
       // slice()で元のFile由来バッファとの共有を避ける。
@@ -3463,7 +3508,7 @@ async function startEmulator(options={})
     if(VALID_OS_KEYS.has(confirmedForBoot)) selectedOS=confirmedForBoot;
     if(!VALID_OS_KEYS.has(selectedOS)) selectedOS="other";
     if(osSelect) osSelect.value=selectedOS;
-    confirmedOSKey=selectedOS; pendingManualOS=selectedOS; window.__superEmulatorConfirmedOS=selectedOS; updateManualOSStatus();
+    confirmedOSKey=selectedOS; pendingManualOS=selectedOS; window.__superEmulatorConfirmedOS=selectedOS; window.__superEmulatorPendingOS=selectedOS; updateManualOSStatus();
     localStorage.setItem("superEmulator.lastOS",selectedOS);
     const safeOSConfig = (window.OS_CONFIG && typeof window.OS_CONFIG === "object") ? window.OS_CONFIG : {};
     const cfg = safeOSConfig[selectedOS] || safeOSConfig.other || {memory:128,acpi:false};
@@ -3547,7 +3592,8 @@ async function startEmulator(options={})
        */
       screen:{
         container:screen,
-        scaling:screenScale
+        scaling:screenScale,
+        use_graphical_text:true
       },
 
       /*
@@ -3609,7 +3655,7 @@ async function startEmulator(options={})
         true,
 
       fastboot:
-        false,
+        true,
 
       bootmenu:
         false,
@@ -5091,6 +5137,19 @@ function formatBytes(bytes)
 window.updateCursor=updateCursor;
 window.createVirtualDisk=createVirtualDisk;
 window.startEmulator=startEmulator;
+
+// 起動速度優先の軽量プリウォーム。OS/ISO/HDDは勝手に触らず、v86本体とBIOSだけ先読みする。
+window.__superEmulatorPrewarm=async function(){
+  try{
+    if(location.protocol==="file:") return;
+    log("高速起動プリウォーム開始");
+    await loadV86Assets();
+    log("高速起動プリウォーム完了", "OK");
+  }catch(e){
+    log("高速起動プリウォーム失敗（起動時に再試行します）: "+(e?.message||e),"WARN");
+  }
+};
+setTimeout(()=>window.__superEmulatorPrewarm(),250);
 window.downloadSelectedDiskImage=downloadSelectedDiskImage;
 window.downloadCurrentDiskImage=downloadCurrentDiskImage;
 
