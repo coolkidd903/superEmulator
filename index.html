@@ -524,8 +524,7 @@ button{
   display:flex;
   align-items:flex-start;
   justify-content:flex-start;
-  background:
-    radial-gradient(circle at center,#111925,#030509 70%);
+  background:#030509;
   overflow:auto;
   overscroll-behavior:contain;
 }
@@ -1359,6 +1358,11 @@ button, input, select, label, a, [role="button"] { pointer-events:auto !importan
         <button class="ctrl-btn primary" id="detectBtn" type="button">💿 ISOを安全に選択・自動判定</button>
         <button class="ctrl-btn" id="manualDetectBtn">手動OS</button>
       </div>
+      <div class="row" style="margin-top:8px">
+        <button class="ctrl-btn" id="saveISOProgressBtn" type="button">💾 ISO進捗を保存</button>
+        <button class="ctrl-btn" id="restoreISOSavedBtn" type="button">📂 保存済みISOを復元</button>
+      </div>
+      <div class="help" id="isoCacheStatus" style="margin-top:7px">ISOをブラウザ内に保存すると、次回から再ダウンロード・再選択を減らせます。</div>
       <div id="isoDetectProgressWrap" style="display:none;margin-top:9px">
         <div class="label" id="isoDetectText">ISOを解析中...</div>
         <progress id="isoDetectProgress" value="0" max="100"></progress>
@@ -2150,12 +2154,12 @@ async function fetchBuffer(
    LOAD V86 ASSETS
 ========================================================= */
 
-let __superEmulatorAssetsPromise=null;
+window.__superEmulatorAssetsPromise = window.__superEmulatorAssetsPromise || null;
 async function loadV86Assets()
 {
   if(wasmBuffer && biosBuffer && vgaBuffer) return;
-  if(__superEmulatorAssetsPromise) return __superEmulatorAssetsPromise;
-  __superEmulatorAssetsPromise=(async()=>{
+  if(window.__superEmulatorAssetsPromise) return window.__superEmulatorAssetsPromise;
+  window.__superEmulatorAssetsPromise=(async()=>{
     await ensureV86Loaded();
     // 3つの独立した固定ファイルを並列取得。GitHub Pages等のHTTPキャッシュも尊重する。
     const [wasm,bios,vga]=await Promise.all([
@@ -2164,8 +2168,8 @@ async function loadV86Assets()
       fetchBuffer(FILE_PATHS.vga,"vgabios.bin")
     ]);
     wasmBuffer=wasm; biosBuffer=bios; vgaBuffer=vga;
-  })().catch(e=>{__superEmulatorAssetsPromise=null;throw e;});
-  return __superEmulatorAssetsPromise;
+  })().catch(e=>{window.__superEmulatorAssetsPromise=null;throw e;});
+  return window.__superEmulatorAssetsPromise;
 }
 
 
@@ -2977,6 +2981,32 @@ async function reacquireISOWithPicker(){
     throw e;
   }
 }
+async function __superEmulatorRunISOFile(file,options={}){
+  const result=document.getElementById("isoDetectResult");
+  if(!file||!file.size)throw new Error("ISOファイルが空です。");
+  selectedISO=file;selectedISOName=file.name;window.__superEmulatorSelectedISO=file;
+  isoReady=false;window.__superEmulatorISOReady=false;isoLoading=true;window.superEmulatorIsoLoading=true;
+  if(cdStatus)cdStatus.textContent=file.name;
+  if(bootText)bootText.textContent="ISOを読み込み・判定中…";
+  if(result)result.innerHTML='<span style="color:#ffcc66">⏳ ISOを読み込み・判定中…</span>';
+  try{
+    await file.slice(0,Math.min(file.size,1024*1024)).arrayBuffer();
+    if(file.size<=ISO_PRELOAD_LIMIT_MB*1024*1024){
+      try{selectedISOBuf=(await file.arrayBuffer()).slice(0);log(`ISO高速起動用キャッシュ完了: ${formatBytes(selectedISOBuf.byteLength)}`,'OK');}
+      catch(e){selectedISOBuf=null;log(`ISOキャッシュ失敗、通常読み込みへ: ${e?.message||e}`,'WARN');}
+    }else selectedISOBuf=null;
+    const detected=await detectISOFile(file);
+    isoReady=true;window.__superEmulatorISOReady=true;
+    if(result)result.innerHTML+='<div style="margin-top:6px;color:#8dffb0">✓ ISOの読み込み・判定が完了しました。起動できます。</div>';
+    setStatus("待機中","ready");
+    log(`ISO処理完了${options.fromCache?'（保存済み復元）':''}: ${file.name} / result=${getOSName(detected||"other")}`,'OK');
+    return detected;
+  }finally{
+    isoLoading=false;window.superEmulatorIsoLoading=false;
+  }
+}
+window.__superEmulatorRunISOFile=__superEmulatorRunISOFile;
+
 async function runSafeISOSelectionAndDetection(){
   const result=document.getElementById("isoDetectResult"),btn=document.getElementById("detectBtn");
   try{
@@ -6011,6 +6041,150 @@ window.superEmulatorAuditButtons=function(){const ids=["detectBtn","manualDetect
 
 
 <!-- =========================================================
+     ISO PERSISTENT CACHE / PROGRESS SAVE
+     IndexedDBでISO Blobを保存。巨大ISOもRAMに常駐させずブラウザストレージへ。
+========================================================= -->
+<script id="superEmulator-iso-cache">
+(function(){
+  "use strict";
+  const DB_NAME="superEmulatorISOStore";
+  const DB_VERSION=1;
+  const STORE="isos";
+  const $=id=>document.getElementById(id);
+  const status=$('isoCacheStatus');
+  const saveBtn=$('saveISOProgressBtn');
+  const restoreBtn=$('restoreISOSavedBtn');
+  let dbPromise=null;
+  function setStatus(t,kind){
+    if(!status)return;
+    status.textContent=t;
+    status.style.color=kind==='ok'?'#8dffb0':kind==='err'?'#ff8d8d':'#aebbd0';
+  }
+  function logSafe(msg,level='INFO'){
+    try{if(typeof window.log==='function')window.log('[ISO CACHE] '+msg,level);else console.log('[ISO CACHE]',msg);}catch(_){console.log('[ISO CACHE]',msg);}
+  }
+  function openDB(){
+    if(dbPromise)return dbPromise;
+    if(!('indexedDB' in window))return Promise.reject(new Error('このブラウザではIndexedDBが利用できません。'));
+    dbPromise=new Promise((resolve,reject)=>{
+      const req=indexedDB.open(DB_NAME,DB_VERSION);
+      req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains(STORE))db.createObjectStore(STORE,{keyPath:'id'});};
+      req.onsuccess=()=>resolve(req.result);
+      req.onerror=()=>reject(req.error||new Error('IndexedDBを開けませんでした。'));
+    });
+    return dbPromise;
+  }
+  async function putISO(file){
+    if(!file||!file.size)throw new Error('保存するISOが選択されていません。');
+    const db=await openDB();
+    const record={id:'current',name:file.name,size:file.size,type:file.type||'application/octet-stream',lastModified:file.lastModified||Date.now(),savedAt:Date.now(),blob:file};
+    await new Promise((resolve,reject)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put(record);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error||new Error('ISO保存に失敗しました。'));});
+    return record;
+  }
+  async function getISO(){
+    const db=await openDB();
+    return new Promise((resolve,reject)=>{const tx=db.transaction(STORE,'readonly');const req=tx.objectStore(STORE).get('current');req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error||new Error('保存済みISOの取得に失敗しました。'));});
+  }
+  function format(n){try{return typeof formatBytes==='function'?formatBytes(n):String(n)+' bytes';}catch(_){return String(n)+' bytes';}}
+  async function saveCurrentISO(){
+    const file=window.__superEmulatorSelectedISO || window.selectedISO || null;
+    if(!file){setStatus('先にISOを選択してください。','err');return false;}
+    try{
+      setStatus('ISOをブラウザ内へ保存中…','busy');
+      if(navigator.storage?.estimate){const q=await navigator.storage.estimate();logSafe(`Storage quota=${format(q.quota||0)} / usage=${format(q.usage||0)}`);}
+      const rec=await putISO(file);
+      setStatus(`保存済み: ${rec.name} / ${format(rec.size)} / ${new Date(rec.savedAt).toLocaleString()}`,'ok');
+      logSafe(`保存完了: ${rec.name} / ${format(rec.size)}`,'OK');
+      return true;
+    }catch(e){
+      logSafe(`保存失敗: ${e?.stack||e}`,'ERROR');
+      setStatus('ISO保存に失敗: '+(e?.message||e),'err');
+      return false;
+    }
+  }
+  async function restoreSavedISO(){
+    try{
+      setStatus('保存済みISOを確認中…','busy');
+      const rec=await getISO();
+      if(!rec){setStatus('保存済みISOはありません。','err');return false;}
+      const blob=rec.blob instanceof Blob?rec.blob:new Blob([rec.blob],{type:rec.type||'application/octet-stream'});
+      const file=new File([blob],rec.name||'saved.iso',{type:rec.type||'application/octet-stream',lastModified:rec.lastModified||Date.now()});
+      window.__superEmulatorSelectedISO=file;
+      window.selectedISO=file;
+      if(typeof window.__superEmulatorRunISOFile==='function'){
+        await window.__superEmulatorRunISOFile(file,{fromCache:true});
+      }else if(typeof window.detectISOFile==='function'){
+        await window.detectISOFile(file);
+        window.__superEmulatorISOReady=true;
+      }else{
+        throw new Error('ISO判定機能がまだ初期化されていません。');
+      }
+      const input=$('isoFile');if(input)input.value='';
+      const cd=$('cdStatus');if(cd)cd.textContent=file.name;
+      setStatus(`復元完了: ${file.name} / ${format(file.size)}`,'ok');
+      logSafe(`保存済みISOを復元: ${file.name} / ${format(file.size)}`,'OK');
+      return true;
+    }catch(e){
+      logSafe(`復元失敗: ${e?.stack||e}`,'ERROR');setStatus('ISO復元に失敗: '+(e?.message||e),'err');return false;
+    }
+  }
+  window.superEmulatorSaveISOProgress=saveCurrentISO;
+  window.superEmulatorRestoreSavedISO=restoreSavedISO;
+  if(saveBtn)saveBtn.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();saveCurrentISO();},true);
+  if(restoreBtn)restoreBtn.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();restoreSavedISO();},true);
+  window.superEmulatorISOStorageSelfTest=async function(){try{const rec=await getISO();const out={indexedDB:true,saved:!!rec,name:rec?.name||null,size:rec?.size||0};console.log('[ISO CACHE SELF TEST]',out);logSafe(JSON.stringify(out));return out;}catch(e){return {indexedDB:false,error:String(e.message||e)};}};
+  getISO().then(rec=>{if(rec)setStatus(`保存済みISOあり: ${rec.name} / ${format(rec.size)}（復元ボタンで使用）`,'ok');}).catch(()=>{});
+})();
+</script>
+
+<!-- =========================================================
+     FINAL RECOVERY / DIAGNOSTIC BRIDGE
+     メイン処理の途中で例外が起きても、OS確定・修復Bash・診断だけは生き残る。
+========================================================= -->
+<script id="superEmulator-final-recovery">
+(function(){
+  "use strict";
+  const $=id=>document.getElementById(id);
+  function logSafe(msg,level='INFO'){try{if(typeof window.log==='function')window.log('[RECOVERY] '+msg,level);else console.log('[RECOVERY]',msg);}catch(_){} }
+  const OS_NAMES={win10:'Windows 10 (32bit)',win8:'Windows 8 / 8.1',win7:'Windows 7',winvista:'Windows Vista',winxp:'Windows XP',win2000:'Windows 2000',winnt4:'Windows NT 4.0',winme:'Windows Me',win98:'Windows 98',win95:'Windows 95',win31:'Windows 3.x',win2:'Windows 2.x',win1:'Windows 1.x / 1.01',msdos:'MS-DOS',freedos:'FreeDOS',linux:'Linux',debian:'Debian (i386)',ubuntu:'Ubuntu (i386)',alpine:'Alpine Linux',arch32:'Arch Linux 32',reactos:'ReactOS',kolibrios:'KolibriOS',haiku:'Haiku',android:'Android-x86',freebsd:'FreeBSD',openbsd:'OpenBSD',netbsd:'NetBSD',serenity:'SerenityOS', '9front':'9front',skift:'SkiftOS',qnx:'QNX',other:'その他'};
+  function valid(k){return Object.prototype.hasOwnProperty.call(OS_NAMES,k);}
+  function applyOS(key){
+    if(!valid(key))key='other';
+    const sel=$('osSelect');if(sel)sel.value=key;
+    window.__superEmulatorPendingOS=key;window.__superEmulatorConfirmedOS=key;window.__superEmulatorManualOSOverride=true;
+    const cfg=(window.OS_CONFIG&&window.OS_CONFIG[key])||{memory:128,acpi:false};
+    window.currentOSConfig={key,name:OS_NAMES[key],memory:Number(cfg.memory)||128,acpi:!!cfg.acpi,source:'手動設定(Recovery)'};
+    const st=$('manualOSConfirmStatus');if(st){st.textContent='確定済み: '+OS_NAMES[key];st.style.color='#8ff0b0';}
+    const d=$('detectedOS');if(d)d.textContent='手動OS確定: '+OS_NAMES[key];
+    try{localStorage.setItem('superEmulator.lastOS',key);}catch(_){}
+    logSafe('OS確定(Recovery): '+OS_NAMES[key],'OK');
+    return true;
+  }
+  // 常にwindow APIを上書きして、TDZを含むmain scriptの状態に依存しない。
+  window.superEmulatorSetSelectedOS=function(key,source='手動設定',confirm=true){
+    if(source==='手動選択中'&&!confirm){window.__superEmulatorPendingOS=valid(key)?key:'other';const s=$('osSelect');if(s)s.value=window.__superEmulatorPendingOS;return true;}
+    return applyOS(key);
+  };
+  window.superEmulatorGetConfirmedOS=()=>window.__superEmulatorConfirmedOS||'other';
+  window.superEmulatorOSSelfTest=function(){const out={api:typeof window.superEmulatorSetSelectedOS,confirmed:window.__superEmulatorConfirmedOS||null,pending:window.__superEmulatorPendingOS||null,select:!!$('osSelect'),button:!!$('confirmManualOSBtn')};console.log('[OS RECOVERY SELF TEST]',out);logSafe(JSON.stringify(out));return out;};
+  const confirm=$('confirmManualOSBtn');
+  if(confirm){confirm.onclick=function(e){e.preventDefault();e.stopImmediatePropagation();return applyOS($('osSelect')?.value||'other');};confirm.disabled=false;confirm.style.pointerEvents='auto';confirm.style.zIndex='10002';}
+
+  window.addEventListener('error',e=>{logSafe(`GLOBAL ERROR: ${e.message||e.error||e}`,'ERROR');},true);
+  window.addEventListener('unhandledrejection',e=>{logSafe(`UNHANDLED REJECTION: ${e.reason?.stack||e.reason||e}`,'ERROR');},true);
+
+  const repairBtn=$('repairBtn');
+  function makeRepairBash(){
+    return `#!/usr/bin/env bash\nset -u\nROOT="$(cd "$(dirname "$0")" && pwd)"\ncd "$ROOT" || exit 1\necho "=== superEmulator repair / diagnostic ==="\nfail=0\nfor f in index.html libv86.js v86.wasm seabios.bin vgabios.bin; do\n  if [ -f "$f" ]; then printf '[OK] %-16s %s bytes\\n' "$f" "$(wc -c < "$f")"; else echo "[NG] $f"; fail=1; fi\ndone\nif [ -f "./debug-linux/debian.iso" ]; then echo '[OK] debug-linux/debian.iso'; else echo '[INFO] debug-linux/debian.iso not found'; fi\nif command -v sha256sum >/dev/null 2>&1; then echo; echo '[SHA256]'; sha256sum libv86.js v86.wasm seabios.bin vgabios.bin 2>/dev/null || true; fi\necho; echo '[HTTP]'; if command -v python3 >/dev/null 2>&1; then echo '[OK] python3'; echo 'Start with: python3 -m http.server 8000'; else echo '[NG] python3 not found'; fail=1; fi\necho; echo '[TIP] Do not open with file://; use http://localhost:8000/ or GitHub Pages.'\nif [ "$fail" -eq 0 ]; then echo '=== basic repair check: OK ==='; else echo '=== basic repair check: SOME FILES ARE MISSING ==='; fi\nexit "$fail"\n`;
+  }
+  window.superEmulatorGenerateRepairBash=function(){
+    const blob=new Blob([makeRepairBash()],{type:'text/x-shellscript'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='repair-superEmulator.sh';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500);logSafe('修復Bashを生成しました','OK');
+  };
+  if(repairBtn){repairBtn.onclick=function(e){e.preventDefault();e.stopImmediatePropagation();window.superEmulatorGenerateRepairBash();};repairBtn.disabled=false;repairBtn.style.pointerEvents='auto';}
+})();
+</script>
+
+<!-- =========================================================
      DISPLAY OUTPUT MODES
      Existing boot/control buttons are intentionally not rewired here.
 ========================================================= -->
@@ -6029,6 +6203,7 @@ window.superEmulatorAuditButtons=function(){const ids=["detectBtn","manualDetect
   #screen > #displayFxLayer{
     z-index:20;
     overflow:hidden;
+    background:transparent !important;
     border-radius:0;
     transition:filter .18s ease, border-radius .18s ease, box-shadow .18s ease;
   }
@@ -6142,6 +6317,7 @@ window.superEmulatorAuditButtons=function(){const ids=["detectBtn","manualDetect
 
   #screen > #displayGhostCanvas{
     z-index:19;
+    background:transparent !important;
     opacity:0;
     display:block;
     image-rendering:auto;
