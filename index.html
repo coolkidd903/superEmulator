@@ -5653,4 +5653,129 @@ document.addEventListener("keyup",e=>{
 window.superEmulatorAuditButtons=function(){const ids=["detectBtn","manualDetectBtn","confirmManualOSBtn","startBtn","powerBtn","resetBtn","fullscreenBtn","screenshotBtn","connectDiskBtn","checkDiskConnectionBtn","connectDiskURLBtn","downloadDiskBtn","downloadCurrentDiskBtn","rebuildDiskBtn","clearDiskImageBtn","settingsFullscreenBtn","settingsScreenshotBtn","debugPathBtn","debugUploadBtn","sendCommand","repairBtn","openSettingsMain"];const rows=ids.map(id=>{const e=document.getElementById(id);if(!e)return id+": MISSING";const r=e.getBoundingClientRect(),c=getComputedStyle(e);return `${id}: disabled=${!!e.disabled} pointer=${c.pointerEvents} display=${c.display} z=${c.zIndex} rect=${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)}x${Math.round(r.height)}`;});const out=rows.join("\n");console.log("[UI AUDIT]\n"+out);if(typeof window.log==="function")window.log("[UI AUDIT]\n"+out);return out;};
 </script>
 </body>
+
+<style id="superEmulator-ui-hit-fix">
+/* FINAL UI HIT-TEST FIX: エミュレーター画面がUIのクリック領域を奪わないようにする */
+#app{position:relative;isolation:isolate;}
+#sidebar{position:relative !important;z-index:5000 !important;pointer-events:auto !important;}
+#main{position:relative !important;z-index:2000 !important;pointer-events:auto !important;}
+#workspace{position:relative;z-index:1;pointer-events:auto !important;}
+#screenArea{position:relative !important;z-index:0 !important;pointer-events:auto !important;}
+#controlPanel{position:relative !important;z-index:4000 !important;pointer-events:auto !important;}
+.topbar{position:relative !important;z-index:6000 !important;pointer-events:auto !important;}
+#functionBar{position:relative !important;z-index:7000 !important;pointer-events:auto !important;}
+#sidebar button,#main button,#controlPanel button,.topbar button,#functionBar button{position:relative;pointer-events:auto !important;}
+.modal{pointer-events:none !important;}
+.modal.show{pointer-events:auto !important;}
+.modal.show .modal-card,.modal.show button,.modal.show input,.modal.show select,.modal.show textarea,.modal.show label{pointer-events:auto !important;}
+</style>
+
+<script id="superEmulator-final-ui-rescue">
+(function(){
+  "use strict";
+  /*
+   * FINAL UI RESCUE LAYER
+   * 既存の巨大なUIコードとは独立して、最低限の画面操作を保証する。
+   * Fキーは既存の独立ハンドラへ任せるため触らない。
+   */
+  function byId(id){return document.getElementById(id);}
+  function stop(e){if(!e)return; e.preventDefault(); e.stopImmediatePropagation();}
+  function openSettings(){
+    const m=byId("settingsModal"); if(!m)return false;
+    try{
+      const c=byId("clientIdInput");
+      if(c)c.value=localStorage.getItem("superEmulator.microsoftClientId")||"";
+    }catch(_){ }
+    m.classList.add("show");
+    m.style.display="flex";
+    m.style.pointerEvents="auto";
+    return true;
+  }
+  function closeSettings(){
+    const m=byId("settingsModal"); if(!m)return false;
+    m.classList.remove("show");
+    m.style.display="none";
+    m.style.pointerEvents="none";
+    return true;
+  }
+  window.__superEmulatorOpenSettings=openSettings;
+  window.__superEmulatorCloseSettings=closeSettings;
+
+  /* 直接プロパティにも設定。document側の別ハンドラに依存しない。 */
+  const settingsButtons=document.querySelectorAll('[data-panel="settings"]');
+  settingsButtons.forEach(function(b){
+    b.style.pointerEvents="auto";
+    b.onclick=function(e){stop(e);openSettings();};
+  });
+  const openMain=byId("openSettingsMain");
+  if(openMain){openMain.style.pointerEvents="auto";openMain.onclick=function(e){stop(e);openSettings();};}
+  const close=byId("closeSettings");
+  if(close){close.style.pointerEvents="auto";close.onclick=function(e){stop(e);closeSettings();};}
+
+  /* モーダル外クリックで閉じる。ただしカード内部は閉じない。 */
+  const modal=byId("settingsModal");
+  if(modal){
+    modal.addEventListener("pointerdown",function(e){
+      if(e.target===modal)closeSettings();
+    },false);
+  }
+
+  /*
+   * サイドバー項目を独立処理。
+   * settings/logs/emulator は既存のonclickチェーンを使わない。
+   */
+  document.querySelectorAll(".side-btn[data-panel]").forEach(function(b){
+    b.addEventListener("pointerup",function(e){
+      const panel=b.dataset.panel;
+      if(panel!=="settings" && panel!=="logs" && panel!=="emulator")return;
+      stop(e);
+      document.querySelectorAll(".side-btn[data-panel]").forEach(x=>x.classList.remove("active"));
+      b.classList.add("active");
+      if(panel==="settings")openSettings();
+      else if(panel==="logs"){
+        const l=byId("logs");if(l)l.scrollIntoView({behavior:"smooth",block:"nearest"});
+      }
+    },true);
+  });
+
+  /* UI hit-test diagnostics */
+  window.superEmulatorUIHitTest=function(id){
+    const e=byId(id);if(!e)return `${id}: MISSING`;
+    const r=e.getBoundingClientRect(),s=getComputedStyle(e);
+    const x=Math.round(r.left+r.width/2),y=Math.round(r.top+r.height/2);
+    const hit=document.elementFromPoint(x,y);
+    const out={id,rect:[Math.round(r.left),Math.round(r.top),Math.round(r.width),Math.round(r.height)],pointer:s.pointerEvents,z:s.zIndex,display:s.display,hit:hit?{tag:hit.tagName,id:hit.id,cls:typeof hit.className==='string'?hit.className:''}:null};
+    console.log("[UI HIT TEST]",out);
+    if(typeof window.log==='function')window.log("[UI HIT TEST] "+JSON.stringify(out),"INFO");
+    return out;
+  };
+
+  window.superEmulatorUIHitTestAll=function(){
+    return ["openSidebar","closeSidebar","powerBtn","resetBtn","fullscreenBtn","screenshotBtn","openSettingsMain","confirmManualOSBtn","detectBtn","settingsFullscreenBtn","settingsScreenshotBtn"].map(window.superEmulatorUIHitTest);
+  };
+
+  /* 主要ボタンの最終直接配線。document delegation に依存しない。 */
+  function direct(id,fn){
+    const b=byId(id);if(!b)return;
+    b.disabled=false;
+    b.style.pointerEvents="auto";
+    b.onclick=function(e){stop(e);Promise.resolve().then(fn).catch(function(err){console.error(err);if(typeof window.log==='function')window.log(`[UI] ${id}: ${err?.message||err}`,"ERROR");});};
+  }
+  direct("openSidebar",function(){const x=byId("sidebar");if(x)x.classList.remove("collapsed");});
+  direct("closeSidebar",function(){const x=byId("sidebar");if(x)x.classList.add("collapsed");});
+  direct("powerBtn",async function(){if(typeof window.stopAndDestroy==='function')await window.stopAndDestroy();else if(window.emulator?.stop)window.emulator.stop();});
+  direct("resetBtn",async function(){if(!window.emulator){alert("エミュレーターが起動していません。");return;}if(typeof window.emulator.restart==='function')return window.emulator.restart();if(typeof window.stopAndDestroy==='function'&&typeof window.startEmulator==='function'){await window.stopAndDestroy();await window.startEmulator();}});
+  direct("fullscreenBtn",async function(){const t=byId("screenArea");if(document.fullscreenElement){if(document.exitFullscreen)await document.exitFullscreen();return;}if(t?.requestFullscreen)return t.requestFullscreen({navigationUI:"hide"});if(window.emulator?.screen_go_fullscreen)window.emulator.screen_go_fullscreen();});
+  direct("screenshotBtn",function(){const em=window.emulator;if(!em){alert("先にエミュレーターを起動してください。");return;}if(typeof em.screen_make_screenshot!=="function"){alert("スクリーンショットAPIがありません。");return;}const img=em.screen_make_screenshot();if(img?.src){const a=document.createElement("a");a.href=img.src;a.download=`superEmulator-${Date.now()}.png`;a.click();}});
+  direct("manualDetectBtn",function(){const a=byId("manualArea");if(!a)return;const hidden=a.style.display==='none'||a.hidden;a.style.display=hidden?'block':'none';a.hidden=!hidden;});
+  direct("confirmManualOSBtn",function(){const s=byId("osSelect");if(!s)return;const fn=window.superEmulatorSetSelectedOS;if(typeof fn!=='function'){alert("OS確定機能がまだ読み込まれていません。");return;}if(fn(s.value,"手動設定",true)!==true){alert("OS確定処理に失敗しました。詳細ログを確認してください。");return;}const st=byId("manualOSConfirmStatus");if(st){st.textContent="確定済み: "+s.options[s.selectedIndex].text;st.style.color="#8ff0b0";}});
+  direct("detectBtn",function(){const fn=window.__superEmulatorRunSafeISOSelectionAndDetection||window.detectISOFile;if(typeof fn!=='function'){alert("ISO判定機能がまだ読み込まれていません。");return;}return fn();});
+  direct("settingsFullscreenBtn",function(){const b=byId("fullscreenBtn");if(b)b.click();});
+  direct("settingsScreenshotBtn",function(){const b=byId("screenshotBtn");if(b)b.click();});
+  direct("showLogsBtn",function(){const l=byId("logs");if(l)l.scrollIntoView({behavior:'smooth',block:'nearest'});});
+  direct("clearLogs",function(){const l=byId("logs");if(l)l.textContent="";});
+  direct("refreshDebugInfo",function(){const x=byId("debugInfo");if(x)x.value=[`protocol=${location.protocol}`,`viewport=${innerWidth}x${innerHeight}`,`devicePixelRatio=${devicePixelRatio}`,`hardwareConcurrency=${navigator.hardwareConcurrency||"unknown"}`,`deviceMemory=${navigator.deviceMemory||"unknown"}GB`,`emulator=${!!window.emulator}`,`canvas=${byId("screen")?.querySelector("canvas")?"OK":"not yet"}`].join("\n");});
+})();
+</script>
+
 </html>
