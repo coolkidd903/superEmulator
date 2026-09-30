@@ -1363,6 +1363,15 @@ button, input, select, label, a, [role="button"] { pointer-events:auto !importan
         <button class="ctrl-btn" id="restoreISOSavedBtn" type="button">📂 保存済みISOを復元</button>
       </div>
       <div class="help" id="isoCacheStatus" style="margin-top:7px">ISOをブラウザ内に保存すると、次回から再ダウンロード・再選択を減らせます。</div>
+      <div class="setting-card" style="margin-top:10px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <strong>📚 保存済みISOライブラリ</strong>
+          <button class="ctrl-btn" id="refreshISOListBtn" type="button">🔄 更新</button>
+        </div>
+        <div class="help" style="margin:6px 0 8px">localStorageには一覧情報、ISO本体はIndexedDBに保存します。保存したISOを選んでそのまま起動できます。</div>
+        <div id="savedISOList" style="display:grid;gap:7px"></div>
+        <div id="savedISOEmpty" class="help" style="padding:8px 0">保存済みISOはありません。</div>
+      </div>
       <div id="isoDetectProgressWrap" style="display:none;margin-top:9px">
         <div class="label" id="isoDetectText">ISOを解析中...</div>
         <progress id="isoDetectProgress" value="0" max="100"></progress>
@@ -6057,13 +6066,18 @@ window.superEmulatorAuditButtons=function(){const ids=["detectBtn","manualDetect
 (function(){
   "use strict";
   const DB_NAME="superEmulatorISOStore";
-  const DB_VERSION=1;
+  const DB_VERSION=2;
   const STORE="isos";
+  const CATALOG_KEY="superEmulator.isoCatalog";
   const $=id=>document.getElementById(id);
   const status=$('isoCacheStatus');
   const saveBtn=$('saveISOProgressBtn');
   const restoreBtn=$('restoreISOSavedBtn');
+  const listEl=$('savedISOList');
+  const emptyEl=$('savedISOEmpty');
+  const refreshBtn=$('refreshISOListBtn');
   let dbPromise=null;
+
   function setStatus(t,kind){
     if(!status)return;
     status.textContent=t;
@@ -6077,24 +6091,113 @@ window.superEmulatorAuditButtons=function(){const ids=["detectBtn","manualDetect
     if(!('indexedDB' in window))return Promise.reject(new Error('このブラウザではIndexedDBが利用できません。'));
     dbPromise=new Promise((resolve,reject)=>{
       const req=indexedDB.open(DB_NAME,DB_VERSION);
-      req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains(STORE))db.createObjectStore(STORE,{keyPath:'id'});};
+      req.onupgradeneeded=()=>{
+        const db=req.result;
+        if(!db.objectStoreNames.contains(STORE))db.createObjectStore(STORE,{keyPath:'id'});
+      };
       req.onsuccess=()=>resolve(req.result);
       req.onerror=()=>reject(req.error||new Error('IndexedDBを開けませんでした。'));
     });
     return dbPromise;
   }
+  function readCatalog(){
+    try{
+      const x=JSON.parse(localStorage.getItem(CATALOG_KEY)||'[]');
+      return Array.isArray(x)?x.filter(v=>v&&v.id&&v.name):[];
+    }catch(_){return []}
+  }
+  function writeCatalog(list){
+    try{localStorage.setItem(CATALOG_KEY,JSON.stringify(list.slice(0,50)));return true;}catch(e){logSafe('ISO一覧(localStorage)保存失敗: '+(e?.message||e),'WARN');return false;}
+  }
+  function makeId(file){
+    const base=(file.name||'iso').replace(/[^a-zA-Z0-9._-]+/g,'_').slice(0,80);
+    return 'iso_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8)+'_'+base;
+  }
+  function format(n){try{return typeof formatBytes==='function'?formatBytes(n):String(n)+' bytes';}catch(_){return String(n)+' bytes';}}
+  function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+
   async function putISO(file){
     if(!file||!file.size)throw new Error('保存するISOが選択されていません。');
     const db=await openDB();
-    const record={id:'current',name:file.name,size:file.size,type:file.type||'application/octet-stream',lastModified:file.lastModified||Date.now(),savedAt:Date.now(),blob:file};
-    await new Promise((resolve,reject)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put(record);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error||new Error('ISO保存に失敗しました。'));});
+    const id=makeId(file);
+    const record={id,name:file.name,size:file.size,type:file.type||'application/octet-stream',lastModified:file.lastModified||Date.now(),savedAt:Date.now(),blob:file};
+    await new Promise((resolve,reject)=>{
+      const tx=db.transaction(STORE,'readwrite');
+      tx.objectStore(STORE).put(record);
+      tx.oncomplete=resolve;
+      tx.onerror=()=>reject(tx.error||new Error('ISO保存に失敗しました。'));
+      tx.onabort=()=>reject(tx.error||new Error('ISO保存が中断されました。'));
+    });
+    const catalog=readCatalog().filter(x=>x.id!==id);
+    catalog.unshift({id,name:record.name,size:record.size,type:record.type,lastModified:record.lastModified,savedAt:record.savedAt});
+    writeCatalog(catalog);
     return record;
   }
-  async function getISO(){
+  async function getISOById(id){
     const db=await openDB();
-    return new Promise((resolve,reject)=>{const tx=db.transaction(STORE,'readonly');const req=tx.objectStore(STORE).get('current');req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error||new Error('保存済みISOの取得に失敗しました。'));});
+    return new Promise((resolve,reject)=>{
+      const tx=db.transaction(STORE,'readonly');
+      const req=tx.objectStore(STORE).get(id);
+      req.onsuccess=()=>resolve(req.result||null);
+      req.onerror=()=>reject(req.error||new Error('保存済みISOの取得に失敗しました。'));
+    });
   }
-  function format(n){try{return typeof formatBytes==='function'?formatBytes(n):String(n)+' bytes';}catch(_){return String(n)+' bytes';}}
+  async function deleteISOById(id){
+    const db=await openDB();
+    await new Promise((resolve,reject)=>{
+      const tx=db.transaction(STORE,'readwrite');
+      tx.objectStore(STORE).delete(id);
+      tx.oncomplete=resolve;
+      tx.onerror=()=>reject(tx.error||new Error('ISO削除に失敗しました。'));
+    });
+    writeCatalog(readCatalog().filter(x=>x.id!==id));
+  }
+  async function getLegacyCurrent(){
+    try{
+      const db=await openDB();
+      return await new Promise((resolve,reject)=>{
+        const tx=db.transaction(STORE,'readonly');
+        const req=tx.objectStore(STORE).get('current');
+        req.onsuccess=()=>resolve(req.result||null);
+        req.onerror=()=>reject(req.error||new Error('保存済みISOの取得に失敗しました。'));
+      });
+    }catch(_){return null}
+  }
+  async function migrateLegacyCurrent(){
+    const existing=readCatalog();
+    if(existing.length)return;
+    const legacy=await getLegacyCurrent();
+    if(!legacy?.blob)return;
+    const db=await openDB();
+    const id=makeId({name:legacy.name||'saved.iso'});
+    const rec={...legacy,id,savedAt:legacy.savedAt||Date.now()};
+    await new Promise((resolve,reject)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put(rec);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error||new Error('旧ISOの移行に失敗しました。'));});
+    writeCatalog([{id,name:rec.name,size:rec.size,type:rec.type,lastModified:rec.lastModified,savedAt:rec.savedAt}]);
+    logSafe(`旧形式の保存ISOをライブラリへ移行: ${rec.name}`,'OK');
+  }
+
+  async function restoreRecord(rec){
+    if(!rec?.id)throw new Error('ISOが選択されていません。');
+    const stored=await getISOById(rec.id);
+    if(!stored?.blob)throw new Error('ISO本体がブラウザ内に見つかりません。');
+    const blob=stored.blob instanceof Blob?stored.blob:new Blob([stored.blob],{type:stored.type||'application/octet-stream'});
+    const file=new File([blob],stored.name||rec.name||'saved.iso',{type:stored.type||'application/octet-stream',lastModified:stored.lastModified||Date.now()});
+    window.__superEmulatorSelectedISO=file;
+    window.selectedISO=file;
+    if(typeof window.__superEmulatorRunISOFile==='function'){
+      await window.__superEmulatorRunISOFile(file,{fromCache:true});
+    }else if(typeof window.detectISOFile==='function'){
+      await window.detectISOFile(file);
+      window.__superEmulatorISOReady=true;
+    }else throw new Error('ISO判定機能がまだ初期化されていません。');
+    const input=$('isoFile');if(input)input.value='';
+    const cd=$('cdStatus');if(cd)cd.textContent=file.name;
+    setStatus(`選択したISOを復元: ${file.name} / ${format(file.size)}`,'ok');
+    logSafe(`ライブラリからISOを復元: ${file.name} / ${format(file.size)}`,'OK');
+    renderList();
+    return true;
+  }
+
   async function saveCurrentISO(){
     const file=window.__superEmulatorSelectedISO || window.selectedISO || null;
     if(!file){setStatus('先にISOを選択してください。','err');return false;}
@@ -6102,8 +6205,9 @@ window.superEmulatorAuditButtons=function(){const ids=["detectBtn","manualDetect
       setStatus('ISOをブラウザ内へ保存中…','busy');
       if(navigator.storage?.estimate){const q=await navigator.storage.estimate();logSafe(`Storage quota=${format(q.quota||0)} / usage=${format(q.usage||0)}`);}
       const rec=await putISO(file);
-      setStatus(`保存済み: ${rec.name} / ${format(rec.size)} / ${new Date(rec.savedAt).toLocaleString()}`,'ok');
-      logSafe(`保存完了: ${rec.name} / ${format(rec.size)}`,'OK');
+      setStatus(`保存済み: ${rec.name} / ${format(rec.size)} / ライブラリに追加しました`,'ok');
+      logSafe(`保存完了: ${rec.name} / ${format(rec.size)} / id=${rec.id}`,'OK');
+      renderList();
       return true;
     }catch(e){
       logSafe(`保存失敗: ${e?.stack||e}`,'ERROR');
@@ -6113,36 +6217,51 @@ window.superEmulatorAuditButtons=function(){const ids=["detectBtn","manualDetect
   }
   async function restoreSavedISO(){
     try{
-      setStatus('保存済みISOを確認中…','busy');
-      const rec=await getISO();
-      if(!rec){setStatus('保存済みISOはありません。','err');return false;}
-      const blob=rec.blob instanceof Blob?rec.blob:new Blob([rec.blob],{type:rec.type||'application/octet-stream'});
-      const file=new File([blob],rec.name||'saved.iso',{type:rec.type||'application/octet-stream',lastModified:rec.lastModified||Date.now()});
-      window.__superEmulatorSelectedISO=file;
-      window.selectedISO=file;
-      if(typeof window.__superEmulatorRunISOFile==='function'){
-        await window.__superEmulatorRunISOFile(file,{fromCache:true});
-      }else if(typeof window.detectISOFile==='function'){
-        await window.detectISOFile(file);
-        window.__superEmulatorISOReady=true;
-      }else{
-        throw new Error('ISO判定機能がまだ初期化されていません。');
-      }
-      const input=$('isoFile');if(input)input.value='';
-      const cd=$('cdStatus');if(cd)cd.textContent=file.name;
-      setStatus(`復元完了: ${file.name} / ${format(file.size)}`,'ok');
-      logSafe(`保存済みISOを復元: ${file.name} / ${format(file.size)}`,'OK');
-      return true;
+      const catalog=readCatalog();
+      if(catalog.length)return restoreRecord(catalog[0]);
+      await migrateLegacyCurrent();
+      const migrated=readCatalog();
+      if(migrated.length)return restoreRecord(migrated[0]);
+      setStatus('保存済みISOはありません。','err');
+      return false;
     }catch(e){
       logSafe(`復元失敗: ${e?.stack||e}`,'ERROR');setStatus('ISO復元に失敗: '+(e?.message||e),'err');return false;
     }
   }
+
+  async function renderList(){
+    if(!listEl)return;
+    let catalog=readCatalog();
+    if(!catalog.length){try{await migrateLegacyCurrent();catalog=readCatalog();}catch(_){} }
+    listEl.innerHTML='';
+    if(emptyEl)emptyEl.style.display=catalog.length?'none':'block';
+    for(const rec of catalog){
+      const row=document.createElement('div');
+      row.style.cssText='display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px;align-items:center;padding:8px;border:1px solid rgba(255,255,255,.08);border-radius:8px;background:#0a0f16';
+      row.innerHTML=`<div style="min-width:0"><div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(rec.name)}">💿 ${esc(rec.name)}</div><div class="help">${esc(format(rec.size))} ・ ${new Date(rec.savedAt||Date.now()).toLocaleString()}</div></div><button class="ctrl-btn primary iso-lib-boot" type="button">▶ 起動</button><button class="ctrl-btn iso-lib-delete" type="button">削除</button>`;
+      row.querySelector('.iso-lib-boot').addEventListener('click',async e=>{
+        e.preventDefault();
+        try{setStatus(`${rec.name} を復元中…`,'busy');await restoreRecord(rec);}catch(err){logSafe(`ライブラリ起動失敗: ${err?.stack||err}`,'ERROR');setStatus('ISO起動準備に失敗: '+(err?.message||err),'err');try{errorSound();}catch(_){}}
+      });
+      row.querySelector('.iso-lib-delete').addEventListener('click',async e=>{
+        e.preventDefault();
+        try{await deleteISOById(rec.id);logSafe(`ライブラリから削除: ${rec.name}`,'OK');setStatus(`削除しました: ${rec.name}`,'ok');renderList();}catch(err){logSafe(`ISO削除失敗: ${err?.stack||err}`,'ERROR');setStatus('ISO削除に失敗: '+(err?.message||err),'err');}
+      });
+      listEl.appendChild(row);
+    }
+  }
+
   window.superEmulatorSaveISOProgress=saveCurrentISO;
   window.superEmulatorRestoreSavedISO=restoreSavedISO;
+  window.superEmulatorRefreshISOList=renderList;
+  window.superEmulatorISOStorageSelfTest=async function(){
+    try{const catalog=readCatalog();return {indexedDB:true,localStorage:true,count:catalog.length,items:catalog.map(x=>({id:x.id,name:x.name,size:x.size}))};}
+    catch(e){return {indexedDB:false,error:String(e.message||e)};}
+  };
   if(saveBtn)saveBtn.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();saveCurrentISO();},true);
   if(restoreBtn)restoreBtn.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();restoreSavedISO();},true);
-  window.superEmulatorISOStorageSelfTest=async function(){try{const rec=await getISO();const out={indexedDB:true,saved:!!rec,name:rec?.name||null,size:rec?.size||0};console.log('[ISO CACHE SELF TEST]',out);logSafe(JSON.stringify(out));return out;}catch(e){return {indexedDB:false,error:String(e.message||e)};}};
-  getISO().then(rec=>{if(rec)setStatus(`保存済みISOあり: ${rec.name} / ${format(rec.size)}（復元ボタンで使用）`,'ok');}).catch(()=>{});
+  if(refreshBtn)refreshBtn.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();renderList();},true);
+  renderList().catch(()=>{});
 })();
 </script>
 
