@@ -1496,6 +1496,10 @@ button, input, select, label, a, [role="button"] { pointer-events:auto !importan
 
 <!-- superEmulator OS CONFIG EARLY BOOTSTRAP -->
 <script>
+/* cursorStagesはメイン初期化より前のresizeでも安全に参照できるようvar/guard方式にしています。 */
+window.__superEmulatorCursorBootstrapReady = true;
+</script>
+<script>
 window.OS_CONFIG = window.OS_CONFIG || {
   win10:{memory:4096,acpi:true}, win8:{memory:4096,acpi:true}, win7:{memory:4096,acpi:true},
   winvista:{memory:2048,acpi:true}, winxp:{memory:384,acpi:false}, win2000:{memory:256,acpi:false},
@@ -1870,8 +1874,8 @@ landingStart.onclick = openApp;
 heroStart.onclick = openApp;
 finalStart.onclick = openApp;
 
-document.getElementById("backLanding")
-  .onclick = openLanding;
+const backLanding = document.getElementById("backLanding");
+if(backLanding) backLanding.onclick = openLanding;
 
 
 /* =========================================================
@@ -1882,7 +1886,7 @@ const cursorStatus =
   document.getElementById("cursorStatus");
 
 
-const cursorStages = [
+var cursorStages = [
   { name:"指差し手カーソル", fill:"#ffffff", outline:"#000000" }
 ];
 
@@ -1897,6 +1901,7 @@ function makeCursor(stage)
 function updateCursor()
 {
   if(!landing) return;
+  if(!Array.isArray(cursorStages) || cursorStages.length === 0) return;
 
   const max=Math.max(1,document.documentElement.scrollHeight-window.innerHeight);
   const ratio=Math.max(0,Math.min(0.999999,window.scrollY/max));
@@ -1929,20 +1934,29 @@ updateCursor();
    SIDEBAR
 ========================================================= */
 
+/* ボタンは本体側で管理。存在しない要素へのonclick代入で全体が停止しないよう安全化。 */
+function bindClick(id, handler) {
+  const el = document.getElementById(id);
+  if (!el) {
+    if (typeof log === "function") log("ボタン要素なし: " + id, "WARN");
+    return null;
+  }
+  el.onclick = handler;
+  return el;
+}
+
 const sidebar =
   document.getElementById("sidebar");
 
-document.getElementById("openSidebar")
-  .onclick = () =>
+bindClick("openSidebar", () =>
 {
   sidebar.classList.remove("collapsed");
-};
+});
 
-document.getElementById("closeSidebar")
-  .onclick = () =>
+bindClick("closeSidebar", () =>
 {
   sidebar.classList.add("collapsed");
-};
+});
 
 
 /* =========================================================
@@ -4883,14 +4897,9 @@ async function startMicrosoftLogin()
 }
 
 
-landingMicrosoft.onclick =
-  startMicrosoftLogin;
-
-heroMicrosoft.onclick =
-  startMicrosoftLogin;
-
-sideMicrosoft.onclick =
-  startMicrosoftLogin;
+if(landingMicrosoft) landingMicrosoft.onclick = startMicrosoftLogin;
+if(heroMicrosoft) heroMicrosoft.onclick = startMicrosoftLogin;
+if(sideMicrosoft) sideMicrosoft.onclick = startMicrosoftLogin;
 
 
 /* =========================================================
