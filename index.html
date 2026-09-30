@@ -1482,6 +1482,9 @@ button, input, select, label, a, [role="button"] { pointer-events:auto !importan
       <div class="settings-grid"><div class="setting-card"><strong>起動診断</strong><small>WASM、BIOS、仮想ディスプレイ、v86の状態を確認。</small></div><div class="setting-card"><strong>詳細ログ</strong><small>起動・停止・ディスク・v86イベントを記録。</small></div></div>
       <div style="height:10px"></div><button class="ctrl-btn" id="showLogsBtn">ログ位置へ</button>
       <div style="height:8px"></div><button class="ctrl-btn" id="repairBtn">修復Bashを生成</button>
+      <div style="height:8px"></div><textarea class="debug-output" id="repairBashOutput" readonly placeholder="ここに修復Bashを表示します。生成後、コピーまたはダウンロードできます。"></textarea>
+      <div style="height:8px"></div><div class="row"><button class="ctrl-btn" id="copyRepairBash">Bashをコピー</button><button class="ctrl-btn" id="downloadRepairBash">Bashをダウンロード</button></div>
+      <div class="help" style="margin-top:8px">このBashはブラウザ内では直接実行できません。ChromebookのLinuxターミナルなどで、superEmulatorフォルダ内から実行してください。</div>
       <div style="height:8px"></div><button class="ctrl-btn" id="clearLogs">ログ消去</button>
       <div style="height:8px"></div><textarea class="debug-output" id="debugInfo" readonly>診断情報はここに表示されます。</textarea>
       <div style="height:8px"></div><button class="ctrl-btn" id="refreshDebugInfo">診断情報を更新</button>
@@ -2371,7 +2374,13 @@ diskSize.value=localStorage.getItem("superEmulator.diskSize")||diskSize.value;
 localStorage.setItem("superEmulator.diskSize",diskSize.value);
 diskSize.addEventListener("change",()=>{localStorage.setItem("superEmulator.diskSize",diskSize.value); saveSetupState(); if(!emulator) createVirtualDisk();});
 storageTypeSelect.addEventListener("change",()=>{storageType=storageTypeSelect.value; localStorage.setItem("superEmulator.storageType",storageType); storageTypeLabel.textContent=storageType.toUpperCase(); saveSetupState(); log(`ストレージ方式: ${storageType.toUpperCase()}`); if(!emulator&&!selectedDiskFile&&!selectedDiskURL&&!selectedISO) createVirtualDisk();});
-screenScaleSelect.addEventListener("change",()=>{screenScale=Number(screenScaleSelect.value); localStorage.setItem("superEmulator.screenScale",String(screenScale)); saveSetupState(); applyScreenScale();});
+screenScaleSelect.addEventListener("change",()=>{
+  screenScale=Number(screenScaleSelect.value);
+  localStorage.setItem("superEmulator.screenScale",String(screenScale));
+  saveSetupState();
+  applyScreenScale();
+  requestAnimationFrame(()=>requestAnimationFrame(()=>syncScreenContainerGeometry("scale-change")));
+});
 async function handleDiskImageSelection(file)
 {
   if(!file) return;
@@ -4245,15 +4254,17 @@ function applyScreenScale(){
 ========================================================= */
 function syncScreenContainerGeometry(reason="unknown"){
   if(!screen) return;
+
   const canvas=screen.querySelector("canvas");
   const text=screen.querySelector(":scope > div:not(.screen-placeholder)");
   const target=canvas && getComputedStyle(canvas).display!=="none" ? canvas : text;
-  if(!target) return;
 
-  /* v86の公式screen_container基準に合わせ、container自身を実描画サイズへ。
-     CSS transform/width:100%/余白をここでは一切使わない。 */
-  screen.style.width="fit-content";
-  screen.style.height="fit-content";
+  /* 起動直後はv86がまだcanvasを作っていないことがある。0x0を基準にしない。 */
+  if(!target){
+    window.__superEmulatorMouseGeometry={reason,ready:false,dpr:devicePixelRatio||1,scale:screenScale};
+    return;
+  }
+
   screen.style.minWidth="0";
   screen.style.minHeight="0";
   screen.style.transform="none";
@@ -4261,11 +4272,33 @@ function syncScreenContainerGeometry(reason="unknown"){
   screen.style.padding="0";
   screen.style.lineHeight="0";
 
+  /*
+   * v86のマウス入力はscreen_containerの矩形を基準にする。
+   * ここでは「fit-content」に任せず、実際に描画されているcanvasの
+   * CSSピクセル寸法をcontainerへそのまま反映する。
+   * これでスクロール領域・flex配置・DPR・v86のscreen scalingが混ざっても
+   * containerとcanvasの左上/幅/高さが同じ座標系になる。
+   */
+  const tr0=target.getBoundingClientRect();
+  if(tr0.width>0 && tr0.height>0){
+    screen.style.width=`${tr0.width}px`;
+    screen.style.height=`${tr0.height}px`;
+  }
+
   const sr=screen.getBoundingClientRect();
   const tr=target.getBoundingClientRect();
   const dx=sr.left-tr.left, dy=sr.top-tr.top;
   const dw=sr.width-tr.width, dh=sr.height-tr.height;
-  window.__superEmulatorMouseGeometry={reason,screen:{left:sr.left,top:sr.top,width:sr.width,height:sr.height},target:{left:tr.left,top:tr.top,width:tr.width,height:tr.height},delta:{x:dx,y:dy,width:dw,height:dh},dpr:devicePixelRatio||1,scale:screenScale};
+  window.__superEmulatorMouseGeometry={
+    reason,
+    ready:true,
+    screen:{left:sr.left,top:sr.top,width:sr.width,height:sr.height},
+    target:{left:tr.left,top:tr.top,width:tr.width,height:tr.height},
+    delta:{x:dx,y:dy,width:dw,height:dh},
+    dpr:devicePixelRatio||1,
+    scale:screenScale
+  };
+
   if(Math.abs(dx)>0.5||Math.abs(dy)>0.5||Math.abs(dw)>0.5||Math.abs(dh)>0.5){
     log(`[MOUSE] 座標基準ズレ検出(${reason}): container=${Math.round(sr.width)}x${Math.round(sr.height)} target=${Math.round(tr.width)}x${Math.round(tr.height)} offset=${dx.toFixed(2)},${dy.toFixed(2)} diff=${dw.toFixed(2)},${dh.toFixed(2)}`,"WARN");
   }else{
@@ -4275,6 +4308,15 @@ function syncScreenContainerGeometry(reason="unknown"){
 
 window.addEventListener("resize",()=>requestAnimationFrame(()=>syncScreenContainerGeometry("resize")),{passive:true});
 window.addEventListener("orientationchange",()=>requestAnimationFrame(()=>syncScreenContainerGeometry("orientation")),{passive:true});
+
+/* v86がcanvasを後から生成・サイズ変更した場合も座標基準を即時同期 */
+if(screen){
+  const mouseGeometryObserver=new MutationObserver(()=>{
+    requestAnimationFrame(()=>syncScreenContainerGeometry("mutation"));
+  });
+  mouseGeometryObserver.observe(screen,{childList:true,subtree:true,attributes:true,attributeFilter:["style","width","height"]});
+  window.__superEmulatorMouseGeometryObserver=mouseGeometryObserver;
+}
 
 /* =========================================================
    FULLSCREEN
@@ -6772,4 +6814,92 @@ window.superEmulatorAuditButtons=function(){const ids=["detectBtn","manualDetect
 })();
 </script>
 
+<script id="superEmulator-final-keyboard-and-repair">
+(function(){
+  "use strict";
+  const SC={F1:0x3B,F2:0x3C,F3:0x3D,F4:0x3E,F5:0x3F,F6:0x40,F7:0x41,F8:0x42,F9:0x43,F10:0x44,F11:0x57,F12:0x58};
+  function L(m,l){try{if(typeof window.log==='function')window.log('[INPUT FINAL] '+m,l||'INFO');}catch(_){} }
+  function em(){return window.emulator||null;}
+  function sendPair(code,name){
+    const e=em();
+    if(!e){L(name+' 未起動','WARN');return false;}
+    if(typeof e.keyboard_send_scancodes!=='function'){L(name+' keyboard_send_scancodes APIなし','ERROR');return false;}
+    try{
+      e.keyboard_send_scancodes([code]);
+      setTimeout(()=>{try{const cur=em();if(cur&&typeof cur.keyboard_send_scancodes==='function')cur.keyboard_send_scancodes([code|0x80]);}catch(err){L(name+' break失敗: '+(err.message||err),'ERROR');}},18);
+      L(name+' make/break送信: 0x'+code.toString(16),'OK');
+      return true;
+    }catch(err){L(name+' make失敗: '+(err.message||err),'ERROR');return false;}
+  }
+  function installFButtons(){
+    document.querySelectorAll('.fkey[data-f]').forEach(b=>{
+      const n=Number(b.dataset.f), name='F'+n, code=SC[name];
+      if(!code||b.dataset.finalKeyboardBound==='1')return;
+      b.dataset.finalKeyboardBound='1';
+      b.type='button'; b.disabled=false; b.style.pointerEvents='auto'; b.style.touchAction='manipulation'; b.style.zIndex='10001';
+      b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopImmediatePropagation();sendPair(code,name);},true);
+      b.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();},true);
+    });
+  }
+  installFButtons();
+  new MutationObserver(installFButtons).observe(document.documentElement,{childList:true,subtree:true});
+
+  // 物理Fキー: ページまで届いた場合はv86へ直接転送。ChromeOS自身に奪われた場合はWeb側からは介入できない。
+  Object.keys(SC).forEach(name=>{
+    window.addEventListener('keydown',e=>{
+      if(e.code!==name)return;
+      e.preventDefault(); e.stopImmediatePropagation();
+      if(!e.repeat)sendPair(SC[name],name);
+    },true);
+  });
+
+  function sendWin(){
+    const e=em();
+    if(!e){L('Winキー: エミュレーター未起動','WARN');return;}
+    if(typeof e.keyboard_send_scancodes!=='function'){L('Winキー: APIなし','ERROR');return;}
+    try{
+      // PS/2 Set-1: E0 5B = Left Win make, E0 DB = break
+      e.keyboard_send_scancodes([0xE0,0x5B]);
+      setTimeout(()=>{try{const cur=em();if(cur&&typeof cur.keyboard_send_scancodes==='function')cur.keyboard_send_scancodes([0xE0,0xDB]);}catch(_){}},18);
+      L('Winキー送信: E0 5B / E0 DB','OK');
+    }catch(err){L('Winキー送信失敗: '+(err.message||err),'ERROR');}
+  }
+  const wb=document.getElementById('windowsKeyBtn');
+  if(wb){wb.onclick=null;wb.addEventListener('pointerdown',e=>{e.preventDefault();e.stopImmediatePropagation();sendWin();},true);wb.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();},true);}
+
+  function makeBash(){
+    if(typeof window.superEmulatorGenerateRepairBash==='function'){
+      // 既存生成処理の内容は取得できないため、ここではUI用の同等診断スクリプトを作る。
+    }
+    return `#!/usr/bin/env bash
+set -u
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+cd "$ROOT" || exit 1
+echo "=== superEmulator repair / diagnostic ==="
+fail=0
+for f in index.html libv86.js v86.wasm seabios.bin vgabios.bin; do
+  if [ -f "$f" ]; then printf '[OK] %-16s %s bytes\\n' "$f" "$(wc -c < "$f")"; else echo "[NG] $f"; fail=1; fi
+done
+if [ -f "./debug-linux/debian.iso" ]; then echo '[OK] debug-linux/debian.iso'; else echo '[INFO] debug-linux/debian.iso not found'; fi
+if command -v sha256sum >/dev/null 2>&1; then echo; echo '[SHA256]'; sha256sum libv86.js v86.wasm seabios.bin vgabios.bin 2>/dev/null || true; fi
+echo; echo '[HTTP]'; if command -v python3 >/dev/null 2>&1; then echo '[OK] python3'; echo 'Start: python3 -m http.server 8000'; else echo '[NG] python3 not found'; fail=1; fi
+echo; echo '[TIP] Use http://localhost:8000/ or GitHub Pages, not file://.'
+exit "$fail"
+`;
+  }
+  function updateBash(){const out=document.getElementById('repairBashOutput');if(out)out.value=makeBash();}
+  const rb=document.getElementById('repairBtn');
+  if(rb){rb.addEventListener('click',()=>setTimeout(updateBash,0),false);}
+  const cb=document.getElementById('copyRepairBash');
+  if(cb)cb.addEventListener('click',async()=>{updateBash();const o=document.getElementById('repairBashOutput');try{await navigator.clipboard.writeText(o.value);L('修復Bashをクリップボードへコピーしました','OK');}catch(e){o.select();document.execCommand('copy');L('修復Bashをコピーしました','OK');}},false);
+  const db=document.getElementById('downloadRepairBash');
+  if(db)db.addEventListener('click',()=>{updateBash();const o=document.getElementById('repairBashOutput');const a=document.createElement('a');const u=URL.createObjectURL(new Blob([o.value],{type:'text/x-shellscript'}));a.href=u;a.download='repair-superEmulator.sh';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);L('修復Bashをダウンロードしました','OK');},false);
+  window.superEmulatorInputSelfTest=function(){
+    const rows=[...document.querySelectorAll('.fkey[data-f]')].map(b=>({f:b.dataset.f,button:true,disabled:b.disabled,rect:(()=>{const r=b.getBoundingClientRect();return [r.left,r.top,r.width,r.height]})()}));
+    const result={buttons:rows.length,emulator:!!window.emulator,scancodeAPI:!!(window.emulator&&typeof window.emulator.keyboard_send_scancodes==='function'),windowsButton:!!document.getElementById('windowsKeyBtn')};
+    console.log('[INPUT SELF TEST]',result,rows);L(JSON.stringify(result));return result;
+  };
+  L('F1-F12 / Winキー最終入力層を初期化しました');
+})();
+</script>
 </html>
