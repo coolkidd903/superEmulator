@@ -6464,4 +6464,184 @@ window.superEmulatorAuditButtons=function(){const ids=["detectBtn","manualDetect
 })();
 </script>
 
+
+<!-- =========================================================
+     FINAL F-KEY RESCUE / ISOLATED INPUT LAYER
+     This module intentionally does not touch boot, ISO, HDD, settings,
+     or display handlers. It only owns F1-F12 and the Win button.
+========================================================= -->
+<script id="superEmulator-final-fkey-rescue">
+(function(){
+  "use strict";
+
+  const SC = Object.freeze({
+    F1:0x3B, F2:0x3C, F3:0x3D, F4:0x3E,
+    F5:0x3F, F6:0x40, F7:0x41, F8:0x42,
+    F9:0x43, F10:0x44, F11:0x57, F12:0x58
+  });
+
+  const timers = Object.create(null);
+  const pressed = Object.create(null);
+
+  function log(msg, level){
+    try {
+      if(typeof window.log === "function") window.log("[FKEY FINAL] " + msg, level || "INFO");
+      else console.log("[FKEY FINAL] " + msg);
+    } catch(_) {}
+  }
+
+  function getEmulator(){
+    const em = window.emulator;
+    if(!em) return null;
+    try {
+      if(typeof em.keyboard_set_enabled === "function") em.keyboard_set_enabled(true);
+    } catch(e) {
+      log("keyboard_set_enabled(true) failed: " + (e.message || e), "WARN");
+    }
+    return em;
+  }
+
+  function sendMakeBreak(name){
+    const code = SC[name];
+    const em = getEmulator();
+    if(!em){
+      log(name + " ignored: emulator is not running", "WARN");
+      return false;
+    }
+    if(typeof em.keyboard_send_scancodes !== "function"){
+      log(name + " failed: keyboard_send_scancodes API is unavailable", "ERROR");
+      return false;
+    }
+
+    try {
+      /* Send make and break separately. Some guests/PS2 paths are more reliable
+         when the two bytes are not submitted in the same JavaScript call. */
+      em.keyboard_send_scancodes([code]);
+      if(timers[name]) clearTimeout(timers[name]);
+      timers[name] = setTimeout(function(){
+        try {
+          const current = window.emulator;
+          if(current && typeof current.keyboard_send_scancodes === "function"){
+            current.keyboard_send_scancodes([code | 0x80]);
+            log(name + " make/break sent (0x" + code.toString(16) + "/0x" + (code|0x80).toString(16) + ")", "OK");
+          }
+        } catch(e) {
+          log(name + " break failed: " + (e.message || e), "ERROR");
+        } finally {
+          timers[name] = 0;
+        }
+      }, 24);
+      return true;
+    } catch(e) {
+      log(name + " make failed: " + (e.message || e), "ERROR");
+      return false;
+    }
+  }
+
+  function release(name){
+    const code = SC[name];
+    const em = getEmulator();
+    pressed[name] = false;
+    if(timers[name]){ clearTimeout(timers[name]); timers[name]=0; }
+    if(!em || typeof em.keyboard_send_scancodes !== "function") return;
+    try { em.keyboard_send_scancodes([code | 0x80]); } catch(_) {}
+  }
+
+  window.__superEmulatorSendFunctionKey = function(name){
+    name = String(name || "").toUpperCase();
+    if(!Object.prototype.hasOwnProperty.call(SC,name)) return false;
+    return sendMakeBreak(name);
+  };
+
+  /* Replace only the 12 visible F-key buttons. No generic button wiring is touched. */
+  Object.keys(SC).forEach(function(name){
+    const n = name.slice(1);
+    const b = document.getElementById("fkey" + n);
+    if(!b) return;
+
+    b.type = "button";
+    b.disabled = false;
+    b.removeAttribute("aria-disabled");
+    b.style.pointerEvents = "auto";
+    b.style.touchAction = "manipulation";
+    b.style.userSelect = "none";
+    b.setAttribute("data-final-fkey", name);
+
+    /* Remove only handlers installed through DOM0 by previous versions. */
+    b.onclick = null;
+
+    b.addEventListener("pointerdown", function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      pressed[name] = true;
+      sendMakeBreak(name);
+    }, false);
+
+    b.addEventListener("pointerup", function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      release(name);
+    }, false);
+
+    b.addEventListener("pointercancel", function(e){
+      e.preventDefault();
+      release(name);
+    }, false);
+
+    b.addEventListener("click", function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      /* Some browsers suppress pointerdown on unusual focus transitions. */
+      if(!pressed[name]) sendMakeBreak(name);
+      pressed[name] = false;
+    }, false);
+  });
+
+  /* Physical F keys. ChromeOS/browser shortcuts can still be intercepted before
+     a web page receives the event; when the page receives it, forward it directly. */
+  Object.keys(SC).forEach(function(name){
+    window.addEventListener("keydown", function(e){
+      if(e.code !== name) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if(pressed[name]) return;
+      pressed[name] = true;
+      sendMakeBreak(name);
+    }, true);
+
+    window.addEventListener("keyup", function(e){
+      if(e.code !== name) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      release(name);
+    }, true);
+  });
+
+  window.addEventListener("blur", function(){
+    Object.keys(SC).forEach(function(name){
+      if(pressed[name] || timers[name]) release(name);
+    });
+  });
+
+  window.superEmulatorFKeySelfTest = function(){
+    const result = {};
+    Object.keys(SC).forEach(function(name){
+      const b = document.getElementById("fkey" + name.slice(1));
+      result[name] = {
+        button: !!b,
+        disabled: !!b?.disabled,
+        pointerEvents: b ? getComputedStyle(b).pointerEvents : null,
+        rect: b ? (()=>{const r=b.getBoundingClientRect();return [Math.round(r.left),Math.round(r.top),Math.round(r.width),Math.round(r.height)]})() : null,
+        scanCode: SC[name]
+      };
+    });
+    console.log("[FKEY FINAL SELF TEST]", result);
+    log(JSON.stringify(result));
+    return result;
+  };
+
+  log("独立F1-F12入力層を初期化しました");
+})();
+</script>
+
 </html>
