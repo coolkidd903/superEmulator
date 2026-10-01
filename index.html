@@ -575,34 +575,40 @@ button{
   margin:0 !important;
 }
 
-/* 全画面中はOS画面以外を完全に隠す */
-body.super-os-fullscreen #app > *:not(#workspace),
-body.super-os-fullscreen #app header,
-body.super-os-fullscreen #app aside,
-body.super-os-fullscreen #app #functionBar,
+/* 全画面: OS画面 + F1〜F12 + Winだけを残す。#appをFullscreen要素にする。 */
+body.super-os-fullscreen #app{
+  position:fixed !important; inset:0 !important;
+  width:100vw !important; height:100vh !important;
+  min-width:0 !important; min-height:0 !important;
+  display:flex !important; flex-direction:column !important;
+  overflow:hidden !important; background:#030509 !important;
+}
 body.super-os-fullscreen #app .topbar,
-body.super-os-fullscreen #app .toolbar{
-  display:none !important;
+body.super-os-fullscreen #app #sidebar,
+body.super-os-fullscreen #app #controlPanel,
+body.super-os-fullscreen #app .toolbar,
+body.super-os-fullscreen #app .side-btn{ display:none !important; }
+body.super-os-fullscreen #app #functionBar{
+  display:flex !important; position:relative !important; inset:auto !important;
+  z-index:999999 !important; flex:0 0 48px !important; min-height:48px !important;
+  width:100% !important; box-sizing:border-box !important;
+  overflow-x:auto !important; overflow-y:hidden !important;
 }
-body.super-os-fullscreen #app,
-body.super-os-fullscreen #workspace,
-body.super-os-fullscreen #screenArea{
-  width:100vw !important;
-  height:100vh !important;
-  min-width:100vw !important;
-  min-height:100vh !important;
-  grid-template-columns:1fr !important;
-  overflow:hidden !important;
-  display:flex !important;
-  align-items:center !important;
-  justify-content:center !important;
+body.super-os-fullscreen #app #workspace{
+  flex:1 1 auto !important; width:100% !important; height:auto !important;
+  min-width:0 !important; min-height:0 !important; display:block !important; overflow:hidden !important;
 }
-body.super-os-fullscreen #screen{
-  width:fit-content !important;
-  height:fit-content !important;
-  min-width:0 !important;
-  min-height:0 !important;
+body.super-os-fullscreen #app #screenArea{
+  width:100% !important; height:100% !important; min-width:0 !important; min-height:0 !important;
+  display:flex !important; align-items:center !important; justify-content:center !important;
+  overflow:hidden !important; padding:0 !important; margin:0 !important; background:#030509 !important;
 }
+body.super-os-fullscreen #app #screen{
+  width:max-content !important; height:max-content !important; min-width:0 !important; min-height:0 !important;
+  max-width:none !important; max-height:none !important; flex:0 0 auto !important;
+  display:inline-block !important; position:relative !important;
+}
+body.super-os-fullscreen #app #screen canvas{ display:block !important; max-width:none !important; max-height:none !important; }
 
 
 #screen canvas{
@@ -1676,7 +1682,8 @@ let screenScale = Number(localStorage.getItem("superEmulator.screenScale") || "1
 let selectedISO = null;
 let selectedISOName = "";
 let selectedISOBuf = null;
-const ISO_PRELOAD_LIMIT_MB = Math.max(384, Math.min(768, Math.floor((Number(navigator.deviceMemory)||4)*160)));
+let selectedISOBlobURL = "";
+const ISO_PRELOAD_LIMIT_MB = 32; // ISO全体のRAM常駐を避ける
 let isoLoading = false;
 let isoReady = false;
 let selectedFloppy = null;
@@ -2293,12 +2300,11 @@ function chooseInitialMemory(osKey){
   const configs = window.OS_CONFIG || {};
   if(oldOS) return Math.min(Number(configs[osKey]?.memory)||64, 256);
 
-  /* deviceMemory is deliberately only a hint. Try up to 4GB, then fall back
-     automatically if the browser cannot reserve the requested guest RAM. */
-  // v86 + browser + ISO cache all share the same host memory. 4GB端末で無理に4GBを予約すると起動失敗しやすいので、速度と信頼性のバランスを取る。
-  const target=Math.min(3072, Math.max(256, Math.floor(hostGB*1024*0.58)));
+  /* deviceMemoryは目安。4GB端末でv86+WASM+ブラウザ+ISOに大きな余白を残す。 */
+  const safeHostCap = hostGB <= 4 ? 768 : hostGB <= 8 ? 1536 : 2048;
+  const target=Math.min(safeHostCap, Math.max(256, Math.floor(hostGB*1024*0.30)));
   const osCap=Number((window.OS_CONFIG || {})[osKey]?.memory)||4096;
-  const raw=Math.min(target,osCap,4096);
+  const raw=Math.min(target,osCap,2048);
   let p=128; while(p*2<=raw) p*=2;
   return Math.max(128,p);
 }
@@ -2795,8 +2801,8 @@ isoFile.addEventListener(
     // 1GB以下のISOは選択直後に独立したArrayBufferへキャッシュする。
     await file.slice(0, Math.min(file.size, 1024 * 1024)).arrayBuffer();
     if(file.size <= 1024 * 1024 * 1024){
-      selectedISOBuf = (await file.arrayBuffer()).slice(0);
-      log(`ISO起動キャッシュ作成: ${formatBytes(selectedISOBuf.byteLength)}`,"OK");
+      selectedISOBuf = null;
+      log(`ISO本体のRAMキャッシュを省略。メモリ節約モードで起動します。`,"OK");
     }else{
       selectedISOBuf = null;
       log(`ISOが1GBを超えるため全体キャッシュを省略: ${formatBytes(file.size)}`,"WARN");
@@ -3044,6 +3050,7 @@ async function reacquireISOWithPicker(){
 async function __superEmulatorRunISOFile(file,options={}){
   const result=document.getElementById("isoDetectResult");
   if(!file||!file.size)throw new Error("ISOファイルが空です。");
+  if(selectedISO!==file) revokeSelectedISOBlobURL();
   selectedISO=file;selectedISOName=file.name;window.__superEmulatorSelectedISO=file;
   isoReady=false;window.__superEmulatorISOReady=false;isoLoading=true;window.superEmulatorIsoLoading=true;
   if(cdStatus)cdStatus.textContent=file.name;
@@ -3051,10 +3058,8 @@ async function __superEmulatorRunISOFile(file,options={}){
   if(result)result.innerHTML='<span style="color:#ffcc66">⏳ ISOを読み込み・判定中…</span>';
   try{
     await file.slice(0,Math.min(file.size,1024*1024)).arrayBuffer();
-    if(file.size<=ISO_PRELOAD_LIMIT_MB*1024*1024){
-      try{selectedISOBuf=(await file.arrayBuffer()).slice(0);log(`ISO高速起動用キャッシュ完了: ${formatBytes(selectedISOBuf.byteLength)}`,'OK');}
-      catch(e){selectedISOBuf=null;log(`ISOキャッシュ失敗、通常読み込みへ: ${e?.message||e}`,'WARN');}
-    }else selectedISOBuf=null;
+    selectedISOBuf=null;
+    log(`ISO全体のRAMキャッシュを省略。メモリ節約モードで起動します。`,'OK');
     const detected=await detectISOFile(file);
     isoReady=true;window.__superEmulatorISOReady=true;
     if(result)result.innerHTML+='<div style="margin-top:6px;color:#8dffb0">✓ ISOの読み込み・判定が完了しました。起動できます。</div>';
@@ -3073,6 +3078,7 @@ async function runSafeISOSelectionAndDetection(){
     if(btn)btn.disabled=true;
     let fresh=await chooseFreshISO();
     if(!fresh){if(result)result.innerHTML='<span style="color:#ffcc66">⏹ ISO選択をキャンセルしました。</span>';return false;}
+    if(selectedISO!==fresh) revokeSelectedISOBlobURL();
     selectedISO=fresh;selectedISOName=fresh.name;window.__superEmulatorSelectedISO=fresh;isoReady=false;window.__superEmulatorISOReady=false;isoLoading=true;window.superEmulatorIsoLoading=true;
     if(cdStatus)cdStatus.textContent=fresh.name;if(bootText)bootText.textContent="ISOを読み込み・判定中…";setStatus("ISO読み込み中","busy");
     if(result)result.innerHTML='<span style="color:#ffcc66">⏳ 新しいFile参照でISOを安全に読み込み・判定中…</span>';
@@ -3088,19 +3094,9 @@ async function runSafeISOSelectionAndDetection(){
       probe=await fresh.slice(0,Math.min(fresh.size,1024*1024)).arrayBuffer();
     }
     if(!(probe instanceof ArrayBuffer)||!probe.byteLength)throw new Error("ISOの読み込み結果が空です。");
-    if(fresh.size <= ISO_PRELOAD_LIMIT_MB*1024*1024){
-      try{
-        log(`ISO高速起動用キャッシュ開始: ${formatBytes(fresh.size)}`);
-        selectedISOBuf=(await fresh.arrayBuffer()).slice(0);
-        log(`ISO高速起動用キャッシュ完了: ${formatBytes(selectedISOBuf.byteLength)}`,'OK');
-      }catch(cacheError){
-        selectedISOBuf=null;
-        log(`ISO高速起動用キャッシュ失敗。通常読み込みへフォールバック: ${cacheError?.message||cacheError}`,'WARN');
-      }
-    }else{
-      selectedISOBuf=null;
-      log(`ISOが大容量のため全体キャッシュを省略: ${formatBytes(fresh.size)} / 上限 ${ISO_PRELOAD_LIMIT_MB}MB`);
-    }
+    selectedISOBuf=null;
+    log(`ISO全体のRAMキャッシュを省略。メモリ節約モードで起動します。`,'OK');
+
     const detected=await detectISOFile(fresh);
     isoReady=true;window.__superEmulatorISOReady=true;isoLoading=false;window.superEmulatorIsoLoading=false;setStatus("待機中","ready");
     if(result)result.innerHTML+='<div style="margin-top:6px;color:#8dffb0">✓ ISOの読み込み・判定が完了しました。起動できます。</div>';
@@ -3392,6 +3388,16 @@ document.getElementById("startBtn")
 };
 
 
+function revokeSelectedISOBlobURL(){
+  if(selectedISOBlobURL){ try{URL.revokeObjectURL(selectedISOBlobURL);}catch(_){} selectedISOBlobURL=""; }
+}
+function getSelectedISOBlobURL(file){
+  if(!file) return "";
+  if(selectedISOBlobURL) return selectedISOBlobURL;
+  try{ selectedISOBlobURL=URL.createObjectURL(file); log(`ISO Blob URL方式: 本体ArrayBufferを常駐させません`,'OK'); return selectedISOBlobURL; }
+  catch(e){ log(`ISO Blob URL作成失敗: ${e?.message||e}`,'WARN'); return ""; }
+}
+
 async function startEmulator(options={})
 {
   if(!options.debugPath && !options.uploadedFile && !selectedISO)
@@ -3523,29 +3529,26 @@ async function startEmulator(options={})
     else if(selectedISO)
     {
       selectedISOName = selectedISOName || selectedISO.name || "ISO";
-      let buffer = selectedISOBuf instanceof ArrayBuffer
-        ? selectedISOBuf.slice(0)
-        : null;
-
-      // まず独立キャッシュを使う。これなら元File参照が失効していても起動できる。
-      if(!buffer){
-        const liveISO = (isoFile?.files?.[0]) || selectedISO;
-        try{
-          buffer = await readFileBufferReliable(liveISO, isoFile, "ISO");
-        }catch(readError){
-          // Chrome/ChromeOSでFile参照が失効した場合だけ、新しいFile参照を取得する。
+      const blobURL=getSelectedISOBlobURL(selectedISO);
+      if(blobURL){
+        cdromImage={url:blobURL,async:true};
+        cdStatus.textContent=selectedISOName;
+        log(`CD-ROM: Blob URL方式（ISO全体をJS ArrayBufferへ複製しない）`,'OK');
+      }else{
+        const liveISO=(isoFile?.files?.[0])||selectedISO;
+        let buffer=null;
+        try{ buffer=await readFileBufferReliable(liveISO,isoFile,"ISO"); }
+        catch(readError){
           log(`ISO File参照が失効。起動前に再取得します: ${readError?.message||readError}`,"WARN");
-          const fresh = await chooseFreshISO();
+          const fresh=await chooseFreshISO();
           if(!fresh) throw readError;
-          selectedISO=fresh;
-          selectedISOName=fresh.name;
-          window.__superEmulatorSelectedISO=fresh;
+          selectedISO=fresh; selectedISOName=fresh.name; window.__superEmulatorSelectedISO=fresh;
           buffer=await fresh.arrayBuffer();
         }
+        cdromImage={buffer};
+        cdStatus.textContent=selectedISOName;
+        log(`CD-ROM: ArrayBufferフォールバック方式`,'WARN');
       }
-
-      cdromImage = { buffer:buffer.slice(0) };
-      cdStatus.textContent = selectedISOName;
     }
     else
     {
@@ -4181,6 +4184,8 @@ async function stopAndDestroy()
 
   emulator = null;
   window.emulator = null;
+  revokeSelectedISOBlobURL();
+  selectedISOBuf=null;
 
   screen.innerHTML = "";
 
@@ -4339,12 +4344,29 @@ window.__superEmulatorEnableMouse=function(){
 };
 
 /* =========================================================
+   HOST MEMORY GUARD
+========================================================= */
+let superMemoryPressureTimer=null;
+function superEmulatorMemoryGuard(){
+  const pm=performance?.memory; if(!pm||!pm.jsHeapSizeLimit) return;
+  const ratio=pm.usedJSHeapSize/pm.jsHeapSizeLimit;
+  if(ratio>=0.88){
+    log(`[MEMORY] 高負荷: JS heap ${formatBytes(pm.usedJSHeapSize)} / ${formatBytes(pm.jsHeapSizeLimit)} (${Math.round(ratio*100)}%)`,'WARN');
+    selectedISOBuf=null;
+  }
+}
+function startMemoryGuard(){clearInterval(superMemoryPressureTimer);superMemoryPressureTimer=setInterval(superEmulatorMemoryGuard,4000);}
+startMemoryGuard();
+window.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){superEmulatorMemoryGuard();try{saveSetupState();}catch(_){} }});
+window.addEventListener("pagehide",()=>{try{saveSetupState();}catch(_){}});
+
+/* =========================================================
    FULLSCREEN
 ========================================================= */
 
 document.getElementById("fullscreenBtn").onclick=async()=>{
   if(!emulator){alert("先にエミュレーターを起動してください。");return;}
-  const target=document.getElementById("screenArea");
+  const target=document.getElementById("app");
   try{
     if(document.fullscreenElement){
       await document.exitFullscreen();
@@ -4372,9 +4394,8 @@ document.addEventListener("fullscreenchange",()=>{
   if(appEl) appEl.classList.toggle("super-os-fullscreen",active);
   const area=document.getElementById("screenArea");
   if(area) area.classList.toggle("fullscreen-only",active);
-  if(active){
-    requestAnimationFrame(()=>applyScreenScale());
-  }
+  log(active ? "全画面: OS画面 + F1〜F12 + Winのみ表示" : "全画面解除");
+  requestAnimationFrame(()=>{applyScreenScale();syncScreenContainerGeometry("fullscreen-change");});
 });
 screen.addEventListener("dblclick",()=>{if(emulator)document.getElementById("fullscreenBtn").click();});
 /* マウス診断: 実際にクリックされた場所とv86の座標基準矩形をログへ残す。 */
@@ -5453,7 +5474,7 @@ document.addEventListener("keyup",e=>{
     if(typeof window.stopAndDestroy==="function"&&typeof window.startEmulator==="function"){await window.stopAndDestroy();await window.startEmulator();}
   });
   wire("fullscreenBtn",async()=>{
-    const target=el("screenArea");
+    const target=el("app");
     if(document.fullscreenElement){if(document.exitFullscreen)await document.exitFullscreen();return;}
     if(target&&target.requestFullscreen){await target.requestFullscreen({navigationUI:"hide"});return;}
     if(window.emulator&&typeof window.emulator.screen_go_fullscreen==="function")window.emulator.screen_go_fullscreen();
@@ -5945,7 +5966,7 @@ window.superEmulatorAuditButtons=function(){const ids=["detectBtn","manualDetect
   direct("closeSidebar",function(){const x=byId("sidebar");if(x)x.classList.add("collapsed");});
   direct("powerBtn",async function(){if(typeof window.stopAndDestroy==='function')await window.stopAndDestroy();else if(window.emulator?.stop)window.emulator.stop();});
   direct("resetBtn",async function(){if(!window.emulator){alert("エミュレーターが起動していません。");return;}if(typeof window.emulator.restart==='function')return window.emulator.restart();if(typeof window.stopAndDestroy==='function'&&typeof window.startEmulator==='function'){await window.stopAndDestroy();await window.startEmulator();}});
-  direct("fullscreenBtn",async function(){const t=byId("screenArea");if(document.fullscreenElement){if(document.exitFullscreen)await document.exitFullscreen();return;}if(t?.requestFullscreen)return t.requestFullscreen({navigationUI:"hide"});if(window.emulator?.screen_go_fullscreen)window.emulator.screen_go_fullscreen();});
+  direct("fullscreenBtn",async function(){const t=byId("app");if(document.fullscreenElement){if(document.exitFullscreen)await document.exitFullscreen();return;}if(t?.requestFullscreen)return t.requestFullscreen({navigationUI:"hide"});if(window.emulator?.screen_go_fullscreen)window.emulator.screen_go_fullscreen();});
   direct("screenshotBtn",function(){const em=window.emulator;if(!em){alert("先にエミュレーターを起動してください。");return;}if(typeof em.screen_make_screenshot!=="function"){alert("スクリーンショットAPIがありません。");return;}const img=em.screen_make_screenshot();if(img?.src){const a=document.createElement("a");a.href=img.src;a.download=`superEmulator-${Date.now()}.png`;a.click();}});
   direct("manualDetectBtn",function(){const a=byId("manualArea");if(!a)return;const hidden=a.style.display==='none'||a.hidden;a.style.display=hidden?'block':'none';a.hidden=!hidden;});
   direct("confirmManualOSBtn",function(){const s=byId("osSelect");if(!s)return;const fn=window.superEmulatorSetSelectedOS;if(typeof fn!=='function'){alert("OS確定機能がまだ読み込まれていません。");return;}if(fn(s.value,"手動設定",true)!==true){alert("OS確定処理に失敗しました。詳細ログを確認してください。");return;}const st=byId("manualOSConfirmStatus");if(st){st.textContent="確定済み: "+s.options[s.selectedIndex].text;st.style.color="#8ff0b0";}});
@@ -6244,6 +6265,7 @@ window.superEmulatorAuditButtons=function(){const ids=["detectBtn","manualDetect
     if(!stored?.blob)throw new Error('ISO本体がブラウザ内に見つかりません。');
     const blob=stored.blob instanceof Blob?stored.blob:new Blob([stored.blob],{type:stored.type||'application/octet-stream'});
     const file=new File([blob],stored.name||rec.name||'saved.iso',{type:stored.type||'application/octet-stream',lastModified:stored.lastModified||Date.now()});
+    try{localStorage.setItem('superEmulator.lastISOId',rec.id);localStorage.setItem('superEmulator.lastISOName',stored.name||rec.name||'saved.iso');}catch(_){}
     window.__superEmulatorSelectedISO=file;
     window.selectedISO=file;
     if(typeof window.__superEmulatorRunISOFile==='function'){
@@ -6324,6 +6346,10 @@ window.superEmulatorAuditButtons=function(){const ids=["detectBtn","manualDetect
   if(restoreBtn)restoreBtn.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();restoreSavedISO();},true);
   if(refreshBtn)refreshBtn.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();renderList();},true);
   renderList().catch(()=>{});
+  try{
+    const lastName=localStorage.getItem('superEmulator.lastISOName');
+    if(lastName && status && status.textContent==='') status.textContent=`前回ISO: ${lastName}`;
+  }catch(_){}
 })();
 </script>
 
