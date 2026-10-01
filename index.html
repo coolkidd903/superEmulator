@@ -894,21 +894,7 @@ button, input, select, label, a, [role="button"] { pointer-events:auto !importan
 #screenPlaceholder { pointer-events:none !important; }
 
 /* ゲスト画面上で常に見える診断用マウスカーソル。v86への入力は邪魔しない。 */
-#superGuestMouseCursor{
-  position:fixed; left:0; top:0; width:22px; height:28px; z-index:2147483000;
-  pointer-events:none; display:none; transform:translate3d(0,0,0);
-  filter:drop-shadow(0 1px 2px rgba(0,0,0,.9));
-}
-#superGuestMouseCursor::before{
-  content:""; position:absolute; left:1px; top:1px;
-  width:0; height:0; border-top:18px solid #fff; border-right:12px solid transparent;
-  transform:rotate(-7deg);
-}
-#superGuestMouseCursor::after{
-  content:""; position:absolute; left:3px; top:3px;
-  width:0; height:0; border-top:14px solid #111; border-right:9px solid transparent;
-  transform:rotate(-7deg);
-}
+#superGuestMouseCursor{display:none !important;pointer-events:none !important;}
 
 /* カスタム手カーソルを確実にUIへ適用 */
 #landing button, #landing a, #landing [role="button"],
@@ -939,6 +925,25 @@ button, input, select, label, a, [role="button"] { pointer-events:auto !importan
 .iso-detected{padding:10px;border:1px solid rgba(255,255,255,.08);background:#080c12;border-radius:10px;color:#cfd9e8;font-size:12px;line-height:1.6}
 .compact-status-panel{min-height:0}
 #isoDetectProgressWrap progress{width:100%;height:10px}
+
+/* Native v86 mouse geometry hardening: one coordinate space only. */
+#screen,
+#screenArea,
+#screen canvas{
+  transform:none !important;
+  zoom:1 !important;
+}
+#screen{
+  touch-action:none !important;
+  user-select:none !important;
+  -webkit-user-select:none !important;
+}
+#screen canvas{
+  display:block !important;
+  max-width:none !important;
+  max-height:none !important;
+}
+
 </style>
 </head>
 
@@ -3808,6 +3813,7 @@ async function startEmulator(options={})
         emulator=new V86Constructor(config);
         // 重要: UI/入力層は window.emulator を参照するため、本体インスタンスを公開する
         window.emulator = emulator;
+        try{ if(typeof emulator.mouse_set_enabled==="function") emulator.mouse_set_enabled(true); }catch(_){}
         selectedMemoryMB=mem;
         updateMemoryStatus(mem, `確保成功 / host ${getHostMemoryGB()}GB相当`);
         created=true;
@@ -4398,12 +4404,6 @@ document.addEventListener("fullscreenchange",()=>{
   requestAnimationFrame(()=>{applyScreenScale();syncScreenContainerGeometry("fullscreen-change");});
 });
 screen.addEventListener("dblclick",()=>{if(emulator)document.getElementById("fullscreenBtn").click();});
-/* マウス診断: 実際にクリックされた場所とv86の座標基準矩形をログへ残す。 */
-screen.addEventListener("pointerdown",e=>{
-  if(!emulator) return;
-  const r=screen.getBoundingClientRect();
-  log(`[MOUSE] pointerdown client=${Math.round(e.clientX)},${Math.round(e.clientY)} local=${Math.round(e.clientX-r.left)},${Math.round(e.clientY-r.top)} rect=${Math.round(r.width)}x${Math.round(r.height)}`);
-},true);
 screen.tabIndex=0;
 screen.style.pointerEvents="auto";
 // v86自身のマウスイベント処理に任せる。HTML側で二重にpointer lockしない。
@@ -6952,126 +6952,164 @@ exit "$fail"
 <script id="superEmulator-input-mouse-hardfix">
 (function(){
   "use strict";
-  const F={F1:0x3B,F2:0x3C,F3:0x3D,F4:0x3E,F5:0x3F,F6:0x40,F7:0x41,F8:0x42,F9:0x43,F10:0x44,F11:0x57,F12:0x58};
-  const screen=document.getElementById("screen");
-  const cursor=document.getElementById("superGuestMouseCursor");
-  const out=(m,l)=>{try{if(typeof window.log==="function")window.log("[INPUT HARD] "+m,l||"INFO");else console.log("[INPUT HARD] "+m);}catch(_){} };
-  const getEm=()=>window.emulator||null;
+
+  /*
+   * superEmulator mouse policy:
+   * v86 itself installs window-level mouse handlers and converts clientX/Y
+   * using screen_container.getBoundingClientRect().
+   *
+   * Do NOT add another pointermove/pointerdown conversion layer here.
+   * Do NOT draw a second cursor.
+   */
+
+  const F = {
+    F1:0x3B,F2:0x3C,F3:0x3D,F4:0x3E,F5:0x3F,
+    F6:0x40,F7:0x41,F8:0x42,F9:0x43,F10:0x44,
+    F11:0x57,F12:0x58
+  };
+
+  const screen = document.getElementById("screen");
+  const out = (m,l) => {
+    try {
+      if(typeof window.log === "function") window.log("[INPUT NATIVE] "+m,l||"INFO");
+      else console.log("[INPUT NATIVE] "+m);
+    } catch(_){}
+  };
+  const getEm = () => window.emulator || null;
 
   function sendF(name){
     const em=getEm();
-    out(name+" UI入力検出 / emulator="+(!!em));
-    if(!em){out(name+" 送信不可: window.emulator がnull","ERROR");return false;}
-    if(typeof em.keyboard_send_scancodes!=="function"){out(name+" 送信不可: keyboard_send_scancodesなし","ERROR");return false;}
+    if(!em || typeof em.keyboard_send_scancodes!=="function"){
+      out(name+" 送信不可: keyboard_send_scancodesなし","ERROR");
+      return false;
+    }
     const c=F[name];
     try{
       em.keyboard_send_scancodes([c]);
       setTimeout(()=>{
         const cur=getEm();
-        if(cur&&typeof cur.keyboard_send_scancodes==="function") cur.keyboard_send_scancodes([c|0x80]);
+        if(cur && typeof cur.keyboard_send_scancodes==="function"){
+          cur.keyboard_send_scancodes([c|0x80]);
+        }
       },25);
-      out(name+" → v86 PS/2送信 make=0x"+c.toString(16)+" break=0x"+(c|0x80).toString(16),"OK");
+      out(name+" make=0x"+c.toString(16)+" / break=0x"+(c|0x80).toString(16)+" → v86","OK");
       return true;
-    }catch(e){out(name+" 送信例外: "+(e&&e.message||e),"ERROR");return false;}
+    }catch(e){
+      out(name+" 送信例外: "+(e?.message||e),"ERROR");
+      return false;
+    }
   }
 
-  // 既存のFキーbutton listenerの有無に関係なく、document captureで確実に拾う。
-  document.addEventListener("pointerdown",function(e){
-    const b=e.target&&e.target.closest?e.target.closest(".fkey[data-f]"):null;
-    if(!b)return;
-    const n=Number(b.dataset.f), name="F"+n;
-    if(!F[name])return;
-    e.preventDefault();
-    out(name+" pointerdown target="+b.id);
-    sendF(name);
-  },true);
+  function sendWin(){
+    const em=getEm();
+    if(!em || typeof em.keyboard_send_scancodes!=="function"){
+      out("Win送信不可: keyboard_send_scancodesなし","ERROR");
+      return false;
+    }
+    try{
+      em.keyboard_send_scancodes([0xE0,0x5B]);
+      setTimeout(()=>{
+        const cur=getEm();
+        if(cur && typeof cur.keyboard_send_scancodes==="function"){
+          cur.keyboard_send_scancodes([0xE0,0xDB]);
+        }
+      },25);
+      out("Win make=E0 5B / break=E0 DB → v86","OK");
+      return true;
+    }catch(e){
+      out("Win送信例外: "+(e?.message||e),"ERROR");
+      return false;
+    }
+  }
 
-  // クリックだけしか届かない環境へのフォールバック。
-  document.addEventListener("click",function(e){
-    const b=e.target&&e.target.closest?e.target.closest(".fkey[data-f]"):null;
-    if(!b)return;
-    const n=Number(b.dataset.f), name="F"+n;
-    if(!F[name])return;
-    e.preventDefault();
-    out(name+" click target="+b.id);
-    // pointerdownが発火した場合の二重送信を避けるため、pointerdownが無かった時だけ送る。
-  },true);
+  // One delegated route for the visible F-key / Win-key layer.
+  const bar=document.getElementById("functionBar");
+  if(bar){
+    bar.addEventListener("pointerdown",function(e){
+      const b=e.target.closest?.(".super-fkey,.super-win-key");
+      if(!b || !bar.contains(b)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if(b.classList.contains("super-win-key")) sendWin();
+      else {
+        const n=Number(b.dataset.superF || b.dataset.f);
+        if(Number.isFinite(n) && F["F"+n]) sendF("F"+n);
+      }
+    },true);
+  }
 
-  // 物理Fキー。ChromeOS側に奪われた場合はWebページへ届かないため、その事実も診断ログに残す。
+  // Physical F keys are passed to v86 when the browser receives them.
   Object.keys(F).forEach(name=>{
     window.addEventListener("keydown",function(e){
-      if(e.code!==name)return;
+      if(e.code!==name) return;
       e.preventDefault();
-      out(name+" 物理keydown受信");
-      if(!e.repeat)sendF(name);
+      if(!e.repeat) sendF(name);
     },true);
   });
 
-  const wb=document.getElementById("windowsKeyBtn");
-  if(wb){
-    document.addEventListener("pointerdown",function(e){
-      if(e.target!==wb && !wb.contains(e.target))return;
-      e.preventDefault();
+  // Keep v86 mouse enabled; never synthesize mouse packets ourselves.
+  window.__superEmulatorEnableMouse = function(){
+    try{
       const em=getEm();
-      out("Win UI入力検出 / emulator="+(!!em));
-      if(!em||typeof em.keyboard_send_scancodes!=="function"){out("Win送信不可","ERROR");return;}
-      try{
-        em.keyboard_send_scancodes([0xE0,0x5B]);
-        setTimeout(()=>{const cur=getEm();if(cur&&typeof cur.keyboard_send_scancodes==="function")cur.keyboard_send_scancodes([0xE0,0xDB]);},25);
-        out("Win → v86 PS/2送信 E0 5B / E0 DB","OK");
-      }catch(e2){out("Win送信例外: "+(e2.message||e2),"ERROR");}
-    },true);
-  }
-
-  // マウス表示＋座標診断。overlayはpointer-events:noneなのでv86の入力を邪魔しない。
-  if(screen){
-    let inside=false, lastMoveLog=0;
-    function show(x,y){
-      if(!cursor)return;
-      cursor.style.display="block";
-      cursor.style.left=Math.round(x)+"px";
-      cursor.style.top=Math.round(y)+"px";
-    }
-    screen.addEventListener("pointerenter",e=>{
-      inside=true; show(e.clientX,e.clientY);
-      const r=screen.getBoundingClientRect();
-      out("MOUSE enter client="+Math.round(e.clientX)+","+Math.round(e.clientY)+" rect="+Math.round(r.width)+"x"+Math.round(r.height));
-      try{if(getEm()&&typeof getEm().mouse_set_enabled==="function")getEm().mouse_set_enabled(true);}catch(_){}
-    },true);
-    screen.addEventListener("pointermove",e=>{
-      inside=true;
-      show(e.clientX,e.clientY);
-      const now=performance.now();
-      if(now-lastMoveLog>500){
-        lastMoveLog=now;
-        const r=screen.getBoundingClientRect();
-        out("MOUSE move client="+Math.round(e.clientX)+","+Math.round(e.clientY)+" local="+Math.round(e.clientX-r.left)+","+Math.round(e.clientY-r.top)+" rect="+Math.round(r.width)+"x"+Math.round(r.height));
+      if(em && typeof em.mouse_set_enabled==="function"){
+        em.mouse_set_enabled(true);
+        out("v86 native mouse enabled","OK");
       }
-    },true);
-    screen.addEventListener("pointerleave",()=>{inside=false;if(cursor)cursor.style.display="none";out("MOUSE leave");},true);
-    screen.addEventListener("pointerdown",e=>{
-      show(e.clientX,e.clientY);
-      const r=screen.getBoundingClientRect();
-      out("MOUSE down client="+Math.round(e.clientX)+","+Math.round(e.clientY)+" local="+Math.round(e.clientX-r.left)+","+Math.round(e.clientY-r.top));
-      try{if(getEm()&&typeof getEm().mouse_set_enabled==="function")getEm().mouse_set_enabled(true);}catch(_){}
-    },true);
-    window.addEventListener("blur",()=>{if(cursor)cursor.style.display="none";});
-  }
+    }catch(err){
+      out("mouse_set_enabled失敗: "+(err?.message||err),"WARN");
+    }
+    requestAnimationFrame(()=>window.superEmulatorAuditNativeMouse?.("mouse-enable"));
+  };
 
-  window.superEmulatorInputHardSelfTest=function(){
+  window.superEmulatorAuditNativeMouse = function(reason="manual"){
+    if(!screen) return null;
+    const canvas=screen.querySelector("canvas");
+    const sr=screen.getBoundingClientRect();
+    const cr=canvas ? canvas.getBoundingClientRect() : null;
     const result={
-      emulator:!!getEm(),
-      keyboardAPI:!!(getEm()&&typeof getEm().keyboard_send_scancodes==="function"),
-      mouseAPI:!!(getEm()&&typeof getEm().mouse_set_enabled==="function"),
-      screen:!!screen,
-      cursor:!!cursor,
-      fButtons:[...document.querySelectorAll(".fkey[data-f]")].map(b=>({id:b.id,f:b.dataset.f,rect:(()=>{const r=b.getBoundingClientRect();return [Math.round(r.left),Math.round(r.top),Math.round(r.width),Math.round(r.height)]})(),pointerEvents:getComputedStyle(b).pointerEvents}))
+      reason,
+      screen:{
+        left:sr.left, top:sr.top, width:sr.width, height:sr.height
+      },
+      canvas:cr ? {
+        left:cr.left, top:cr.top, width:cr.width, height:cr.height
+      } : null,
+      delta:cr ? {
+        x:sr.left-cr.left, y:sr.top-cr.top,
+        width:sr.width-cr.width, height:sr.height-cr.height
+      } : null,
+      dpr:window.devicePixelRatio||1,
+      scale:window.__superEmulatorMouseGeometry?.scale ?? null,
+      pointerLocked:!!document.pointerLockElement
     };
-    console.log("[INPUT HARD SELF TEST]",result);
-    out(JSON.stringify(result),"INFO");
+    window.__superEmulatorNativeMouseAudit=result;
+    const ok=!!cr &&
+      Math.abs(result.delta.x)<=0.5 &&
+      Math.abs(result.delta.y)<=0.5 &&
+      Math.abs(result.delta.width)<=0.5 &&
+      Math.abs(result.delta.height)<=0.5;
+
+    out(
+      (ok ? "座標基準一致" : "座標基準異常")+
+      `(${reason}) screen=(${Math.round(sr.left)},${Math.round(sr.top)}) ${Math.round(sr.width)}x${Math.round(sr.height)}`+
+      (cr ? ` canvas=(${Math.round(cr.left)},${Math.round(cr.top)}) ${Math.round(cr.width)}x${Math.round(cr.height)}` : " canvas=なし")+
+      ` DPR=${window.devicePixelRatio||1} locked=${!!document.pointerLockElement}`,
+      ok ? "OK" : "WARN"
+    );
     return result;
   };
-  out("Fキー/Win/マウス硬化デバッグ層を初期化。window.emulator参照を確認します");
+
+  window.addEventListener("resize",()=>{
+    requestAnimationFrame(()=>window.superEmulatorAuditNativeMouse?.("resize"));
+  },{passive:true});
+
+  document.addEventListener("fullscreenchange",()=>{
+    requestAnimationFrame(()=>window.superEmulatorAuditNativeMouse?.("fullscreen-change"));
+  });
+
+  // Important: no pointermove/pointerdown listener is installed on #screen.
+  // This prevents an extra input layer from competing with v86.
+  out("F1-F12 / Win + v86ネイティブマウス入力層を初期化しました","OK");
 })();
 </script>
 
