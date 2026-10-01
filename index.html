@@ -530,19 +530,22 @@ button{
 }
 
 #screen{
-  /* v86のabsolute mouse座標はscreen_containerのgetBoundingClientRect()基準。
-     screen自体をcanvasと同じ大きさにして、余白分の座標ズレをゼロにする。 */
-  min-width:0;
-  min-height:0;
-  width:fit-content;
-  height:fit-content;
-  display:block;
+  /* v86のmouse.jsはこのcontainerのgetBoundingClientRect()をそのまま
+     absolute mouse座標の基準にする。JSでwidth/heightを後から上書きせず、
+     canvas自身に自然にshrink-wrapさせる。 */
+  min-width:0 !important;
+  min-height:0 !important;
+  width:max-content !important;
+  height:max-content !important;
+  display:inline-block !important;
   overflow:visible;
-  padding:0;
-  margin:0;
+  padding:0 !important;
+  margin:0 !important;
   position:relative;
   line-height:0;
-  flex:none;
+  flex:0 0 auto;
+  transform:none !important;
+  zoom:1;
 }
 
 #screen canvas,
@@ -2788,8 +2791,16 @@ isoFile.addEventListener(
 
   try
   {
-    // まずファイルが実際に読めることを確認してから自動判定する。
+    // 起動時の「File参照が古くなった」問題を避けるため、
+    // 1GB以下のISOは選択直後に独立したArrayBufferへキャッシュする。
     await file.slice(0, Math.min(file.size, 1024 * 1024)).arrayBuffer();
+    if(file.size <= 1024 * 1024 * 1024){
+      selectedISOBuf = (await file.arrayBuffer()).slice(0);
+      log(`ISO起動キャッシュ作成: ${formatBytes(selectedISOBuf.byteLength)}`,"OK");
+    }else{
+      selectedISOBuf = null;
+      log(`ISOが1GBを超えるため全体キャッシュを省略: ${formatBytes(file.size)}`,"WARN");
+    }
     await detectISOFile(file);
     isoReady = true;
     window.__superEmulatorISOReady=true;
@@ -3511,21 +3522,30 @@ async function startEmulator(options={})
     }
     else if(selectedISO)
     {
-      const liveISO = (isoFile?.files?.[0]) || selectedISO;
-      selectedISO = liveISO;
-      selectedISOName = liveISO?.name || selectedISOName;
-      const buffer = selectedISOBuf instanceof ArrayBuffer
+      selectedISOName = selectedISOName || selectedISO.name || "ISO";
+      let buffer = selectedISOBuf instanceof ArrayBuffer
         ? selectedISOBuf.slice(0)
-        : await readFileBufferReliable(liveISO, isoFile, "ISO");
+        : null;
 
-      // v86には「File」ではなく、独立したArrayBufferを渡す。
-      // slice()で元のFile由来バッファとの共有を避ける。
-      cdromImage = {
-        buffer: buffer.slice(0)
-      };
+      // まず独立キャッシュを使う。これなら元File参照が失効していても起動できる。
+      if(!buffer){
+        const liveISO = (isoFile?.files?.[0]) || selectedISO;
+        try{
+          buffer = await readFileBufferReliable(liveISO, isoFile, "ISO");
+        }catch(readError){
+          // Chrome/ChromeOSでFile参照が失効した場合だけ、新しいFile参照を取得する。
+          log(`ISO File参照が失効。起動前に再取得します: ${readError?.message||readError}`,"WARN");
+          const fresh = await chooseFreshISO();
+          if(!fresh) throw readError;
+          selectedISO=fresh;
+          selectedISOName=fresh.name;
+          window.__superEmulatorSelectedISO=fresh;
+          buffer=await fresh.arrayBuffer();
+        }
+      }
 
-      cdStatus.textContent =
-        selectedISOName;
+      cdromImage = { buffer:buffer.slice(0) };
+      cdStatus.textContent = selectedISOName;
     }
     else
     {
@@ -4240,13 +4260,12 @@ document.getElementById("resetBtn")
 
 
 function applyScreenScale(){
-  const canvas=screen.querySelector("canvas");
-  if(!canvas) return;
-
+  if(!screen) return;
   /*
-   * v86側のscale APIだけを使用する。
-   * canvasのwidth/heightをここから上書きしないことが重要。
-   * v86のScreenAdapterはdevicePixelRatioも考慮して実表示サイズを決める。
+   * v86自身のscreen scalingだけを変更する。
+   * canvasのCSS width/height、containerのwidth/height、transformを
+   * 外側から書き換えない。v86のmouse.jsはcontainer.getBoundingClientRect()
+   * とclientX/Yを同じCSSピクセル座標系で使うため、ここを壊さない。
    */
   if(emulator && typeof emulator.screen_set_scale==="function"){
     try{
@@ -4255,89 +4274,69 @@ function applyScreenScale(){
       log("v86画面スケール設定失敗: "+e,"WARN");
     }
   }
-
-  canvas.style.transform="none";
-  canvas.style.transformOrigin="0 0";
-  canvas.style.margin="0";
-  canvas.style.padding="0";
-  canvas.style.maxWidth="none";
-  canvas.style.maxHeight="none";
-  canvas.style.display="block";
-
   requestAnimationFrame(()=>syncScreenContainerGeometry("scale"));
 }
 
 /* =========================================================
-   MOUSE GEOMETRY SAFEGUARD v2
-   v86のmouse.jsはscreen_containerのgetBoundingClientRect()をabsolute mouseの基準にする。
-   旧版は#screenを100%幅にしていたため、canvasを中央寄せした時にクリック座標がズレていた。
-   #screenの矩形をcanvas/テキスト画面の実矩形へ追従させる。
+   MOUSE GEOMETRY — v86 native coordinate system
+   v86 mouse.js is window-level and uses:
+     x = event.clientX - screen_container.getBoundingClientRect().left
+     y = event.clientY - screen_container.getBoundingClientRect().top
+   Therefore the safest fix is to make #screen shrink-wrap the actual canvas
+   and NEVER copy/override its geometry from JS.
 ========================================================= */
 function syncScreenContainerGeometry(reason="unknown"){
   if(!screen) return;
-
   const canvas=screen.querySelector("canvas");
-  const text=screen.querySelector(":scope > div:not(.screen-placeholder)");
-  const target=canvas && getComputedStyle(canvas).display!=="none" ? canvas : text;
-
-  /* 起動直後はv86がまだcanvasを作っていないことがある。0x0を基準にしない。 */
+  const target=canvas || screen.querySelector(":scope > div:not(.screen-placeholder)");
   if(!target){
     window.__superEmulatorMouseGeometry={reason,ready:false,dpr:devicePixelRatio||1,scale:screenScale};
     return;
   }
 
-  screen.style.minWidth="0";
-  screen.style.minHeight="0";
-  screen.style.transform="none";
-  screen.style.margin="0";
-  screen.style.padding="0";
-  screen.style.lineHeight="0";
-
-  /*
-   * v86のマウス入力はscreen_containerの矩形を基準にする。
-   * ここでは「fit-content」に任せず、実際に描画されているcanvasの
-   * CSSピクセル寸法をcontainerへそのまま反映する。
-   * これでスクロール領域・flex配置・DPR・v86のscreen scalingが混ざっても
-   * containerとcanvasの左上/幅/高さが同じ座標系になる。
-   */
-  const tr0=target.getBoundingClientRect();
-  if(tr0.width>0 && tr0.height>0){
-    screen.style.width=`${tr0.width}px`;
-    screen.style.height=`${tr0.height}px`;
-  }
-
   const sr=screen.getBoundingClientRect();
   const tr=target.getBoundingClientRect();
+  const sx=tr.width ? sr.width/tr.width : 1;
+  const sy=tr.height ? sr.height/tr.height : 1;
   const dx=sr.left-tr.left, dy=sr.top-tr.top;
-  const dw=sr.width-tr.width, dh=sr.height-tr.height;
   window.__superEmulatorMouseGeometry={
-    reason,
-    ready:true,
+    reason,ready:sr.width>0&&sr.height>0,dpr:devicePixelRatio||1,scale:screenScale,
     screen:{left:sr.left,top:sr.top,width:sr.width,height:sr.height},
     target:{left:tr.left,top:tr.top,width:tr.width,height:tr.height},
-    delta:{x:dx,y:dy,width:dw,height:dh},
-    dpr:devicePixelRatio||1,
-    scale:screenScale
+    delta:{x:dx,y:dy,width:sr.width-tr.width,height:sr.height-tr.height},
+    visualScale:{x:sx,y:sy}
   };
 
-  if(Math.abs(dx)>0.5||Math.abs(dy)>0.5||Math.abs(dw)>0.5||Math.abs(dh)>0.5){
-    log(`[MOUSE] 座標基準ズレ検出(${reason}): container=${Math.round(sr.width)}x${Math.round(sr.height)} target=${Math.round(tr.width)}x${Math.round(tr.height)} offset=${dx.toFixed(2)},${dy.toFixed(2)} diff=${dw.toFixed(2)},${dh.toFixed(2)}`,"WARN");
+  if(Math.abs(dx)>0.5||Math.abs(dy)>0.5||Math.abs(sr.width-tr.width)>0.5||Math.abs(sr.height-tr.height)>0.5){
+    log(`[MOUSE] 座標基準異常(${reason}): screen=${Math.round(sr.width)}x${Math.round(sr.height)} canvas=${Math.round(tr.width)}x${Math.round(tr.height)} offset=${dx.toFixed(2)},${dy.toFixed(2)}`,"WARN");
   }else{
-    log(`[MOUSE] 座標基準OK(${reason}): ${Math.round(tr.width)}x${Math.round(tr.height)} / DPR=${devicePixelRatio||1} / scale=${screenScale}`);
+    log(`[MOUSE] 座標基準一致(${reason}): ${Math.round(sr.width)}x${Math.round(sr.height)} / DPR=${devicePixelRatio||1} / scale=${screenScale}`);
   }
 }
 
 window.addEventListener("resize",()=>requestAnimationFrame(()=>syncScreenContainerGeometry("resize")),{passive:true});
 window.addEventListener("orientationchange",()=>requestAnimationFrame(()=>syncScreenContainerGeometry("orientation")),{passive:true});
+window.addEventListener("scroll",()=>requestAnimationFrame(()=>syncScreenContainerGeometry("scroll")),{passive:true});
 
-/* v86がcanvasを後から生成・サイズ変更した場合も座標基準を即時同期 */
 if(screen){
-  const mouseGeometryObserver=new MutationObserver(()=>{
-    requestAnimationFrame(()=>syncScreenContainerGeometry("mutation"));
-  });
-  mouseGeometryObserver.observe(screen,{childList:true,subtree:true,attributes:true,attributeFilter:["style","width","height"]});
+  const mouseGeometryObserver=new ResizeObserver(()=>syncScreenContainerGeometry("resize-observer"));
+  mouseGeometryObserver.observe(screen);
   window.__superEmulatorMouseGeometryObserver=mouseGeometryObserver;
+  const mutation=new MutationObserver(()=>requestAnimationFrame(()=>syncScreenContainerGeometry("canvas-mutation")));
+  mutation.observe(screen,{childList:true,subtree:true,attributes:true,attributeFilter:["style","width","height"]});
+  window.__superEmulatorMouseMutationObserver=mutation;
 }
+
+/* Native v86 mouse input is window-level. Do NOT convert pointer events and
+   do NOT send synthetic mouse deltas here; that would double-feed the PS/2. */
+window.__superEmulatorEnableMouse=function(){
+  try{
+    if(window.emulator && typeof window.emulator.mouse_set_enabled==="function"){
+      window.emulator.mouse_set_enabled(true);
+    }
+  }catch(err){ log(`[MOUSE] mouse_set_enabled失敗: ${err?.message||err}`,"WARN"); }
+  requestAnimationFrame(()=>syncScreenContainerGeometry("mouse-enable"));
+};
 
 /* =========================================================
    FULLSCREEN
