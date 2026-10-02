@@ -1497,7 +1497,15 @@ button, input, select, label, a, [role="button"] { pointer-events:auto !importan
     <div class="settings-section">
       <h3>🧠 メモリ</h3>
       <div class="disk-status"><div class="disk-box"><strong>自動割り当て</strong><span id="memoryStatus">未計算</span></div></div>
-      <div class="help" style="margin-top:9px">最大4GBを目標に自動選択します。ブラウザが確保できなければ2GB→1GB→512MB…と自動で下げて再試行します。</div>
+      <div class="help" style="margin-top:9px">通常は自動割り当て。メモリプロファイルをアップロードすると、その容量を起動時RAMの開始値として使用します。</div>
+      <label class="label" style="margin-top:10px">メモリイメージ / RAMプロファイル</label>
+      <input class="field" id="memoryImageFile" type="file" accept=".ramimg,.mem,.img,.bin,.json">
+      <div class="row" style="margin-top:8px">
+        <button class="ctrl-btn" id="clearMemoryImageBtn" type="button">メモリ設定を解除</button>
+        <button class="ctrl-btn" id="downloadMemoryImageBtn" type="button">RAMプロファイルを作成</button>
+      </div>
+      <div id="memoryImageStatus" class="help" style="margin-top:8px">未接続</div>
+      <div class="help" style="margin-top:8px">※これは実RAMそのものを保存する巨大な.imgではなく、起動RAM容量を記録した小さなプロファイルです。実際のRAMはv86が起動時に確保します。</div>
     </div>
 
     <div class="settings-section">
@@ -1765,6 +1773,10 @@ const debugIsoFile =
 const floppyFile = document.getElementById("floppyFile");
 const floppyStatus = document.getElementById("floppyStatus");
 const memoryStatus = document.getElementById("memoryStatus");
+const memoryImageFile = document.getElementById("memoryImageFile");
+const memoryImageStatus = document.getElementById("memoryImageStatus");
+const clearMemoryImageBtn = document.getElementById("clearMemoryImageBtn");
+const downloadMemoryImageBtn = document.getElementById("downloadMemoryImageBtn");
 
 const diskSize = document.getElementById("diskSize");
 const storageTypeSelect = document.getElementById("storageType");
@@ -2294,25 +2306,152 @@ function resolveV86Constructor()
 
 
 /* =========================================================
+   MEMORY IMAGE / RAM PROFILE
+   - Win10 can start from an uploaded RAM profile.
+   - Other OS memory rules remain unchanged unless the user uploads a profile.
+========================================================= */
+let selectedMemoryProfileMB = null;
+let selectedMemoryProfileName = "";
+
+function normalizeMemoryProfileMB(value){
+  const mb = Number(value);
+  if(!Number.isFinite(mb)) return null;
+  const rounded = Math.round(mb / 16) * 16;
+  if(rounded < 128 || rounded > 4096) return null;
+  return rounded;
+}
+
+function setMemoryProfile(mb, name="RAM profile"){
+  const normalized = normalizeMemoryProfileMB(mb);
+  if(!normalized){
+    throw new Error("メモリプロファイルは128MB〜4096MBの範囲で指定してください。");
+  }
+  selectedMemoryProfileMB = normalized;
+  selectedMemoryProfileName = name;
+  if(memoryImageStatus){
+    memoryImageStatus.textContent = `${name} / ${normalized} MB / 起動RAMとして使用`;
+  }
+  log(`RAMプロファイル設定: ${normalized}MB / ${name}`,"OK");
+}
+
+function clearMemoryProfile(){
+  selectedMemoryProfileMB = null;
+  selectedMemoryProfileName = "";
+  if(memoryImageStatus) memoryImageStatus.textContent = "未接続";
+  if(memoryImageFile) memoryImageFile.value = "";
+  log("RAMプロファイルを解除しました","INFO");
+}
+
+async function readMemoryProfile(file){
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const sample = new TextDecoder("utf-8",{fatal:false}).decode(bytes.slice(0,8192));
+  let mb = null;
+
+  // JSON profile
+  try{
+    const obj = JSON.parse(sample.trim());
+    mb = normalizeMemoryProfileMB(obj.memoryMB ?? obj.ramMB ?? obj.memory);
+  }catch(_){}
+
+  // Text/binary header profile:
+  // SUPEREMULATOR_RAMIMG\nRAM_MB=2048\n
+  if(mb === null){
+    const m = sample.match(/(?:RAM_MB|MEMORY_MB|MEMORY|RAM)\s*[=:]\s*(\d+(?:\.\d+)?)/i);
+    if(m) mb = normalizeMemoryProfileMB(Number(m[1]));
+  }
+
+  // Optional raw marker near the beginning of a .img/.bin.
+  if(mb === null){
+    const marker = sample.match(/SUPEREMULATOR[_ -]?RAMIMG[^\d]{0,40}(\d{3,4})/i);
+    if(marker) mb = normalizeMemoryProfileMB(Number(marker[1]));
+  }
+
+  if(mb === null){
+    throw new Error("RAM容量を読み取れませんでした。superEmulatorのRAMプロファイルを指定してください。");
+  }
+  setMemoryProfile(mb, file.name);
+}
+
+function makeMemoryProfileBlob(mb){
+  const normalized = normalizeMemoryProfileMB(mb);
+  if(!normalized) throw new Error("RAM容量が不正です。");
+  const text =
+`SUPEREMULATOR_RAMIMG
+VERSION=1
+RAM_MB=${normalized}
+TYPE=RAM_PROFILE
+NOTE=This is a compact RAM profile, not a raw RAM dump.
+`;
+  return new Blob([text],{type:"application/octet-stream"});
+}
+
+function downloadMemoryProfile(mb=2048){
+  const normalized = normalizeMemoryProfileMB(mb);
+  const blob = makeMemoryProfileBlob(normalized);
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `superEmulator-RAM-${normalized}MB.ramimg`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  if(memoryImageStatus) memoryImageStatus.textContent = `${normalized} MB RAMプロファイルを保存しました。`;
+  log(`RAMプロファイルを書き出し: ${normalized}MB`,"OK");
+}
+
+function setupMemoryImageUI(){
+  memoryImageFile?.addEventListener("change",async()=>{
+    const file = memoryImageFile.files?.[0];
+    if(!file) return;
+    try{
+      await readMemoryProfile(file);
+    }catch(e){
+      selectedMemoryProfileMB=null;
+      selectedMemoryProfileName="";
+      if(memoryImageStatus) memoryImageStatus.textContent = `読み込み失敗: ${e.message||e}`;
+      log(`RAMプロファイル読み込み失敗: ${e.message||e}`,"ERROR");
+      alert(`RAMプロファイルを読み込めませんでした。\n\n${e.message||e}`);
+    }
+  });
+  clearMemoryImageBtn?.addEventListener("click",clearMemoryProfile);
+  downloadMemoryImageBtn?.addEventListener("click",()=>{
+    const input=prompt("作成するRAMプロファイル容量(MB)","2048");
+    if(input===null) return;
+    const mb=normalizeMemoryProfileMB(input);
+    if(!mb){
+      alert("128〜4096MBの整数を指定してください。");
+      return;
+    }
+    downloadMemoryProfile(mb);
+  });
+}
+
+setupMemoryImageUI();
+
+
+/* =========================================================
    MEMORY AUTO ALLOCATION
 ========================================================= */
 function getHostMemoryGB(){
   return Number(navigator.deviceMemory) || 4;
 }
 function chooseInitialMemory(osKey){
+  /* Uploaded RAM profile is an explicit user choice and therefore wins. */
+  if(selectedMemoryProfileMB) return selectedMemoryProfileMB;
+
   const hostGB=getHostMemoryGB();
-  /* Windows 10専用: Vista以降のNT系ブート要件を満たすため最低512MBを確保。
-     ほかのOSのメモリ計算は変更しない。 */
-  if(osKey === "win10"){
-    const safeHostCap = hostGB <= 4 ? 768 : hostGB <= 8 ? 1536 : 2048;
-    const target=Math.min(safeHostCap, Math.max(512, Math.floor(hostGB*1024*0.30)));
-    return Math.max(512, Math.min(2048, target));
-  }
   const oldOS=["win1","win2","win31","win95","win98","winme","winnt4","msdos","freedos"].includes(osKey);
   const configs = window.OS_CONFIG || {};
   if(oldOS) return Math.min(Number(configs[osKey]?.memory)||64, 256);
 
-  /* deviceMemoryは目安。4GB端末でv86+WASM+ブラウザ+ISOに大きな余白を残す。 */
+  /* Win10 only: give it a larger starting budget. Other OS logic is unchanged. */
+  if(osKey === "win10"){
+    const safeHostCap = hostGB <= 4 ? 1024 : hostGB <= 8 ? 1536 : 2048;
+    const target=Math.min(safeHostCap, Math.max(1024, Math.floor(hostGB*1024*0.35)));
+    return Math.max(1024, Math.min(2048, target));
+  }
+
+  /* Existing allocation policy for every other OS. */
   const safeHostCap = hostGB <= 4 ? 768 : hostGB <= 8 ? 1536 : 2048;
   const target=Math.min(safeHostCap, Math.max(256, Math.floor(hostGB*1024*0.30)));
   const osCap=Number((window.OS_CONFIG || {})[osKey]?.memory)||4096;
@@ -3331,7 +3470,8 @@ async function loadDebugLinuxFromPath()
   }
 
   return {
-    url:DEBUG_LINUX_PATH
+    url:DEBUG_LINUX_PATH,
+    async:true
   };
 }
 
@@ -3660,8 +3800,16 @@ async function startEmulator(options={})
 
 
     let selectedMemoryMB=chooseInitialMemory(selectedOS);
-    updateMemoryStatus(selectedMemoryMB, `host ${getHostMemoryGB()}GB相当`);
-    log(`OS=${getOSName(selectedOS)} / 自動RAM=${selectedMemoryMB}MB / ACPI=${cfg.acpi}`);
+    updateMemoryStatus(
+      selectedMemoryMB,
+      selectedMemoryProfileMB
+        ? `プロファイル ${selectedMemoryProfileName}`
+        : `host ${getHostMemoryGB()}GB相当`
+    );
+    log(`OS=${getOSName(selectedOS)} / 起動RAM=${selectedMemoryMB}MB / ACPI=${selectedOS==="win10" ? true : cfg.acpi}`);
+    if(selectedMemoryProfileMB){
+      log(`ユーザー指定RAMプロファイルを使用: ${selectedMemoryProfileName} / ${selectedMemoryProfileMB}MB`,"OK");
+    }
 
 
     /*
@@ -3791,15 +3939,9 @@ async function startEmulator(options={})
       boot_order:
         (cdromImage ? 0x213 : (selectedFloppy ? 0x231 : 0x132)),
 
-      /* Windows 10専用のPC初期化設定。
-       * v86公式APIではACPIがAPICも有効化する。ACPI実装自体はv86側の
-       * 実装範囲に依存するため、存在しないACPI機能をJSで偽装はしない。
-       * ただしWin10では必ずACPI ONを要求する。ほかのOSはcfgをそのまま使用。 */
       acpi:
         selectedOS === "win10" ? true : cfg.acpi,
 
-      /* Win10 x86用のCPU機能監査ログ。v86のCPUID/ページング実装を
-       * 実際に使うため、存在しない機能フラグを単に偽装する処理は入れない。 */
       ...(selectedOS === "win10" ? {
         cpuid_level: 6
       } : {}),
@@ -3825,7 +3967,20 @@ async function startEmulator(options={})
 
 
     /*
-     * XPなどでACPI問題がある場合のログ
+     * OS-specific diagnostics.
+     * Only Win10 receives the Win10 profile here.
+     */
+    if(selectedOS === "win10"){
+      log("Win10デバッグプロファイル: ACPI=ON / CPUID level=6 / RAM開始値="+selectedMemoryMB+"MB","INFO");
+      log("Win10のPAE/NX/SSE2等はv86 CPU実装を使用し、JS側で存在しないCPU機能を偽装しません。","INFO");
+      log("ACPI 2.0+の全テーブル、HPET、完全なQ35相当をこのHTMLだけで新規実装したわけではありません。","WARN");
+      if(selectedMemoryProfileMB){
+        log("アップロードRAMプロファイル: "+selectedMemoryProfileName+" / "+selectedMemoryProfileMB+"MB","OK");
+      }
+    }
+
+    /*
+     * XPなどでACPI問題がある場合の既存ログ
      */
     if(
       selectedOS === "winxp" ||
@@ -3844,13 +3999,6 @@ async function startEmulator(options={})
     );
 
 
-    if(selectedOS === "win10"){
-      log("[WIN10] 32bit対応プロファイル: ACPI=ON / APIC=ACPI経由 / RAM最低512MB / CPUID level=6");
-      log("[WIN10] PAE/NX/SSE2はv86 CPU実装に依存。JS側で偽フラグを返さず、実装済みCPU機能を使用します。");
-      log("[WIN10] BIOS/SeaBIOSからE820メモリマップを取得する通常のブート経路を使用します。");
-      log("[WIN10] ACPI_BIOS_ERROR等が出た場合は、v86のACPI実装範囲が原因かログで切り分けます。","WARN");
-    }
-
     const V86Constructor =
       resolveV86Constructor();
 
@@ -3859,7 +4007,12 @@ async function startEmulator(options={})
      */
     let created=false;
     let lastCreateError=null;
-    for(const mem of memoryFallbacks(selectedMemoryMB).filter(m => selectedOS === "win10" ? m >= 512 : true)){
+    const memoryCandidates =
+      selectedOS === "win10"
+        ? memoryFallbacks(selectedMemoryMB).filter(m=>m>=512)
+        : memoryFallbacks(selectedMemoryMB);
+
+    for(const mem of memoryCandidates){
       config.memory_size=mem*1024*1024;
       try{
         log(`V86生成を試行: RAM=${mem}MB`);
@@ -7408,5 +7561,19 @@ exit "$fail"
 
   log("F1-F12 / Win のボタン配線を新規DOMから再構築しました","OK");
 })();
+</script>
+
+
+<script>
+/* =========================================================
+   superEmulator RAM profile diagnostics
+========================================================= */
+window.superEmulatorMemoryProfile = function(){
+  return {
+    selectedMB: selectedMemoryProfileMB,
+    fileName: selectedMemoryProfileName,
+    status: memoryImageStatus?.textContent || ""
+  };
+};
 </script>
 </html>
