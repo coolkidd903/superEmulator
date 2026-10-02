@@ -704,131 +704,8 @@ body.super-os-fullscreen #app #screen canvas{ display:block !important; max-widt
 }
 
 .ctrl-btn.danger{
-  background:rgba(120,28,48,.38);
-  border-color:rgba(255,120,150,.30);
-}
-
-/* =========================================================
-   AERO GLASS BUTTONS
-   Vista/Aero風: 半透明・ぼかし・光沢・押下アニメーション。
-   クリック処理そのものは変更しない。
-========================================================= */
-.ctrl-btn,
-.primary-btn,
-.microsoft-btn,
-.side-btn,
-.super-fkey,
-.menu-toggle,
-.sidebar-close,
-.close-modal{
-  position:relative;
-  isolation:isolate;
-  overflow:hidden;
-  border:1px solid rgba(255,255,255,.20) !important;
-  background:
-    linear-gradient(180deg,rgba(255,255,255,.20),rgba(255,255,255,.055) 42%,rgba(30,100,180,.16)),
-    rgba(22,38,62,.46) !important;
-  color:#f5f9ff !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.34),
-    inset 0 -1px 0 rgba(0,0,0,.22),
-    0 5px 18px rgba(0,0,0,.25),
-    0 0 0 1px rgba(120,190,255,.06);
-  backdrop-filter:blur(12px) saturate(145%);
-  -webkit-backdrop-filter:blur(12px) saturate(145%);
-  transition:
-    transform .12s cubic-bezier(.2,.8,.2,1),
-    box-shadow .16s ease,
-    filter .16s ease,
-    background .16s ease;
-}
-
-.ctrl-btn::before,
-.primary-btn::before,
-.microsoft-btn::before,
-.side-btn::before,
-.super-fkey::before,
-.menu-toggle::before,
-.sidebar-close::before,
-.close-modal::before{
-  content:"";
-  position:absolute;
-  left:-35%;
-  top:-75%;
-  width:170%;
-  height:75%;
-  background:linear-gradient(180deg,rgba(255,255,255,.52),rgba(255,255,255,0));
-  transform:rotate(-7deg);
-  opacity:.34;
-  pointer-events:none;
-  z-index:-1;
-  transition:transform .35s ease,opacity .18s ease;
-}
-
-.ctrl-btn:hover,
-.primary-btn:hover,
-.microsoft-btn:hover,
-.side-btn:hover,
-.super-fkey:hover,
-.menu-toggle:hover,
-.sidebar-close:hover,
-.close-modal:hover{
-  filter:brightness(1.10) saturate(1.08);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.44),
-    inset 0 -1px 0 rgba(0,0,0,.18),
-    0 8px 24px rgba(0,0,0,.30),
-    0 0 18px rgba(100,180,255,.12);
-}
-
-.ctrl-btn:hover::before,
-.primary-btn:hover::before,
-.microsoft-btn:hover::before,
-.side-btn:hover::before,
-.super-fkey:hover::before,
-.menu-toggle:hover::before,
-.sidebar-close:hover::before,
-.close-modal:hover::before{
-  transform:translateX(12%) rotate(-7deg);
-  opacity:.46;
-}
-
-.ctrl-btn:active,
-.primary-btn:active,
-.microsoft-btn:active,
-.side-btn:active,
-.super-fkey:active,
-.menu-toggle:active,
-.sidebar-close:active,
-.close-modal:active,
-.ctrl-btn.is-down,
-.super-fkey.is-down{
-  transform:translateY(2px) scale(.975);
-  filter:brightness(.92) saturate(.96);
-  box-shadow:
-    inset 0 2px 5px rgba(0,0,0,.28),
-    inset 0 0 0 1px rgba(255,255,255,.08),
-    0 2px 7px rgba(0,0,0,.22);
-}
-
-.ctrl-btn.primary,
-.primary-btn{
-  background:
-    linear-gradient(180deg,rgba(115,190,255,.48),rgba(30,110,225,.34) 48%,rgba(10,60,150,.42)),
-    rgba(35,111,240,.48) !important;
-  border-color:rgba(150,215,255,.42) !important;
-}
-
-.ctrl-btn.danger{
-  background:
-    linear-gradient(180deg,rgba(255,130,155,.30),rgba(130,30,55,.28)),
-    rgba(90,20,40,.42) !important;
-}
-
-@supports not ((backdrop-filter:blur(1px))){
-  .ctrl-btn,.primary-btn,.microsoft-btn,.side-btn,.super-fkey,.menu-toggle,.sidebar-close,.close-modal{
-    background:rgba(30,45,65,.92) !important;
-  }
+  background:#5d1d2a;
+  border-color:#7d2637;
 }
 
 .field{
@@ -975,18 +852,6 @@ progress{
   border-radius:20px;
   padding:24px;
   box-shadow:0 30px 100px rgba(0,0,0,.6);
-}
-
-/* 設定モーダルは下部まで最初からレイアウトを確定させる。
-   遅延レンダリングを使わず、長い設定一覧でも途中だけ後から出るのを防ぐ。 */
-#settingsModal .modal-card{
-  contain:layout style;
-  scrollbar-gutter:stable;
-  overscroll-behavior:contain;
-}
-#settingsModal .settings-section{
-  content-visibility:visible !important;
-  contain:none !important;
 }
 
 .modal-card h2{
@@ -3162,41 +3027,6 @@ async function detectISOFile(file){
     const hits={};
     const add=(key,points,why)=>{score[key]+=points;(hits[key]??=[]).push(why);};
     const decoder=new TextDecoder("latin1",{fatal:false});
-
-    /*
-     * ファイル名はディスク内容を変更せずに使える追加証拠。
-     * 以前判定できていたOSを、Win10向け修正の影響で「other」に落とさないため、
-     * 既存スコアへ補助点だけを追加する。起動設定や各OSのRAM/ACPIはここでは変更しない。
-     */
-    const fileName=String(file.name||"").toUpperCase();
-    const filenameHints=[
-      [/WINDOWS?\s*95|WIN95/,"win95",260,"filename OS signature"],
-      [/WINDOWS?\s*98|WIN98/,"win98",260,"filename OS signature"],
-      [/WINDOWS?\s*ME|WINME/,"winme",260,"filename OS signature"],
-      [/WINDOWS?\s*2000|WIN2000/,"win2000",260,"filename OS signature"],
-      [/WINDOWS?\s*XP|WINXP/,"winxp",300,"filename OS signature"],
-      [/WINDOWS?\s*NT\s*4|WINNT4|NT4/,"winnt4",260,"filename OS signature"],
-      [/WINDOWS?\s*VISTA|WINVISTA|VISTA/,"winvista",280,"filename OS signature"],
-      [/WINDOWS?\s*7|WIN7/,"win7",280,"filename OS signature"],
-      [/WINDOWS?\s*8(?:\.1)?|WIN8(?:\.1)?|WIN81/,"win8",280,"filename OS signature"],
-      [/WINDOWS?\s*10|WIN10/,"win10",280,"filename OS signature"],
-      [/FREEDOS|FREE[- ]DOS/,"freedos",240,"filename OS signature"],
-      [/MS[- ]?DOS/,"msdos",220,"filename OS signature"],
-      [/REACTOS/,"reactos",240,"filename OS signature"],
-      [/KOLIBRI/,"kolibrios",220,"filename OS signature"],
-      [/HAIKU/,"haiku",240,"filename OS signature"],
-      [/FREEBSD/,"freebsd",240,"filename OS signature"],
-      [/OPENBSD/,"openbsd",240,"filename OS signature"],
-      [/NETBSD/,"netbsd",240,"filename OS signature"],
-      [/ANDROID[-_ ]?X86/,"android",240,"filename OS signature"],
-      [/DEBIAN/,"linux",140,"filename Linux distribution hint"],
-      [/UBUNTU/,"linux",140,"filename Linux distribution hint"],
-      [/ALPINE/,"linux",140,"filename Linux distribution hint"],
-      [/ARCH.*32|ARCH32/,"linux",140,"filename Linux distribution hint"]
-    ];
-    for(const [re,key,points,why] of filenameHints){
-      if(re.test(fileName)) add(key,points,why);
-    }
     const upper=(u)=>decoder.decode(u).toUpperCase();
     const read=async(start,length)=>new Uint8Array(await file.slice(start,Math.min(file.size,start+length)).arrayBuffer());
     const mark=(bytes,needle)=>upper(bytes).includes(needle);
