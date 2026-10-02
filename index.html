@@ -2956,6 +2956,27 @@ async function detectISOFile(file){
       if(bar) bar.value=Math.min(85,bar.value+8);
     }
 
+    // ブートセクタ/ISO内の固有ファイル名を追加確認。
+    // 実行時のI/O/MSR/APIC挙動は、ISO選択前にはブラウザから直接観測できないため、
+    // 自動判定ではディスク上の確実な証拠を優先する。
+    const bootEvidence=await read(0,Math.min(file.size,1024*1024));
+    const bootEvidenceText=upper(bootEvidence);
+    const fileEvidence=async (needle, key, points, why)=>{ if(bootText.includes(needle)) add(key,points,why); };
+    if(bootEvidenceText.includes("IO.SYS")){ add("win95",70,"boot/file signature: IO.SYS"); add("win98",70,"boot/file signature: IO.SYS"); add("winme",70,"boot/file signature: IO.SYS"); add("msdos",25,"boot/file signature: IO.SYS"); }
+    if(bootEvidenceText.includes("COMMAND.COM")){ add("win95",35,"boot/file signature: COMMAND.COM"); add("win98",35,"boot/file signature: COMMAND.COM"); add("winme",35,"boot/file signature: COMMAND.COM"); }
+    if(bootEvidenceText.includes("VMM32.VXD")){ add("win95",110,"boot/file signature: VMM32.VXD"); add("win98",110,"boot/file signature: VMM32.VXD"); add("winme",95,"boot/file signature: VMM32.VXD"); }
+    if(bootEvidenceText.includes("NTLDR")){ add("win2000",75,"boot/file signature: NTLDR"); add("winxp",75,"boot/file signature: NTLDR"); add("winnt4",55,"boot/file signature: NTLDR"); }
+    if(bootEvidenceText.includes("NTDETECT.COM")){ add("win2000",70,"boot/file signature: NTDETECT.COM"); add("winxp",70,"boot/file signature: NTDETECT.COM"); add("winnt4",55,"boot/file signature: NTDETECT.COM"); }
+    if(bootEvidenceText.includes("BOOTMGR")){ add("winvista",100,"boot/file signature: BOOTMGR"); add("win7",100,"boot/file signature: BOOTMGR"); add("win8",90,"boot/file signature: BOOTMGR"); add("win10",90,"boot/file signature: BOOTMGR"); }
+    if(bootEvidenceText.includes("FREELDR.SYS")||bootEvidenceText.includes("FREELOADER")) add("reactos",120,"boot/file signature: FreeLoader");
+    if(bootEvidenceText.includes("HAIKU_LOADER")||bootEvidenceText.includes("HAIKU-LOADER")) add("haiku",120,"boot/file signature: haiku_loader");
+    if(bootEvidenceText.includes("KERNEL.SYS")){ add("freedos",70,"boot/file signature: KERNEL.SYS"); }
+    if(bootEvidenceText.includes("/BOOT/LOADER")||bootEvidenceText.includes("\\BOOT\\LOADER")) add("freebsd",70,"boot/file signature: /boot/loader");
+    if(bootEvidenceText.includes("NETBSD")) add("netbsd",70,"boot/file signature: netbsd");
+    if(bootEvidenceText.includes("OPENBSD")) add("openbsd",70,"boot/file signature: bsd/OpenBSD");
+    if(bootEvidenceText.includes("VMLINUX")||bootEvidenceText.includes("INITRD")||bootEvidenceText.includes("ISOLINUX")||bootEvidenceText.includes("SYSLINUX")) add("linux",80,"boot/kernel signature");
+    if(bootEvidenceText.includes("ANDROIDBOOT.HARDWARE=ANDROID_X86")||bootEvidenceText.includes("ANDROID-X86")) add("android",120,"Android-x86 boot signature");
+
     // ルートディレクトリのファイル名をさらに強く判定
     if(rootBytes.length){
       const rootText=upper(rootBytes);
@@ -2976,6 +2997,15 @@ async function detectISOFile(file){
     else if(/WIN95/.test(vol))add("win95",450,"ISO9660 Volume Identifier: "+vol);
     else if(/WIN98/.test(vol))add("win98",450,"ISO9660 Volume Identifier: "+vol);
     else if(/WINME/.test(vol))add("winme",450,"ISO9660 Volume Identifier: "+vol);
+
+    // 相反する強い証拠を減点し、世代をまたいだ誤判定を防ぐ。
+    const allEvidence=bootEvidenceText;
+    if(allEvidence.includes("VMM32.VXD")||allEvidence.includes("IO.SYS")){
+      score.winxp=Math.max(0,score.winxp-90); score.win2000=Math.max(0,score.win2000-60); score.winnt4=Math.max(0,score.winnt4-50);
+    }
+    if(allEvidence.includes("NTLDR")||allEvidence.includes("NTDETECT.COM")||allEvidence.includes("WIN51")){
+      score.win95=Math.max(0,score.win95-80); score.win98=Math.max(0,score.win98-80); score.winme=Math.max(0,score.winme-80);
+    }
 
     // 「I386」単独などの弱い根拠ではOSを決めない。
     const ordered=Object.entries(score).sort((a,b)=>b[1]-a[1]);
@@ -3814,6 +3844,7 @@ async function startEmulator(options={})
         // 重要: UI/入力層は window.emulator を参照するため、本体インスタンスを公開する
         window.emulator = emulator;
         try{ if(typeof emulator.mouse_set_enabled==="function") emulator.mouse_set_enabled(true); }catch(_){}
+        try{ requestAnimationFrame(()=>window.syncScreenContainerGeometry?.("v86-created")); }catch(_){}
         selectedMemoryMB=mem;
         updateMemoryStatus(mem, `確保成功 / host ${getHostMemoryGB()}GB相当`);
         created=true;
@@ -4307,18 +4338,32 @@ function syncScreenContainerGeometry(reason="unknown"){
 
   const sr=screen.getBoundingClientRect();
   const tr=target.getBoundingClientRect();
-  const sx=tr.width ? sr.width/tr.width : 1;
+  /* Keep v86's screen_container CSS box exactly equal to the visible canvas.
+     This is especially important when the OLED display mode or fullscreen
+     changes the guest canvas resolution/scale. */
+  if(tr.width>0 && tr.height>0){
+    screen.style.width=tr.width.toFixed(3)+"px";
+    screen.style.height=tr.height.toFixed(3)+"px";
+    screen.style.minWidth="0px";
+    screen.style.minHeight="0px";
+    screen.style.maxWidth="none";
+    screen.style.maxHeight="none";
+    screen.style.transform="none";
+    screen.style.zoom="1";
+  }
+  const sr2=screen.getBoundingClientRect();
+  const sx=tr.width ? sr2.width/tr.width : 1;
   const sy=tr.height ? sr.height/tr.height : 1;
   const dx=sr.left-tr.left, dy=sr.top-tr.top;
   window.__superEmulatorMouseGeometry={
     reason,ready:sr.width>0&&sr.height>0,dpr:devicePixelRatio||1,scale:screenScale,
-    screen:{left:sr.left,top:sr.top,width:sr.width,height:sr.height},
+    screen:{left:sr2.left,top:sr2.top,width:sr2.width,height:sr2.height},
     target:{left:tr.left,top:tr.top,width:tr.width,height:tr.height},
-    delta:{x:dx,y:dy,width:sr.width-tr.width,height:sr.height-tr.height},
+    delta:{x:sr2.left-tr.left,y:sr2.top-tr.top,width:sr2.width-tr.width,height:sr2.height-tr.height},
     visualScale:{x:sx,y:sy}
   };
 
-  if(Math.abs(dx)>0.5||Math.abs(dy)>0.5||Math.abs(sr.width-tr.width)>0.5||Math.abs(sr.height-tr.height)>0.5){
+  if(Math.abs(sr2.left-tr.left)>0.5||Math.abs(sr2.top-tr.top)>0.5||Math.abs(sr2.width-tr.width)>0.5||Math.abs(sr2.height-tr.height)>0.5){
     log(`[MOUSE] 座標基準異常(${reason}): screen=${Math.round(sr.width)}x${Math.round(sr.height)} canvas=${Math.round(tr.width)}x${Math.round(tr.height)} offset=${dx.toFixed(2)},${dy.toFixed(2)}`,"WARN");
   }else{
     log(`[MOUSE] 座標基準一致(${reason}): ${Math.round(sr.width)}x${Math.round(sr.height)} / DPR=${devicePixelRatio||1} / scale=${screenScale}`);
@@ -6492,7 +6537,9 @@ window.superEmulatorAuditButtons=function(){const ids=["detectBtn","manualDetect
   #screenArea.display-oled #screen canvas{
     image-rendering:pixelated;
     image-rendering:crisp-edges;
-    filter:none;
+    filter:none !important;
+    transform:none !important;
+    zoom:1 !important;
   }
 
   #screenArea.display-composite #displayFxLayer::before{
@@ -6572,7 +6619,7 @@ window.superEmulatorAuditButtons=function(){const ids=["detectBtn","manualDetect
   const INFO={
     crt:{label:"ブラウン管（CRT）",desc:"走査線・RGBアパーチャグリル・周辺減光・丸みのある表示。",scale:"通常スケール"},
     vga:{label:"液晶（VGA / 初期液晶）",desc:"薄いピクセル格子と、遅い応答を表現するゴースト残像。",scale:"通常スケール"},
-    oled:{label:"有機EL / 現代液晶",desc:"補間を抑え、ドットをクッキリ表示。整数倍Pixel Perfect。",scale:"整数倍Pixel Perfect"},
+    oled:{label:"有機EL / 現代液晶",desc:"補間を抑え、ドットをクッキリ表示。v86の実スケールを維持してマウス座標を一致。",scale:"v86スケール準拠"},
     composite:{label:"コンポジット（三色ケーブル）",desc:"色境界のにじみ・クロスカラー・水平干渉を弱く再現。",scale:"通常スケール"},
     rgb:{label:"RGB / コンポーネント接続",desc:"色にじみを抑えたシャープなアナログ出力。",scale:"通常スケール"}
   };
@@ -6614,17 +6661,25 @@ window.superEmulatorAuditButtons=function(){const ids=["detectBtn","manualDetect
     ghostTimer=setInterval(captureGhost,55);
   }
   function integerScale(){
-    const c=canvas(), em=window.emulator;
-    if(!c||!em||typeof em.screen_set_scale!=="function")return;
-    const w=Math.max(1,screenArea.clientWidth-12),h=Math.max(1,screenArea.clientHeight-12);
-    const baseW=Math.max(1,c.width||640),baseH=Math.max(1,c.height||480);
-    let n=Math.floor(Math.min(w/baseW,h/baseH));
-    if(!Number.isFinite(n)||n<1)n=1;
+    const c=canvas();
+    if(!c)return;
+    /*
+     * OLED is intentionally visual-only here.  v86 already owns the real
+     * canvas size/scaling, and its native mouse adapter uses the screen
+     * container's CSS rectangle.  Repeated screen_set_scale calls from the
+     * display layer can race with the main scale setting and make the guest
+     * cursor appear displaced on some Chromium/ChromeOS combinations.
+     * Keep the canvas at the emulator-selected scale and only enforce crisp
+     * rendering.  The fullscreen layout can still enlarge the emulator via
+     * the normal screenScale control.
+     */
     try{
-      em.screen_set_scale(n,n);
-      if(typeof window.syncScreenContainerGeometry==="function")requestAnimationFrame(()=>window.syncScreenContainerGeometry("display-oled-integer"));
-      log("[DISPLAY/OLED] Pixel Perfect倍率="+n+"x");
-    }catch(e){log("[DISPLAY/OLED] 倍率適用失敗: "+(e.message||e),"WARN");}
+      c.style.imageRendering="pixelated";
+      c.style.transform="none";
+      c.style.zoom="1";
+      if(typeof window.syncScreenContainerGeometry==="function")requestAnimationFrame(()=>window.syncScreenContainerGeometry("display-oled-crisp"));
+      log("[DISPLAY/OLED] Pixel Perfect表示を有効化（v86スケールは変更しません）");
+    }catch(e){log("[DISPLAY/OLED] 表示設定失敗: "+(e.message||e),"WARN");}
   }
   function applyCanvasMode(){
     const c=canvas(); if(!c)return;
@@ -6952,163 +7007,106 @@ exit "$fail"
 <script id="superEmulator-input-mouse-hardfix">
 (function(){
   "use strict";
-
   /*
-   * superEmulator mouse policy:
-   * v86 itself installs window-level mouse handlers and converts clientX/Y
-   * using screen_container.getBoundingClientRect().
+   * MOUSE FIX v3 — native v86 input only.
    *
-   * Do NOT add another pointermove/pointerdown conversion layer here.
-   * Do NOT draw a second cursor.
+   * v86's browser mouse adapter is window-level and sends both relative
+   * mouse-delta and mouse-absolute packets.  We therefore do NOT install a
+   * second pointer conversion layer.  The fix is to make the exact element
+   * used by v86 (screen_container = #screen) geometrically identical to the
+   * visible guest canvas, including after OLED/fullscreen/resolution changes.
    */
+  const F={F1:0x3B,F2:0x3C,F3:0x3D,F4:0x3E,F5:0x3F,F6:0x40,F7:0x41,F8:0x42,F9:0x43,F10:0x44,F11:0x57,F12:0x58};
+  const screen=document.getElementById("screen");
+  const out=(m,l)=>{try{if(typeof window.log==="function")window.log("[INPUT NATIVE] "+m,l||"INFO");else console.log("[INPUT NATIVE] "+m);}catch(_){}};
+  const getEm=()=>window.emulator||null;
 
-  const F = {
-    F1:0x3B,F2:0x3C,F3:0x3D,F4:0x3E,F5:0x3F,
-    F6:0x40,F7:0x41,F8:0x42,F9:0x43,F10:0x44,
-    F11:0x57,F12:0x58
-  };
+  function canvas(){return screen?.querySelector("canvas")||null;}
 
-  const screen = document.getElementById("screen");
-  const out = (m,l) => {
-    try {
-      if(typeof window.log === "function") window.log("[INPUT NATIVE] "+m,l||"INFO");
-      else console.log("[INPUT NATIVE] "+m);
-    } catch(_){}
-  };
-  const getEm = () => window.emulator || null;
+  function lockScreenToCanvas(reason="geometry"){
+    if(!screen)return null;
+    const c=canvas();
+    if(!c)return null;
+    const cr=c.getBoundingClientRect();
+    if(cr.width<=0||cr.height<=0)return null;
+    /*
+     * Absolute-positioned OLED/ghost layers do not contribute to layout, but
+     * explicit dimensions remove any flex/max-content ambiguity.  We only
+     * copy the canvas CSS size; no transform/zoom is introduced.
+     */
+    const rw=Math.max(1,cr.width), rh=Math.max(1,cr.height);
+    screen.style.width=rw.toFixed(3)+"px";
+    screen.style.height=rh.toFixed(3)+"px";
+    screen.style.minWidth="0px";
+    screen.style.minHeight="0px";
+    screen.style.maxWidth="none";
+    screen.style.maxHeight="none";
+    screen.style.transform="none";
+    screen.style.zoom="1";
+    screen.style.padding="0";
+    screen.style.margin="0";
+    screen.style.lineHeight="0";
+    requestAnimationFrame(()=>{
+      const sr=screen.getBoundingClientRect();
+      const dx=sr.left-cr.left,dy=sr.top-cr.top;
+      const dw=sr.width-cr.width,dh=sr.height-cr.height;
+      const ok=Math.abs(dx)<=0.75&&Math.abs(dy)<=0.75&&Math.abs(dw)<=0.75&&Math.abs(dh)<=0.75;
+      window.__superEmulatorMouseGeometry={reason,ready:true,dpr:devicePixelRatio||1,
+        screen:{left:sr.left,top:sr.top,width:sr.width,height:sr.height},
+        canvas:{left:cr.left,top:cr.top,width:cr.width,height:cr.height},
+        delta:{x:dx,y:dy,width:dw,height:dh},
+        visualScale:{x:cr.width/(c.width||cr.width),y:cr.height/(c.height||cr.height)}};
+      out((ok?"座標基準固定":"座標基準異常")+`(${reason}) screen=${Math.round(sr.width)}x${Math.round(sr.height)} canvas=${Math.round(cr.width)}x${Math.round(cr.height)} delta=${dx.toFixed(2)},${dy.toFixed(2)}`,ok?"OK":"WARN");
+    });
+    return {width:rw,height:rh};
+  }
+  window.syncScreenContainerGeometry=lockScreenToCanvas;
 
   function sendF(name){
-    const em=getEm();
-    if(!em || typeof em.keyboard_send_scancodes!=="function"){
-      out(name+" 送信不可: keyboard_send_scancodesなし","ERROR");
-      return false;
-    }
+    const em=getEm(); if(!em||typeof em.keyboard_send_scancodes!=="function"){out(name+" 送信不可: keyboard_send_scancodesなし","ERROR");return false;}
     const c=F[name];
-    try{
-      em.keyboard_send_scancodes([c]);
-      setTimeout(()=>{
-        const cur=getEm();
-        if(cur && typeof cur.keyboard_send_scancodes==="function"){
-          cur.keyboard_send_scancodes([c|0x80]);
-        }
-      },25);
-      out(name+" make=0x"+c.toString(16)+" / break=0x"+(c|0x80).toString(16)+" → v86","OK");
-      return true;
-    }catch(e){
-      out(name+" 送信例外: "+(e?.message||e),"ERROR");
-      return false;
-    }
+    try{em.keyboard_send_scancodes([c]);setTimeout(()=>{const cur=getEm();if(cur?.keyboard_send_scancodes)cur.keyboard_send_scancodes([c|0x80]);},25);out(name+` make=0x${c.toString(16)} / break=0x${(c|0x80).toString(16)} → v86`,"OK");return true;}catch(e){out(name+" 送信例外: "+(e?.message||e),"ERROR");return false;}
   }
-
   function sendWin(){
-    const em=getEm();
-    if(!em || typeof em.keyboard_send_scancodes!=="function"){
-      out("Win送信不可: keyboard_send_scancodesなし","ERROR");
-      return false;
-    }
-    try{
-      em.keyboard_send_scancodes([0xE0,0x5B]);
-      setTimeout(()=>{
-        const cur=getEm();
-        if(cur && typeof cur.keyboard_send_scancodes==="function"){
-          cur.keyboard_send_scancodes([0xE0,0xDB]);
-        }
-      },25);
-      out("Win make=E0 5B / break=E0 DB → v86","OK");
-      return true;
-    }catch(e){
-      out("Win送信例外: "+(e?.message||e),"ERROR");
-      return false;
-    }
+    const em=getEm(); if(!em||typeof em.keyboard_send_scancodes!=="function"){out("Win送信不可: keyboard_send_scancodesなし","ERROR");return false;}
+    try{em.keyboard_send_scancodes([0xE0,0x5B]);setTimeout(()=>{const cur=getEm();if(cur?.keyboard_send_scancodes)cur.keyboard_send_scancodes([0xE0,0xDB]);},25);out("Win make=E0 5B / break=E0 DB → v86","OK");return true;}catch(e){out("Win送信例外: "+(e?.message||e),"ERROR");return false;}
   }
 
-  // One delegated route for the visible F-key / Win-key layer.
   const bar=document.getElementById("functionBar");
   if(bar){
-    bar.addEventListener("pointerdown",function(e){
-      const b=e.target.closest?.(".super-fkey,.super-win-key");
-      if(!b || !bar.contains(b)) return;
-      e.preventDefault();
-      e.stopPropagation();
-      if(b.classList.contains("super-win-key")) sendWin();
-      else {
-        const n=Number(b.dataset.superF || b.dataset.f);
-        if(Number.isFinite(n) && F["F"+n]) sendF("F"+n);
-      }
+    bar.addEventListener("pointerdown",e=>{
+      const b=e.target.closest?.(".super-fkey,.super-win-key"); if(!b||!bar.contains(b))return;
+      e.preventDefault();e.stopPropagation();
+      if(b.classList.contains("super-win-key"))sendWin();else{const n=Number(b.dataset.superF||b.dataset.f);if(Number.isFinite(n)&&F["F"+n])sendF("F"+n);}
     },true);
   }
+  Object.keys(F).forEach(name=>window.addEventListener("keydown",e=>{if(e.code!==name)return;e.preventDefault();if(!e.repeat)sendF(name);},true));
 
-  // Physical F keys are passed to v86 when the browser receives them.
-  Object.keys(F).forEach(name=>{
-    window.addEventListener("keydown",function(e){
-      if(e.code!==name) return;
-      e.preventDefault();
-      if(!e.repeat) sendF(name);
-    },true);
-  });
-
-  // Keep v86 mouse enabled; never synthesize mouse packets ourselves.
-  window.__superEmulatorEnableMouse = function(){
-    try{
-      const em=getEm();
-      if(em && typeof em.mouse_set_enabled==="function"){
-        em.mouse_set_enabled(true);
-        out("v86 native mouse enabled","OK");
-      }
-    }catch(err){
-      out("mouse_set_enabled失敗: "+(err?.message||err),"WARN");
-    }
-    requestAnimationFrame(()=>window.superEmulatorAuditNativeMouse?.("mouse-enable"));
+  window.__superEmulatorEnableMouse=function(){
+    try{const em=getEm();if(em?.mouse_set_enabled){em.mouse_set_enabled(true);out("v86 native mouse enabled","OK");}}catch(err){out("mouse_set_enabled失敗: "+(err?.message||err),"WARN");}
+    requestAnimationFrame(()=>lockScreenToCanvas("mouse-enable"));
+  };
+  window.superEmulatorAuditNativeMouse=function(reason="manual"){
+    const c=canvas();if(!screen||!c)return null;
+    const sr=screen.getBoundingClientRect(),cr=c.getBoundingClientRect();
+    const r={reason,screen:{left:sr.left,top:sr.top,width:sr.width,height:sr.height},canvas:{left:cr.left,top:cr.top,width:cr.width,height:cr.height},delta:{x:sr.left-cr.left,y:sr.top-cr.top,width:sr.width-cr.width,height:sr.height-cr.height},dpr:devicePixelRatio||1,pointerLocked:!!document.pointerLockElement};
+    window.__superEmulatorNativeMouseAudit=r;
+    const ok=Math.abs(r.delta.x)<=.75&&Math.abs(r.delta.y)<=.75&&Math.abs(r.delta.width)<=.75&&Math.abs(r.delta.height)<=.75;
+    out((ok?"座標基準一致":"座標基準異常")+`(${reason}) screen=${Math.round(sr.width)}x${Math.round(sr.height)} canvas=${Math.round(cr.width)}x${Math.round(cr.height)} offset=${r.delta.x.toFixed(2)},${r.delta.y.toFixed(2)}`,ok?"OK":"WARN");
+    return r;
   };
 
-  window.superEmulatorAuditNativeMouse = function(reason="manual"){
-    if(!screen) return null;
-    const canvas=screen.querySelector("canvas");
-    const sr=screen.getBoundingClientRect();
-    const cr=canvas ? canvas.getBoundingClientRect() : null;
-    const result={
-      reason,
-      screen:{
-        left:sr.left, top:sr.top, width:sr.width, height:sr.height
-      },
-      canvas:cr ? {
-        left:cr.left, top:cr.top, width:cr.width, height:cr.height
-      } : null,
-      delta:cr ? {
-        x:sr.left-cr.left, y:sr.top-cr.top,
-        width:sr.width-cr.width, height:sr.height-cr.height
-      } : null,
-      dpr:window.devicePixelRatio||1,
-      scale:window.__superEmulatorMouseGeometry?.scale ?? null,
-      pointerLocked:!!document.pointerLockElement
-    };
-    window.__superEmulatorNativeMouseAudit=result;
-    const ok=!!cr &&
-      Math.abs(result.delta.x)<=0.5 &&
-      Math.abs(result.delta.y)<=0.5 &&
-      Math.abs(result.delta.width)<=0.5 &&
-      Math.abs(result.delta.height)<=0.5;
-
-    out(
-      (ok ? "座標基準一致" : "座標基準異常")+
-      `(${reason}) screen=(${Math.round(sr.left)},${Math.round(sr.top)}) ${Math.round(sr.width)}x${Math.round(sr.height)}`+
-      (cr ? ` canvas=(${Math.round(cr.left)},${Math.round(cr.top)}) ${Math.round(cr.width)}x${Math.round(cr.height)}` : " canvas=なし")+
-      ` DPR=${window.devicePixelRatio||1} locked=${!!document.pointerLockElement}`,
-      ok ? "OK" : "WARN"
-    );
-    return result;
-  };
-
-  window.addEventListener("resize",()=>{
-    requestAnimationFrame(()=>window.superEmulatorAuditNativeMouse?.("resize"));
-  },{passive:true});
-
-  document.addEventListener("fullscreenchange",()=>{
-    requestAnimationFrame(()=>window.superEmulatorAuditNativeMouse?.("fullscreen-change"));
-  });
-
-  // Important: no pointermove/pointerdown listener is installed on #screen.
-  // This prevents an extra input layer from competing with v86.
+  let raf=0;
+  function schedule(reason){cancelAnimationFrame(raf);raf=requestAnimationFrame(()=>requestAnimationFrame(()=>lockScreenToCanvas(reason)));}
+  window.addEventListener("resize",()=>schedule("resize"),{passive:true});
+  window.addEventListener("orientationchange",()=>schedule("orientation"),{passive:true});
+  window.addEventListener("scroll",()=>schedule("scroll"),{passive:true});
+  document.addEventListener("fullscreenchange",()=>schedule("fullscreen-change"));
+  if(screen){
+    const ro=new ResizeObserver(()=>schedule("resize-observer"));ro.observe(screen);window.__superEmulatorMouseGeometryObserver=ro;
+    const mo=new MutationObserver(()=>schedule("canvas-mutation"));mo.observe(screen,{childList:true,subtree:true,attributes:true,attributeFilter:["style","width","height"]});window.__superEmulatorMouseMutationObserver=mo;
+  }
+  /* No pointermove/pointerdown listener is installed on #screen. v86 remains the sole mouse packet producer. */
   out("F1-F12 / Win + v86ネイティブマウス入力層を初期化しました","OK");
 })();
 </script>
