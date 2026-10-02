@@ -2301,6 +2301,13 @@ function getHostMemoryGB(){
 }
 function chooseInitialMemory(osKey){
   const hostGB=getHostMemoryGB();
+  /* Windows 10専用: Vista以降のNT系ブート要件を満たすため最低512MBを確保。
+     ほかのOSのメモリ計算は変更しない。 */
+  if(osKey === "win10"){
+    const safeHostCap = hostGB <= 4 ? 768 : hostGB <= 8 ? 1536 : 2048;
+    const target=Math.min(safeHostCap, Math.max(512, Math.floor(hostGB*1024*0.30)));
+    return Math.max(512, Math.min(2048, target));
+  }
   const oldOS=["win1","win2","win31","win95","win98","winme","winnt4","msdos","freedos"].includes(osKey);
   const configs = window.OS_CONFIG || {};
   if(oldOS) return Math.min(Number(configs[osKey]?.memory)||64, 256);
@@ -2939,8 +2946,7 @@ async function detectISOFile(file){
       if(u.includes("WINDOWS 2.0") || u.includes("WIN2")){ add("win2",180,"Windows 2.x marker"); }
       if(u.includes("WINDOWS 1.0") || u.includes("WIN1")){ add("win1",180,"Windows 1.x marker"); }
       if(u.includes("WINDOWS 7") || u.includes("\u005cSOURCES\u005cINSTALL.WIM") || u.includes("\u005cSOURCES\u005cBOOT.WIM")){ add("win7",170,"Windows 7 media structure"); }
-      if(u.includes("WINDOWS 8") || u.includes("WINDOWS 8.1") || u.includes("\u005cSOURCES\u005cINSTALL.ESD")){ add("win8",170,"Windows 8/8.1 media structure"); }
-      if(u.includes("SETUP.EXE") && (u.includes("BOOTMGR") || u.includes("SOURCES") || u.includes("EI.CFG"))){ add("win8",85,"Windows setup media structure"); }
+      if(u.includes("WINDOWS 8") || u.includes("\u005cSOURCES\u005cINSTALL.ESD")){ add("win8",170,"Windows 8 media structure"); }
       if(u.includes("WINDOWS 10") || u.includes("\u005cSOURCES\u005cINSTALL.ESD")){ add("win10",130,"Windows 10 media marker"); }
 
       // 他OSは固有名/ブートローダーを組み合わせて判定。汎用I386等は使わない。
@@ -2993,7 +2999,6 @@ async function detectISOFile(file){
     const vol=String(volumeLabel||"").toUpperCase();
     if(/^CCCOMA_(X86|X64)FRE/.test(vol))add("win10",500,"ISO9660 Volume Identifier: "+vol);
     else if(/^(IR3|IR5|CPRA)_/.test(vol))add("win8",500,"ISO9660 Volume Identifier: "+vol);
-    else if(/^(WIN8|WIN81|W8|W81|ENT8|ENT81)/.test(vol))add("win8",420,"Windows 8/8.1 volume identifier: "+vol);
     else if(/^GSP1R|^GRMCUL/.test(vol))add("win7",500,"ISO9660 Volume Identifier: "+vol);
     else if(/WIN51|V3ACOEM_EN/.test(vol))add("winxp",500,"ISO9660 Volume Identifier: "+vol);
     else if(/WIN95/.test(vol))add("win95",450,"ISO9660 Volume Identifier: "+vol);
@@ -3786,8 +3791,18 @@ async function startEmulator(options={})
       boot_order:
         (cdromImage ? 0x213 : (selectedFloppy ? 0x231 : 0x132)),
 
+      /* Windows 10専用のPC初期化設定。
+       * v86公式APIではACPIがAPICも有効化する。ACPI実装自体はv86側の
+       * 実装範囲に依存するため、存在しないACPI機能をJSで偽装はしない。
+       * ただしWin10では必ずACPI ONを要求する。ほかのOSはcfgをそのまま使用。 */
       acpi:
-        cfg.acpi,
+        selectedOS === "win10" ? true : cfg.acpi,
+
+      /* Win10 x86用のCPU機能監査ログ。v86のCPUID/ページング実装を
+       * 実際に使うため、存在しない機能フラグを単に偽装する処理は入れない。 */
+      ...(selectedOS === "win10" ? {
+        cpuid_level: 6
+      } : {}),
 
       autostart:
         true,
@@ -3829,6 +3844,13 @@ async function startEmulator(options={})
     );
 
 
+    if(selectedOS === "win10"){
+      log("[WIN10] 32bit対応プロファイル: ACPI=ON / APIC=ACPI経由 / RAM最低512MB / CPUID level=6");
+      log("[WIN10] PAE/NX/SSE2はv86 CPU実装に依存。JS側で偽フラグを返さず、実装済みCPU機能を使用します。");
+      log("[WIN10] BIOS/SeaBIOSからE820メモリマップを取得する通常のブート経路を使用します。");
+      log("[WIN10] ACPI_BIOS_ERROR等が出た場合は、v86のACPI実装範囲が原因かログで切り分けます。","WARN");
+    }
+
     const V86Constructor =
       resolveV86Constructor();
 
@@ -3837,7 +3859,7 @@ async function startEmulator(options={})
      */
     let created=false;
     let lastCreateError=null;
-    for(const mem of memoryFallbacks(selectedMemoryMB)){
+    for(const mem of memoryFallbacks(selectedMemoryMB).filter(m => selectedOS === "win10" ? m >= 512 : true)){
       config.memory_size=mem*1024*1024;
       try{
         log(`V86生成を試行: RAM=${mem}MB`);
