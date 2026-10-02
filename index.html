@@ -2939,7 +2939,8 @@ async function detectISOFile(file){
       if(u.includes("WINDOWS 2.0") || u.includes("WIN2")){ add("win2",180,"Windows 2.x marker"); }
       if(u.includes("WINDOWS 1.0") || u.includes("WIN1")){ add("win1",180,"Windows 1.x marker"); }
       if(u.includes("WINDOWS 7") || u.includes("\u005cSOURCES\u005cINSTALL.WIM") || u.includes("\u005cSOURCES\u005cBOOT.WIM")){ add("win7",170,"Windows 7 media structure"); }
-      if(u.includes("WINDOWS 8") || u.includes("\u005cSOURCES\u005cINSTALL.ESD")){ add("win8",170,"Windows 8 media structure"); }
+      if(u.includes("WINDOWS 8") || u.includes("WINDOWS 8.1") || u.includes("\u005cSOURCES\u005cINSTALL.ESD")){ add("win8",170,"Windows 8/8.1 media structure"); }
+      if(u.includes("SETUP.EXE") && (u.includes("BOOTMGR") || u.includes("SOURCES") || u.includes("EI.CFG"))){ add("win8",85,"Windows setup media structure"); }
       if(u.includes("WINDOWS 10") || u.includes("\u005cSOURCES\u005cINSTALL.ESD")){ add("win10",130,"Windows 10 media marker"); }
 
       // 他OSは固有名/ブートローダーを組み合わせて判定。汎用I386等は使わない。
@@ -2992,6 +2993,7 @@ async function detectISOFile(file){
     const vol=String(volumeLabel||"").toUpperCase();
     if(/^CCCOMA_(X86|X64)FRE/.test(vol))add("win10",500,"ISO9660 Volume Identifier: "+vol);
     else if(/^(IR3|IR5|CPRA)_/.test(vol))add("win8",500,"ISO9660 Volume Identifier: "+vol);
+    else if(/^(WIN8|WIN81|W8|W81|ENT8|ENT81)/.test(vol))add("win8",420,"Windows 8/8.1 volume identifier: "+vol);
     else if(/^GSP1R|^GRMCUL/.test(vol))add("win7",500,"ISO9660 Volume Identifier: "+vol);
     else if(/WIN51|V3ACOEM_EN/.test(vol))add("winxp",500,"ISO9660 Volume Identifier: "+vol);
     else if(/WIN95/.test(vol))add("win95",450,"ISO9660 Volume Identifier: "+vol);
@@ -3324,8 +3326,7 @@ async function loadDebugLinuxFromPath()
   }
 
   return {
-    url:DEBUG_LINUX_PATH,
-    async:true
+    url:DEBUG_LINUX_PATH
   };
 }
 
@@ -3566,7 +3567,7 @@ async function startEmulator(options={})
       selectedISOName = selectedISOName || selectedISO.name || "ISO";
       const blobURL=getSelectedISOBlobURL(selectedISO);
       if(blobURL){
-        cdromImage={url:blobURL,async:true};
+        cdromImage={url:blobURL,async:true,size:selectedISO.size,use_parts:false};
         cdStatus.textContent=selectedISOName;
         log(`CD-ROM: Blob URL方式（ISO全体をJS ArrayBufferへ複製しない）`,'OK');
       }else{
