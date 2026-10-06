@@ -683,88 +683,143 @@ body.super-os-fullscreen #app #screen canvas{ display:block !important; max-widt
   min-width:0;
 }
 
+
 /* =========================================================
    AERO GLASS BUTTONS
-   Windows Vista Aero Glass風。既存のボタン構造・ID・配線は変更しません。
+   Windows Vista Aero Glass-inspired: translucent surface,
+   soft highlight, blur, glow, and pressed animation.
 ========================================================= */
-button, .ctrl-btn, .primary-btn, .side-btn, .super-fkey, .menu-toggle,
-.microsoft-btn, .sidebar-close, .disk-btn, .command {
-  -webkit-tap-highlight-color: transparent;
-  position: relative;
-  overflow: hidden;
-  isolation: isolate;
-  transition: transform .12s cubic-bezier(.2,.8,.2,1),
-              filter .16s ease,
-              box-shadow .18s ease,
-              background .18s ease,
-              border-color .18s ease;
+button,
+.ctrl-btn,
+.primary-btn,
+.microsoft-btn,
+.side-btn,
+.sidebar-close{
+  -webkit-tap-highlight-color:transparent;
+  -webkit-backdrop-filter:blur(14px) saturate(145%);
+  backdrop-filter:blur(14px) saturate(145%);
+  transition:
+    transform .12s cubic-bezier(.2,.8,.2,1),
+    box-shadow .16s ease,
+    background .16s ease,
+    border-color .16s ease,
+    filter .12s ease;
 }
 
-button::before, .ctrl-btn::before, .primary-btn::before, .side-btn::before,
-.super-fkey::before, .menu-toggle::before, .microsoft-btn::before,
-.sidebar-close::before, .disk-btn::before, .command::before {
-  content:"";
-  position:absolute;
-  inset:0;
-  pointer-events:none;
-  z-index:-1;
+.ctrl-btn,
+.primary-btn,
+.microsoft-btn,
+.side-btn,
+.sidebar-close{
+  position:relative;
+  overflow:hidden;
+  border:1px solid rgba(255,255,255,.28) !important;
   background:
-    linear-gradient(180deg, rgba(255,255,255,.28), rgba(255,255,255,.07) 43%, rgba(255,255,255,0) 52%),
-    radial-gradient(circle at 50% 0%, rgba(255,255,255,.24), transparent 58%);
-  opacity:.72;
+    linear-gradient(180deg,rgba(255,255,255,.20),rgba(255,255,255,.07) 48%,rgba(8,28,52,.24)),
+    rgba(70,125,180,.18) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.34),
+    inset 0 -1px 0 rgba(0,0,0,.18),
+    0 5px 16px rgba(0,0,0,.20),
+    0 0 12px rgba(120,190,255,.08);
 }
 
-button::after, .ctrl-btn::after, .primary-btn::after, .side-btn::after,
-.super-fkey::after, .menu-toggle::after, .microsoft-btn::after,
-.sidebar-close::after, .disk-btn::after, .command::after {
+.ctrl-btn::before,
+.primary-btn::before,
+.microsoft-btn::before,
+.side-btn::before,
+.sidebar-close::before{
   content:"";
   position:absolute;
-  width:38%;
-  height:180%;
-  left:-55%;
-  top:-40%;
+  left:8%; right:8%; top:1px;
+  height:45%;
+  border-radius:inherit;
+  background:linear-gradient(180deg,rgba(255,255,255,.34),rgba(255,255,255,0));
   pointer-events:none;
-  transform:rotate(18deg);
-  background:linear-gradient(90deg, transparent, rgba(255,255,255,.34), transparent);
-  transition:left .42s ease;
-  z-index:2;
 }
 
-button:hover, .ctrl-btn:hover, .primary-btn:hover, .side-btn:hover,
-.super-fkey:hover, .menu-toggle:hover, .microsoft-btn:hover, .sidebar-close:hover,
-.disk-btn:hover, .command:hover {
+.ctrl-btn:hover,
+.primary-btn:hover,
+.microsoft-btn:hover,
+.side-btn:hover,
+.sidebar-close:hover{
   transform:translateY(-1px);
-  filter:brightness(1.10) saturate(1.06);
-  box-shadow:0 7px 22px rgba(0,0,0,.22), inset 0 1px rgba(255,255,255,.30);
+  border-color:rgba(220,245,255,.62) !important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.28),rgba(255,255,255,.09) 48%,rgba(30,80,130,.28)),
+    rgba(80,150,210,.23) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.48),
+    0 8px 22px rgba(0,0,0,.24),
+    0 0 18px rgba(120,200,255,.18);
 }
 
-button:hover::after, .ctrl-btn:hover::after, .primary-btn:hover::after, .side-btn:hover::after,
-.super-fkey:hover::after, .menu-toggle:hover::after, .microsoft-btn:hover::after,
-.sidebar-close:hover::after, .disk-btn:hover::after, .command:hover::after {
-  left:118%;
+.ctrl-btn:active,
+.primary-btn:active,
+.microsoft-btn:active,
+.side-btn:active,
+.sidebar-close:active{
+  transform:translateY(2px) scale(.975);
+  filter:brightness(.88) saturate(.92);
+  box-shadow:
+    inset 0 2px 5px rgba(0,0,0,.28),
+    inset 0 1px 0 rgba(255,255,255,.18),
+    0 2px 6px rgba(0,0,0,.22);
+  transition-duration:.05s;
 }
 
-button:active, .ctrl-btn:active, .primary-btn:active, .side-btn:active,
-.super-fkey:active, .menu-toggle:active, .microsoft-btn:active, .sidebar-close:active,
-.disk-btn:active, .command:active {
-  transform:translateY(1px) scale(.965);
-  filter:brightness(.94) saturate(.98);
-  box-shadow:inset 0 2px 7px rgba(0,0,0,.30), 0 1px 4px rgba(0,0,0,.18);
+.ctrl-btn.primary,
+.primary-btn{
+  background:
+    linear-gradient(180deg,rgba(185,225,255,.42),rgba(65,145,230,.20) 48%,rgba(20,70,135,.30)),
+    rgba(35,120,220,.34) !important;
+  border-color:rgba(185,225,255,.50) !important;
+}
+
+.ctrl-btn.danger{
+  background:
+    linear-gradient(180deg,rgba(255,190,205,.28),rgba(120,30,55,.22)),
+    rgba(100,20,45,.25) !important;
+}
+
+.side-btn.active{
+  background:
+    linear-gradient(180deg,rgba(200,235,255,.38),rgba(60,140,220,.22)),
+    rgba(60,130,205,.30) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.50),
+    0 0 20px rgba(120,200,255,.20),
+    0 6px 18px rgba(0,0,0,.22);
+}
+
+@keyframes aeroButtonPressGlow{
+  0%{box-shadow:0 0 0 rgba(150,220,255,0),inset 0 2px 5px rgba(0,0,0,.25)}
+  45%{box-shadow:0 0 22px rgba(150,220,255,.35),inset 0 2px 5px rgba(0,0,0,.22)}
+  100%{box-shadow:0 0 0 rgba(150,220,255,0),inset 0 0 0 rgba(0,0,0,0)}
+}
+
+.ctrl-btn:focus-visible,
+.primary-btn:focus-visible,
+.microsoft-btn:focus-visible,
+.side-btn:focus-visible,
+.sidebar-close:focus-visible{
+  outline:2px solid rgba(190,230,255,.85);
+  outline-offset:2px;
 }
 
 .ctrl-btn{
-  border:1px solid rgba(255,255,255,.18);
-  background:linear-gradient(180deg, rgba(255,255,255,.13), rgba(255,255,255,.045)), rgba(22,30,42,.78);
-  color:#eaf3ff;
+  border:1px solid rgba(255,255,255,.1);
+  background:#161e2a;
+  color:#d9e3f0;
   padding:9px 10px;
-  border-radius:10px;
+  border-radius:9px;
   flex:1;
   font-size:12px;
-  box-shadow:inset 0 1px rgba(255,255,255,.20), 0 3px 12px rgba(0,0,0,.14);
-  backdrop-filter:blur(10px) saturate(125%);
-  -webkit-backdrop-filter:blur(10px) saturate(125%);
 }
 
+.ctrl-btn:hover{
+  background:#202b3b;
+}
 
 .ctrl-btn.primary{
   background:#246ff0;
@@ -1017,6 +1072,7 @@ button, input, select, label, a, [role="button"] { pointer-events:auto !importan
 </head>
 
 <body>
+<div id="superEmulatorDebugBanner" style="position:fixed;right:10px;bottom:10px;z-index:99999;padding:7px 10px;border:1px solid rgba(255,255,255,.25);border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,.06));backdrop-filter:blur(12px);color:#dff4ff;font:11px ui-monospace,monospace;box-shadow:0 4px 18px rgba(0,0,0,.25);pointer-events:none">DEBUG • AERO GLASS</div>
 
 <!-- =========================================================
      LANDING
@@ -1620,6 +1676,7 @@ button, input, select, label, a, [role="button"] { pointer-events:auto !importan
 window.__superEmulatorCursorBootstrapReady = true;
 </script>
 <script>
+/* Windows hardware profiles are applied at V86 construction time; OS detection itself remains unchanged. */
 window.OS_CONFIG = window.OS_CONFIG || {
   win10:{memory:4096,acpi:true}, win8:{memory:4096,acpi:true}, win7:{memory:4096,acpi:true},
   winvista:{memory:2048,acpi:true}, winxp:{memory:384,acpi:false}, win2000:{memory:256,acpi:false},
@@ -2412,7 +2469,8 @@ function clearMemoryProfile(){
 }
 
 async function readMemoryProfile(file){
-  const bytes = new Uint8Array(await file.arrayBuffer());
+  const probeSize = Math.min(Number(file.size)||0, 65536);
+  const bytes = new Uint8Array(await file.slice(0, probeSize).arrayBuffer());
   const sample = new TextDecoder("utf-8",{fatal:false}).decode(bytes.slice(0,8192));
   let mb = null;
 
@@ -2513,20 +2571,46 @@ function chooseInitialMemory(osKey){
   const configs = window.OS_CONFIG || {};
   if(oldOS) return Math.min(Number(configs[osKey]?.memory)||64, 256);
 
-  /* Win10 only: give it a larger starting budget. Other OS logic is unchanged. */
-  if(osKey === "win10"){
-    const safeHostCap = hostGB <= 4 ? 1024 : hostGB <= 8 ? 1536 : 2048;
-    const target=Math.min(safeHostCap, Math.max(1024, Math.floor(hostGB*1024*0.35)));
+  /*
+   * Modern Windows profile. This follows v86's documented Windows guidance:
+   * Vista and newer need at least 512MB; community-tested Windows 8 profiles
+   * commonly use 2048MB + 128MB VGA RAM + ACPI.
+   * navigator.deviceMemory is only a host hint, so cap the default at 2048MB.
+   */
+  if(["winvista","win7","win8","win10"].includes(osKey)){
+    const safeHostCap = hostGB <= 4 ? 2048 : hostGB <= 8 ? 3072 : 4096;
+    const target=Math.min(safeHostCap, Math.max(1024, Math.floor(hostGB*1024*0.50)));
     return Math.max(1024, Math.min(2048, target));
   }
 
-  /* Existing allocation policy for every other OS. */
+  /* Existing allocation policy for every non-modern-Windows OS. */
   const safeHostCap = hostGB <= 4 ? 768 : hostGB <= 8 ? 1536 : 2048;
   const target=Math.min(safeHostCap, Math.max(256, Math.floor(hostGB*1024*0.30)));
   const osCap=Number((window.OS_CONFIG || {})[osKey]?.memory)||4096;
   const raw=Math.min(target,osCap,2048);
   let p=128; while(p*2<=raw) p*=2;
   return Math.max(128,p);
+}
+
+/*
+ * Windows-oriented virtual hardware profile.
+ * v86 does not expose a general PC-model/CPU-vendor switch, so we only use
+ * options that the current V86 API actually exposes. We do NOT fake CPU flags
+ * that v86 does not implement.
+ */
+function getWindowsHardwareProfile(osKey){
+  const modern={
+    winvista:{memory:1024,vga:64,acpi:true,cpuid:6},
+    win7:{memory:2048,vga:64,acpi:true,cpuid:6},
+    win8:{memory:2048,vga:128,acpi:true,cpuid:6},
+    win10:{memory:2048,vga:64,acpi:true,cpuid:6}
+  };
+  const legacy={
+    winxp:{memory:384,vga:16,acpi:false,cpuid:4},
+    win2000:{memory:256,vga:8,acpi:false,cpuid:3},
+    winnt4:{memory:128,vga:2,acpi:false,cpuid:2}
+  };
+  return modern[osKey] || legacy[osKey] || null;
 }
 function memoryFallbacks(start){
   const values=[start,3072,2048,1536,1024,768,512,256,128,64,32];
@@ -3092,7 +3176,7 @@ async function detectISOFile(file){
      * 今回は ISO9660 のPVD/ルートディレクトリ + ブート領域 + 先頭/末尾の
      * 限定ウィンドウだけを読む。OS固有の強い署名を優先し、汎用文字列は判定根拠にしない。
      */
-    const score={win95:0,win98:0,winme:0,win2000:0,winxp:0,winvista:0,win7:0,win8:0,win10:0,winnt4:0,win31:0,win2:0,win1:0,freedos:0,msdos:0,linux:0,reactos:0,haiku:0,freebsd:0,openbsd:0,netbsd:0,android:0,other:0};
+    const score={win95:0,win98:0,winme:0,win2000:0,winxp:0,winvista:0,win7:0,win8:0,win10:0,winnt4:0,win31:0,win2:0,win1:0,freedos:0,msdos:0,linux:0,debian:0,ubuntu:0,alpine:0,arch32:0,reactos:0,kolibrios:0,haiku:0,freebsd:0,openbsd:0,netbsd:0,android:0,serenity:0,"9front":0,skift:0,qnx:0,other:0};
     const hits={};
     const add=(key,points,why)=>{score[key]+=points;(hits[key]??=[]).push(why);};
     const decoder=new TextDecoder("latin1",{fatal:false});
@@ -3167,19 +3251,16 @@ async function detectISOFile(file){
       if(u.includes("FREEBSD")){ add("freebsd",200,"FreeBSD marker"); }
       if(u.includes("OPENBSD")){ add("openbsd",200,"OpenBSD marker"); }
       if(u.includes("NETBSD")){ add("netbsd",200,"NetBSD marker"); }
+      if(u.includes("DEBIAN")){ add("debian",210,"Debian marker"); add("linux",70,"Debian/Linux marker"); }
+      if(u.includes("UBUNTU")){ add("ubuntu",210,"Ubuntu marker"); add("linux",70,"Ubuntu/Linux marker"); }
+      if(u.includes("ALPINE LINUX") || u.includes("ALPINE")){ add("alpine",210,"Alpine Linux marker"); add("linux",70,"Alpine/Linux marker"); }
+      if(u.includes("ARCH LINUX") || u.includes("ARCHLINUX")){ add("arch32",210,"Arch Linux marker"); add("linux",70,"Arch/Linux marker"); }
+      if(u.includes("KOLIBRIOS")){ add("kolibrios",210,"KolibriOS marker"); }
+      if(u.includes("SERENITYOS") || u.includes("SERENITY OS")){ add("serenity",210,"SerenityOS marker"); }
+      if(u.includes("9FRONT") || u.includes("PLAN 9")){ add("9front",190,"9front/Plan 9 marker"); }
+      if(u.includes("SKIFTOS") || u.includes("SKIFT OS")){ add("skift",210,"SkiftOS marker"); }
+      if(u.includes("QNX")){ add("qnx",180,"QNX marker"); }
       if(u.includes("MS-DOS") || u.includes("MSDOS")){ add("msdos",160,"MS-DOS marker"); }
-
-      // Legacy/alternate media often lack a friendly volume label. Keep these
-      // signatures in detection only; boot configurations for each OS are untouched.
-      if(u.includes("WIN95.CAB") || u.includes("WIN95_")){ add("win95",170,"Windows 95 cabinet/media marker"); }
-      if(u.includes("WIN98.CAB") || u.includes("WIN98_")){ add("win98",170,"Windows 98 cabinet/media marker"); }
-      if(u.includes("WINME.CAB") || u.includes("WINME_")){ add("winme",170,"Windows Me cabinet/media marker"); }
-      if(u.includes("I386\\TXTSETUP.SIF") || u.includes("I386\\DOSNET.INF")){
-        add("winxp",85,"Windows NT setup structure"); add("win2000",70,"Windows NT setup structure");
-      }
-      if(u.includes("SOURCES\\INSTALL.ESD")){ add("win8",65,"modern Windows ESD setup structure"); add("win10",65,"modern Windows ESD setup structure"); }
-      if(u.includes("SOURCES\\INSTALL.WIM")){ add("win7",55,"Windows WIM setup structure"); add("win8",45,"Windows WIM setup structure"); add("win10",45,"Windows WIM setup structure"); }
-      if(u.includes("BOOT\\BCD") || u.includes("BOOT\\BOOT.SDI")){ add("winvista",40,"BOOT/BCD setup structure"); add("win7",45,"BOOT/BCD setup structure"); add("win8",45,"BOOT/BCD setup structure"); add("win10",45,"BOOT/BCD setup structure"); }
       if(bar) bar.value=Math.min(85,bar.value+8);
     }
 
@@ -3188,7 +3269,7 @@ async function detectISOFile(file){
     // 自動判定ではディスク上の確実な証拠を優先する。
     const bootEvidence=await read(0,Math.min(file.size,1024*1024));
     const bootEvidenceText=upper(bootEvidence);
-    const fileEvidence=async (needle, key, points, why)=>{ if(bootEvidenceText.includes(needle)) add(key,points,why); };
+    const fileEvidence=async (needle, key, points, why)=>{ if(bootText.includes(needle)) add(key,points,why); };
     if(bootEvidenceText.includes("IO.SYS")){ add("win95",70,"boot/file signature: IO.SYS"); add("win98",70,"boot/file signature: IO.SYS"); add("winme",70,"boot/file signature: IO.SYS"); add("msdos",25,"boot/file signature: IO.SYS"); }
     if(bootEvidenceText.includes("COMMAND.COM")){ add("win95",35,"boot/file signature: COMMAND.COM"); add("win98",35,"boot/file signature: COMMAND.COM"); add("winme",35,"boot/file signature: COMMAND.COM"); }
     if(bootEvidenceText.includes("VMM32.VXD")){ add("win95",110,"boot/file signature: VMM32.VXD"); add("win98",110,"boot/file signature: VMM32.VXD"); add("winme",95,"boot/file signature: VMM32.VXD"); }
@@ -3213,6 +3294,15 @@ async function detectISOFile(file){
       if(/WINME/.test(rootText)) add("winme",260,"ISO root marker");
       if(/WIN2000|WINNT32\.EXE/.test(rootText)) add("win2000",260,"ISO root marker");
       if(/FREEDOS/.test(rootText)) add("freedos",220,"ISO root marker");
+      if(/DEBIAN/.test(rootText)) add("debian",260,"ISO root marker");
+      if(/UBUNTU/.test(rootText)) add("ubuntu",260,"ISO root marker");
+      if(/ALPINE/.test(rootText)) add("alpine",260,"ISO root marker");
+      if(/ARCH LINUX|ARCHLINUX/.test(rootText)) add("arch32",260,"ISO root marker");
+      if(/KOLIBRIOS/.test(rootText)) add("kolibrios",260,"ISO root marker");
+      if(/HAIKU/.test(rootText)) add("haiku",260,"ISO root marker");
+      if(/FREEBSD/.test(rootText)) add("freebsd",260,"ISO root marker");
+      if(/OPENBSD/.test(rootText)) add("openbsd",260,"ISO root marker");
+      if(/NETBSD/.test(rootText)) add("netbsd",260,"ISO root marker");
     }
 
     // ISO9660 Volume IdentifierはWindowsメディアの強い署名として、候補順位を作る前に加点。
@@ -3224,10 +3314,17 @@ async function detectISOFile(file){
     else if(/WIN95/.test(vol))add("win95",450,"ISO9660 Volume Identifier: "+vol);
     else if(/WIN98/.test(vol))add("win98",450,"ISO9660 Volume Identifier: "+vol);
     else if(/WINME/.test(vol))add("winme",450,"ISO9660 Volume Identifier: "+vol);
-    else if(/^(WIN95|95OEM|95_OSR)/.test(vol))add("win95",360,"legacy Windows 95 volume identifier: "+vol);
-    else if(/^(WIN98|98SE|98OEM)/.test(vol))add("win98",360,"legacy Windows 98 volume identifier: "+vol);
-    else if(/^(WINME|MEOEM)/.test(vol))add("winme",360,"legacy Windows Me volume identifier: "+vol);
-    else if(/^(WXPFPP|WXPOEM|XPPRO|XPHOME)/.test(vol))add("winxp",360,"Windows XP volume identifier: "+vol);
+    else if(/DEBIAN/.test(vol))add("debian",500,"ISO9660 Volume Identifier: "+vol);
+    else if(/UBUNTU/.test(vol))add("ubuntu",500,"ISO9660 Volume Identifier: "+vol);
+    else if(/ALPINE/.test(vol))add("alpine",500,"ISO9660 Volume Identifier: "+vol);
+    else if(/ARCH/.test(vol))add("arch32",500,"ISO9660 Volume Identifier: "+vol);
+    else if(/REACTOS/.test(vol))add("reactos",500,"ISO9660 Volume Identifier: "+vol);
+    else if(/KOLIBRIOS/.test(vol))add("kolibrios",500,"ISO9660 Volume Identifier: "+vol);
+    else if(/HAIKU/.test(vol))add("haiku",500,"ISO9660 Volume Identifier: "+vol);
+    else if(/FREEBSD/.test(vol))add("freebsd",500,"ISO9660 Volume Identifier: "+vol);
+    else if(/OPENBSD/.test(vol))add("openbsd",500,"ISO9660 Volume Identifier: "+vol);
+    else if(/NETBSD/.test(vol))add("netbsd",500,"ISO9660 Volume Identifier: "+vol);
+    else if(/ANDROID[-_ ]?X86/.test(vol))add("android",500,"ISO9660 Volume Identifier: "+vol);
 
     // 相反する強い証拠を減点し、世代をまたいだ誤判定を防ぐ。
     const allEvidence=bootEvidenceText;
@@ -3245,7 +3342,7 @@ async function detectISOFile(file){
     let best=bestPair[0], bestScore=bestPair[1];
     if(bestScore<160) best="other";
     // XPとWin9xなど強い署名が複数ある場合は強い署名を優先。差が小さいときは自動判定を確定しない。
-    const ambiguous = best!=="other" && secondPair[1]>=bestScore-35 && bestScore<260;
+    const ambiguous = best!=="other" && secondPair[1]>=bestScore-35 && bestScore<220;
     if(ambiguous){
       log(`ISO判定: 候補が近いため自動確定しません (${getOSName(best)} ${bestScore} / ${getOSName(secondPair[0])} ${secondPair[1]})`,"WARN");
       best="other";
@@ -3268,7 +3365,6 @@ async function detectISOFile(file){
     if(resultBox) resultBox.innerHTML=html;
     if(detectedOS) detectedOS.innerHTML=html;
     log(`ISO判定完了: ${getOSName(best)} / score=${bestScore} / ${bootText} / ${reason}`);
-    log(`ISO判定は検出専用。選択されたOS以外の起動設定は変更しません。`);
     if(best==="other") errorSound();
     return best;
   }catch(e){
@@ -3892,7 +3988,7 @@ async function startEmulator(options={})
         ? `プロファイル ${selectedMemoryProfileName}`
         : `host ${getHostMemoryGB()}GB相当`
     );
-    log(`OS=${getOSName(selectedOS)} / 起動RAM=${selectedMemoryMB}MB / ACPI=${selectedOS==="win10" ? true : cfg.acpi}`);
+    log(`OS=${getOSName(selectedOS)} / 起動RAM=${selectedMemoryMB}MB / ACPI=${getWindowsHardwareProfile(selectedOS)?.acpi ?? cfg.acpi}`);
     if(selectedMemoryProfileMB){
       log(`ユーザー指定RAMプロファイルを使用: ${selectedMemoryProfileName} / ${selectedMemoryProfileMB}MB`,"OK");
     }
@@ -3960,7 +4056,8 @@ async function startEmulator(options={})
         1024,
 
       vga_memory_size:
-        (["win95","win98","winme","win31","win2","win1","winnt4","win2000"].includes(selectedOS) ? 2 : 8) *
+        (getWindowsHardwareProfile(selectedOS)?.vga ||
+          (["win95","win98","winme","win31","win2","win1","winnt4","win2000"].includes(selectedOS) ? 2 : 8)) *
         1024 *
         1024,
 
@@ -4023,13 +4120,15 @@ async function startEmulator(options={})
       // v86公式UIと同じ「CD → Floppy → HDD」を使用。
       // ISO起動時はCDを必ず最優先にする。
       boot_order:
-        (cdromImage ? 0x213 : (selectedFloppy ? 0x231 : 0x132)),
+        (cdromImage
+          ? ((["winvista","win7","win8","win10","winxp","win2000","winnt4"].includes(selectedOS)) ? 0x123 : 0x213)
+          : (selectedFloppy ? 0x231 : 0x132)),
 
       acpi:
-        selectedOS === "win10" ? true : cfg.acpi,
+        (getWindowsHardwareProfile(selectedOS)?.acpi ?? cfg.acpi),
 
-      ...(selectedOS === "win10" ? {
-        cpuid_level: 6
+      ...(getWindowsHardwareProfile(selectedOS) ? {
+        cpuid_level: getWindowsHardwareProfile(selectedOS).cpuid
       } : {}),
 
       autostart:
@@ -4056,10 +4155,12 @@ async function startEmulator(options={})
      * OS-specific diagnostics.
      * Only Win10 receives the Win10 profile here.
      */
-    if(selectedOS === "win10"){
-      log("Win10デバッグプロファイル: ACPI=ON / CPUID level=6 / RAM開始値="+selectedMemoryMB+"MB","INFO");
-      log("Win10のPAE/NX/SSE2等はv86 CPU実装を使用し、JS側で存在しないCPU機能を偽装しません。","INFO");
-      log("ACPI 2.0+の全テーブル、HPET、完全なQ35相当をこのHTMLだけで新規実装したわけではありません。","WARN");
+    const winHW=getWindowsHardwareProfile(selectedOS);
+    if(winHW){
+      log(`[WINDOWS HW] ${getOSName(selectedOS)}: RAM基準=${winHW.memory}MB / VGA=${winHW.vga}MB / ACPI=${winHW.acpi?"ON":"OFF"} / CPUID level=${winHW.cpuid}`,"INFO");
+      log("[WINDOWS HW] v86が公開している設定だけを使用。未実装のCPUフラグやQ35/HPETを偽装していません。","INFO");
+      if(selectedOS === "win8") log("[WIN8] 0x0000000A対策プロファイル: 2048MB RAM / 128MB VGA / ACPI ON / CPUID level 6。なおv86側のNX等のCPU実装限界は残ります。","WARN");
+      if(selectedOS === "win10") log("[WIN10] 2048MB RAM / 64MB VGA / ACPI ON / CPUID level 6。Windows 10はv86公式互換表で完全対応OSではありません。","WARN");
       if(selectedMemoryProfileMB){
         log("アップロードRAMプロファイル: "+selectedMemoryProfileName+" / "+selectedMemoryProfileMB+"MB","OK");
       }
@@ -7662,4 +7763,4 @@ window.superEmulatorMemoryProfile = function(){
   };
 };
 </script>
-</html> 
+</html>
