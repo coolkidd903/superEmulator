@@ -1746,19 +1746,7 @@ window.OS_CONFIG = window.OS_CONFIG || {
     const mb=e.target.closest?.("#manualDetectBtn");
     if(mb){e.preventDefault();e.stopImmediatePropagation();const area=document.getElementById("manualArea");if(area){const visible=area.style.display!=="none";area.style.display=visible?"none":"block";area.hidden=visible;}return;}
     const sb=e.target.closest?.("#startBtn");
-    if(sb){
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      /* User activation is still alive here, so request fullscreen BEFORE await. */
-      try{ if(typeof window.__superEmulatorRequestFullscreen === "function") window.__superEmulatorRequestFullscreen(); }catch(_){}
-      if(typeof window.startEmulator==="function"){
-        Promise.resolve(window.startEmulator()).catch(err=>{
-          console.error(err);
-          alert("起動に失敗しました\n\n"+(err?.message||err));
-        });
-      }else alert("起動処理が読み込まれていません。ページを再読み込みしてください。");
-      return;
-    }
+    if(sb){e.preventDefault();e.stopImmediatePropagation();if(typeof window.startEmulator==="function"){Promise.resolve(window.startEmulator()).catch(err=>{console.error(err);alert("起動に失敗しました\n\n"+(err?.message||err));});}else alert("起動処理が読み込まれていません。ページを再読み込みしてください。");return;}
   },true);
   window.addEventListener("resize",()=>{if(typeof window.updateCursor==="function")window.updateCursor();});
 })();
@@ -4990,6 +4978,8 @@ function sendFunctionKey(f)
 }
 
 
+
+
 /* =========================================================
    COMMAND INPUT
 ========================================================= */
@@ -5569,23 +5559,6 @@ async function handleMicrosoftCallback()
    FORMAT
 ========================================================= */
 
-function sendWindowsKey(){
-  if(!emulator){ log("Windowsキー: エミュレーター未起動","WARN"); return; }
-  try{
-    if(typeof emulator.keyboard_send_scancodes === "function"){
-      emulator.keyboard_send_scancodes([0xE05B,0xE0DB]);
-      log("Windowsキー送信");
-      return;
-    }
-    if(typeof emulator.keyboard_send_keys === "function"){
-      emulator.keyboard_send_keys([0x5B]);
-      log("Windowsキー送信(fallback)");
-    }
-  }catch(e){ log("Windowsキー送信失敗: "+(e?.message||e),"ERROR"); }
-}
-const windowsKeyBtn=document.getElementById("windowsKeyBtn");
-if(windowsKeyBtn) windowsKeyBtn.addEventListener("click",sendWindowsKey);
-
 function formatBytes(bytes)
 {
   if(!Number.isFinite(bytes))
@@ -5750,28 +5723,6 @@ window.downloadCurrentDiskImage=downloadCurrentDiskImage;
 
 <script>
 (function(){
-  /* Fullscreen must be requested synchronously from the user gesture.
-     Do not await this before starting the emulator: Chrome/Chromium can reject
-     fullscreen requests after the activation has been consumed by an await. */
-  window.__superEmulatorRequestFullscreen = function(){
-    try{
-      const target=document.getElementById("app");
-      if(!target || typeof target.requestFullscreen !== "function"){
-        if(typeof window.log === "function") window.log("全画面APIが利用できないため通常表示で起動します","WARN");
-        return null;
-      }
-      if(document.fullscreenElement === target) return Promise.resolve();
-      const p=target.requestFullscreen({navigationUI:"hide"});
-      if(p && typeof p.catch === "function") p.catch(err=>{
-        if(typeof window.log === "function") window.log("起動時の全画面化に失敗: "+(err?.message||err),"WARN");
-      });
-      return p;
-    }catch(err){
-      if(typeof window.log === "function") window.log("起動時の全画面化に失敗: "+(err?.message||err),"WARN");
-      return null;
-    }
-  };
-
   document.addEventListener("click", function(e){
     if(!window.superEmulatorIsoLoading) return;
     const b=e.target.closest && e.target.closest("#landingStart,#heroStart,#finalStart,#startBtn");
@@ -7059,6 +7010,86 @@ window.superEmulatorAuditButtons=function(){const ids=["detectBtn","manualDetect
      This module intentionally does not touch boot, ISO, HDD, settings,
      or display handlers. It only owns F1-F12 and the Win button.
 ========================================================= -->
+
+
+<script id="superEmulator-final-keyboard-and-repair">
+(function(){
+  "use strict";
+  const SC={F1:0x3B,F2:0x3C,F3:0x3D,F4:0x3E,F5:0x3F,F6:0x40,F7:0x41,F8:0x42,F9:0x43,F10:0x44,F11:0x57,F12:0x58};
+  function L(m,l){try{if(typeof window.log==='function')window.log('[INPUT FINAL] '+m,l||'INFO');}catch(_){} }
+  function em(){return window.emulator||null;}
+  function sendPair(code,name){
+    const e=em();
+    if(!e){L(name+' 未起動','WARN');return false;}
+    if(typeof e.keyboard_send_scancodes!=='function'){L(name+' keyboard_send_scancodes APIなし','ERROR');return false;}
+    try{
+      e.keyboard_send_scancodes([code]);
+      setTimeout(()=>{try{const cur=em();if(cur&&typeof cur.keyboard_send_scancodes==='function')cur.keyboard_send_scancodes([code|0x80]);}catch(err){L(name+' break失敗: '+(err.message||err),'ERROR');}},18);
+      L(name+' make/break送信: 0x'+code.toString(16),'OK');
+      return true;
+    }catch(err){L(name+' make失敗: '+(err.message||err),'ERROR');return false;}
+  }
+  function installFButtons(){
+    document.querySelectorAll('.fkey[data-f]').forEach(b=>{
+      const n=Number(b.dataset.f), name='F'+n, code=SC[name];
+      if(!code||b.dataset.finalKeyboardBound==='1')return;
+      b.dataset.finalKeyboardBound='1';
+      b.type='button'; b.disabled=false; b.style.pointerEvents='auto'; b.style.touchAction='manipulation'; b.style.zIndex='10001';
+      b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopImmediatePropagation();sendPair(code,name);},true);
+      b.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();},true);
+    });
+  }
+  installFButtons();
+  new MutationObserver(installFButtons).observe(document.documentElement,{childList:true,subtree:true});
+
+  function sendWin(){
+    const e=em();
+    if(!e){L('Winキー: エミュレーター未起動','WARN');return;}
+    if(typeof e.keyboard_send_scancodes!=='function'){L('Winキー: APIなし','ERROR');return;}
+    try{
+      // PS/2 Set-1: E0 5B = Left Win make, E0 DB = break
+      e.keyboard_send_scancodes([0xE0,0x5B]);
+      setTimeout(()=>{try{const cur=em();if(cur&&typeof cur.keyboard_send_scancodes==='function')cur.keyboard_send_scancodes([0xE0,0xDB]);}catch(_){}},18);
+      L('Winキー送信: E0 5B / E0 DB','OK');
+    }catch(err){L('Winキー送信失敗: '+(err.message||err),'ERROR');}
+  }
+
+  function makeBash(){
+    if(typeof window.superEmulatorGenerateRepairBash==='function'){
+      // 既存生成処理の内容は取得できないため、ここではUI用の同等診断スクリプトを作る。
+    }
+    return `#!/usr/bin/env bash
+set -u
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+cd "$ROOT" || exit 1
+echo "=== superEmulator repair / diagnostic ==="
+fail=0
+for f in index.html libv86.js v86.wasm seabios.bin vgabios.bin; do
+  if [ -f "$f" ]; then printf '[OK] %-16s %s bytes\\n' "$f" "$(wc -c < "$f")"; else echo "[NG] $f"; fail=1; fi
+done
+if [ -f "./debug-linux/debian.iso" ]; then echo '[OK] debug-linux/debian.iso'; else echo '[INFO] debug-linux/debian.iso not found'; fi
+if command -v sha256sum >/dev/null 2>&1; then echo; echo '[SHA256]'; sha256sum libv86.js v86.wasm seabios.bin vgabios.bin 2>/dev/null || true; fi
+echo; echo '[HTTP]'; if command -v python3 >/dev/null 2>&1; then echo '[OK] python3'; echo 'Start: python3 -m http.server 8000'; else echo '[NG] python3 not found'; fail=1; fi
+echo; echo '[TIP] Use http://localhost:8000/ or GitHub Pages, not file://.'
+exit "$fail"
+`;
+  }
+  function updateBash(){const out=document.getElementById('repairBashOutput');if(out)out.value=makeBash();}
+  const rb=document.getElementById('repairBtn');
+  if(rb){rb.addEventListener('click',()=>setTimeout(updateBash,0),false);}
+  const cb=document.getElementById('copyRepairBash');
+  if(cb)cb.addEventListener('click',async()=>{updateBash();const o=document.getElementById('repairBashOutput');try{await navigator.clipboard.writeText(o.value);L('修復Bashをクリップボードへコピーしました','OK');}catch(e){o.select();document.execCommand('copy');L('修復Bashをコピーしました','OK');}},false);
+  const db=document.getElementById('downloadRepairBash');
+  if(db)db.addEventListener('click',()=>{updateBash();const o=document.getElementById('repairBashOutput');const a=document.createElement('a');const u=URL.createObjectURL(new Blob([o.value],{type:'text/x-shellscript'}));a.href=u;a.download='repair-superEmulator.sh';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);L('修復Bashをダウンロードしました','OK');},false);
+  window.superEmulatorInputSelfTest=function(){
+    const rows=[...document.querySelectorAll('.fkey[data-f]')].map(b=>({f:b.dataset.f,button:true,disabled:b.disabled,rect:(()=>{const r=b.getBoundingClientRect();return [r.left,r.top,r.width,r.height]})()}));
+    const result={buttons:rows.length,emulator:!!window.emulator,scancodeAPI:!!(window.emulator&&typeof window.emulator.keyboard_send_scancodes==='function'),windowsButton:!!document.getElementById('windowsKeyBtn')};
+    console.log('[INPUT SELF TEST]',result,rows);L(JSON.stringify(result));return result;
+  };
+  L('F1-F12 / Winキー最終入力層を初期化しました');
+})();
+</script>
+
 <script id="superEmulator-input-mouse-hardfix">
 (function(){
   "use strict";
@@ -7117,26 +7148,6 @@ window.superEmulatorAuditButtons=function(){const ids=["detectBtn","manualDetect
   }
   window.syncScreenContainerGeometry=lockScreenToCanvas;
 
-  function sendF(name){
-    const em=getEm(); if(!em||typeof em.keyboard_send_scancodes!=="function"){out(name+" 送信不可: keyboard_send_scancodesなし","ERROR");return false;}
-    const c=F[name];
-    try{em.keyboard_send_scancodes([c]);setTimeout(()=>{const cur=getEm();if(cur?.keyboard_send_scancodes)cur.keyboard_send_scancodes([c|0x80]);},25);out(name+` make=0x${c.toString(16)} / break=0x${(c|0x80).toString(16)} → v86`,"OK");return true;}catch(e){out(name+" 送信例外: "+(e?.message||e),"ERROR");return false;}
-  }
-  function sendWin(){
-    const em=getEm(); if(!em||typeof em.keyboard_send_scancodes!=="function"){out("Win送信不可: keyboard_send_scancodesなし","ERROR");return false;}
-    try{em.keyboard_send_scancodes([0xE0,0x5B]);setTimeout(()=>{const cur=getEm();if(cur?.keyboard_send_scancodes)cur.keyboard_send_scancodes([0xE0,0xDB]);},25);out("Win make=E0 5B / break=E0 DB → v86","OK");return true;}catch(e){out("Win送信例外: "+(e?.message||e),"ERROR");return false;}
-  }
-
-  const bar=document.getElementById("functionBar");
-  if(bar){
-    bar.addEventListener("pointerdown",e=>{
-      const b=e.target.closest?.(".super-fkey,.super-win-key"); if(!b||!bar.contains(b))return;
-      e.preventDefault();e.stopPropagation();
-      if(b.classList.contains("super-win-key"))sendWin();else{const n=Number(b.dataset.superF||b.dataset.f);if(Number.isFinite(n)&&F["F"+n])sendF("F"+n);}
-    },true);
-  }
-  Object.keys(F).forEach(name=>window.addEventListener("keydown",e=>{if(e.code!==name)return;e.preventDefault();if(!e.repeat)sendF(name);},true));
-
   window.__superEmulatorEnableMouse=function(){
     try{const em=getEm();if(em?.mouse_set_enabled){em.mouse_set_enabled(true);out("v86 native mouse enabled","OK");}}catch(err){out("mouse_set_enabled失敗: "+(err?.message||err),"WARN");}
     requestAnimationFrame(()=>lockScreenToCanvas("mouse-enable"));
@@ -7182,9 +7193,6 @@ window.superEmulatorAuditButtons=function(){const ids=["detectBtn","manualDetect
   gap:6px !important;
   pointer-events:auto !important;
   user-select:none !important;
-  flex-wrap:nowrap !important;
-  overflow-x:auto !important;
-  scrollbar-width:thin !important;
 }
 #functionBar.super-clean-function-bar .super-fkey{
   appearance:none !important;
@@ -7194,13 +7202,12 @@ window.superEmulatorAuditButtons=function(){const ids=["detectBtn","manualDetect
   display:inline-flex !important;
   align-items:center !important;
   justify-content:center !important;
-  flex:0 0 auto !important;
   min-width:48px !important;
   height:34px !important;
   padding:0 10px !important;
-  border:1px solid rgba(255,255,255,.22) !important;
-  border-radius:9px !important;
-  background:linear-gradient(180deg,rgba(255,255,255,.17),rgba(255,255,255,.055)) !important;
+  border:1px solid rgba(255,255,255,.16) !important;
+  border-radius:8px !important;
+  background:#141b26 !important;
   color:#eaf2ff !important;
   font:600 12px/1 system-ui,sans-serif !important;
   cursor:pointer !important;
@@ -7209,17 +7216,17 @@ window.superEmulatorAuditButtons=function(){const ids=["detectBtn","manualDetect
   user-select:none !important;
   -webkit-user-select:none !important;
   outline:none !important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.20),0 4px 14px rgba(0,0,0,.14) !important;
-  transition:transform .07s ease,filter .12s ease,background .12s ease !important;
 }
-#functionBar.super-clean-function-bar .super-fkey:hover{filter:brightness(1.12) !important}
-#functionBar.super-clean-function-bar .super-fkey:active,
+#functionBar.super-clean-function-bar .super-fkey:hover{background:#1e2938 !important}
 #functionBar.super-clean-function-bar .super-fkey.is-down{
-  transform:translateY(2px) scale(.985) !important;
-  filter:brightness(.92) !important;
-  background:linear-gradient(180deg,rgba(115,183,255,.30),rgba(49,95,145,.25)) !important;
-  border-color:rgba(150,210,255,.62) !important;
-  box-shadow:inset 0 2px 5px rgba(0,0,0,.20),0 2px 7px rgba(0,0,0,.12) !important;
+  transform:translateY(1px) !important;
+  background:#315f91 !important;
+  border-color:#73b7ff !important;
+  box-shadow:0 0 0 2px rgba(90,170,255,.18) inset !important;
+}
+#functionBar.super-clean-function-bar .super-fkey.is-error{
+  background:#6a2525 !important;
+  border-color:#ff7474 !important;
 }
 #functionBar.super-clean-function-bar .super-win-key{min-width:66px !important}
 </style>
@@ -7227,104 +7234,20 @@ window.superEmulatorAuditButtons=function(){const ids=["detectBtn","manualDetect
 (function(){
   "use strict";
 
-  /* =========================================================
-     FINAL INPUT LAYER
-     - Exactly one owner for virtual F1-F12 / Win buttons.
-     - Exactly one owner for physical F1-F12 / Win forwarding.
-     - Sends PS/2 Set-1 make and break codes to v86.
-     - Normal keyboard input remains owned by v86's native keyboard handler.
-  ========================================================= */
-  const bar=document.getElementById("functionBar");
+  const bar = document.getElementById("functionBar");
   if(!bar) return;
 
-  const FSC=Object.freeze({
-    F1:0x3B,F2:0x3C,F3:0x3D,F4:0x3E,F5:0x3F,F6:0x40,
-    F7:0x41,F8:0x42,F9:0x43,F10:0x44,F11:0x57,F12:0x58
-  });
-  const physicalHeld=Object.create(null);
-  const virtualHeld=Object.create(null);
-  let winVirtualHeld=false;
-
-  function log(msg,level){
-    try{ if(typeof window.log==="function") window.log("[INPUT FINAL] "+msg,level||"INFO"); else console.log("[INPUT FINAL] "+msg); }catch(_){ }
-  }
-  function getEm(){
-    const em=window.emulator;
-    if(!em) return null;
-    try{ if(typeof em.keyboard_set_enabled==="function") em.keyboard_set_enabled(true); }catch(_){ }
-    return em;
-  }
-  function send(bytes,label){
-    const em=getEm();
-    if(!em){ log(label+" ignored: emulator not running","WARN"); return false; }
-    if(typeof em.keyboard_send_scancodes!=="function"){
-      log(label+" failed: keyboard_send_scancodes unavailable","ERROR"); return false;
-    }
-    try{ em.keyboard_send_scancodes(bytes); return true; }
-    catch(err){ log(label+" failed: "+(err?.message||err),"ERROR"); return false; }
-  }
-  function sendFDown(name){
-    const code=FSC[name];
-    return code ? send([code],name+" make") : false;
-  }
-  function sendFUp(name){
-    const code=FSC[name];
-    if(!code) return false;
-    return send([code|0x80],name+" break");
-  }
-  function pressPhysicalF(name){
-    if(physicalHeld[name]) return true;
-    physicalHeld[name]=true;
-    const ok=sendFDown(name);
-    if(!ok) physicalHeld[name]=false;
-    return ok;
-  }
-  function releasePhysicalF(name){
-    if(!physicalHeld[name]) return;
-    physicalHeld[name]=false;
-    sendFUp(name);
-  }
-  function pressVirtualF(name){
-    if(virtualHeld[name]) return true;
-    virtualHeld[name]=true;
-    const ok=sendFDown(name);
-    if(!ok) virtualHeld[name]=false;
-    return ok;
-  }
-  function releaseVirtualF(name){
-    if(!virtualHeld[name]) return;
-    virtualHeld[name]=false;
-    sendFUp(name);
-  }
-  function tapF(name){
-    if(!sendFDown(name)) return false;
-    setTimeout(()=>sendFUp(name),45);
-    return true;
-  }
-  function pressWin(){
-    if(winVirtualHeld) return true;
-    winVirtualHeld=true;
-    const ok=send([0xE0,0x5B],"Win make");
-    if(!ok) winVirtualHeld=false;
-    return ok;
-  }
-  function releaseWin(){
-    if(!winVirtualHeld) return;
-    winVirtualHeld=false;
-    send([0xE0,0xDB],"Win break");
-  }
-  function tapWin(){
-    if(!send([0xE0,0x5B],"Win make")) return false;
-    setTimeout(()=>send([0xE0,0xDB],"Win break"),55);
-    return true;
-  }
-
-  /* Rebuild the visible top keyboard bar. Replacing nodes removes every old
-     listener from previous versions, eliminating duplicate F-key packets. */
-  const labels=[];
-  for(let i=1;i<=12;i++) labels.push("F"+i);
+  /*
+   * IMPORTANT:
+   * The old buttons had many generations of event listeners attached to them.
+   * Replace the entire function-bar contents with fresh DOM nodes. This strips
+   * every old listener from the visible F-key buttons instead of trying to
+   * out-prioritize them with another event listener.
+   */
+  const labels = ["F1","F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12"];
   bar.replaceChildren();
   bar.classList.add("super-clean-function-bar");
+
   for(let i=1;i<=12;i++){
     const b=document.createElement("button");
     b.type="button";
@@ -7334,173 +7257,199 @@ window.superEmulatorAuditButtons=function(){const ids=["detectBtn","manualDetect
     b.setAttribute("aria-label",labels[i-1]+"をゲストOSへ送信");
     bar.appendChild(b);
   }
-  const wb=document.createElement("button");
-  wb.type="button";
-  wb.className="super-fkey super-win-key";
-  wb.dataset.superWin="1";
-  wb.textContent="⊞ Win";
-  wb.setAttribute("aria-label","WindowsキーをゲストOSへ送信");
-  bar.appendChild(wb);
 
-  function setDown(b,on){ if(b) b.classList.toggle("is-down",!!on); }
-  function numberFromButton(b){ const n=Number(b?.dataset?.superF); return Number.isInteger(n)&&n>=1&&n<=12?n:0; }
+  const win=document.createElement("button");
+  win.type="button";
+  win.className="super-fkey super-win-key";
+  win.dataset.superWin="1";
+  win.textContent="⊞ Win";
+  win.setAttribute("aria-label","WindowsキーをゲストOSへ送信");
+  bar.appendChild(win);
 
-  bar.addEventListener("pointerdown",e=>{
-    const b=e.target.closest?.(".super-fkey");
-    if(!b || !bar.contains(b)) return;
-    e.preventDefault(); e.stopPropagation();
-    try{ b.setPointerCapture?.(e.pointerId); }catch(_){ }
-    if(b.dataset.superWin){
-      tapWin(); setDown(b,true); setTimeout(()=>setDown(b,false),90); return;
-    }
-    const n=numberFromButton(b); if(!n) return;
-    const name="F"+n;
-    if(virtualHeld[name]) return;
-    virtualHeld[name]=true;
-    if(!pressVirtualF(name)) virtualHeld[name]=false;
-    setDown(b,virtualHeld[name]);
-  },true);
-
-  function releaseVirtual(b){
-    if(!b || b.dataset.superWin) return;
-    const n=numberFromButton(b); if(!n) return;
-    const name="F"+n;
-    releaseVirtualF(name);
-    setDown(b,false);
-  }
-  bar.addEventListener("pointerup",e=>{ const b=e.target.closest?.(".super-fkey"); if(b){e.preventDefault();e.stopPropagation();releaseVirtual(b);} },true);
-  bar.addEventListener("pointercancel",e=>{ const b=e.target.closest?.(".super-fkey"); if(b) releaseVirtual(b); },true);
-  bar.addEventListener("lostpointercapture",()=>{
-    for(let i=1;i<=12;i++){
-      const name="F"+i; if(virtualHeld[name]) releaseF(name); virtualHeld[name]=false;
-    }
-    bar.querySelectorAll(".is-down").forEach(b=>b.classList.remove("is-down"));
-  },true);
-  bar.addEventListener("contextmenu",e=>e.preventDefault(),true);
-
-  /* Physical F1-F12. When Chromium/ChromeOS actually delivers the event to
-     the page, it is forwarded to the guest and prevented from triggering page
-     shortcuts. Some ChromeOS firmware-level shortcuts can be intercepted before
-     JavaScript receives them; no webpage can override those. */
-  Object.keys(FSC).forEach(name=>{
-    window.addEventListener("keydown",e=>{
-      if(e.code!==name) return;
-      e.preventDefault(); e.stopImmediatePropagation();
-      if(e.repeat) return;
-      pressPhysicalF(name);
-    },true);
-    window.addEventListener("keyup",e=>{
-      if(e.code!==name) return;
-      e.preventDefault(); e.stopImmediatePropagation();
-      releasePhysicalF(name);
-    },true);
+  const SC = Object.freeze({
+    1:0x3B, 2:0x3C, 3:0x3D, 4:0x3E,
+    5:0x3F, 6:0x40, 7:0x41, 8:0x42,
+    9:0x43, 10:0x44, 11:0x57, 12:0x58
   });
 
-  /* Physical Windows key when the browser exposes MetaLeft/MetaRight. */
-  ["MetaLeft","MetaRight"].forEach(codeName=>{
-    window.addEventListener("keydown",e=>{
-      if(e.code!==codeName) return;
-      e.preventDefault(); e.stopImmediatePropagation();
-      if(e.repeat) return;
-      pressWin();
-    },true);
-    window.addEventListener("keyup",e=>{
-      if(e.code!==codeName) return;
-      e.preventDefault(); e.stopImmediatePropagation();
-      releaseWin();
-    },true);
-  });
+  let held = null;
+  let lastPointerTime = 0;
+  let lastPointerButton = null;
 
-  window.addEventListener("blur",()=>{
-    Object.keys(FSC).forEach(releasePhysicalF);
-    for(let i=1;i<=12;i++) virtualHeld["F"+i]=false;
-    releaseWin();
-    bar.querySelectorAll(".is-down").forEach(b=>b.classList.remove("is-down"));
-  });
-
-  /* =========================================================
-     SOFT 'MUNYU' ASMR BUTTON SOUND
-     Generated locally with Web Audio API; no external audio file/CDN.
-  ========================================================= */
-  let clickAudio=null;
-  let clickLast=0;
-  function ensureAudio(){
+  function log(msg, level){
     try{
-      const AC=window.AudioContext||window.webkitAudioContext;
-      if(!AC) return null;
-      if(!clickAudio) clickAudio=new AC();
-      if(clickAudio.state==="suspended") clickAudio.resume().catch(()=>{});
-      return clickAudio;
-    }catch(_){ return null; }
-  }
-  function munyuSound(){
-    const nowPerf=performance.now();
-    if(nowPerf-clickLast<38) return;
-    clickLast=nowPerf;
-    const ac=ensureAudio(); if(!ac) return;
-    try{
-      const t=ac.currentTime;
-      const master=ac.createGain();
-      const filter=ac.createBiquadFilter();
-      filter.type="lowpass";
-      filter.frequency.setValueAtTime(1050,t);
-      filter.frequency.exponentialRampToValueAtTime(260,t+0.075);
-      filter.Q.value=0.7;
-      master.gain.setValueAtTime(0.0001,t);
-      master.gain.exponentialRampToValueAtTime(0.075,t+0.006);
-      master.gain.exponentialRampToValueAtTime(0.0001,t+0.105);
-      filter.connect(master); master.connect(ac.destination);
-
-      const o1=ac.createOscillator();
-      o1.type="sine";
-      o1.frequency.setValueAtTime(205,t);
-      o1.frequency.exponentialRampToValueAtTime(118,t+0.105);
-      o1.connect(filter); o1.start(t); o1.stop(t+0.11);
-
-      const o2=ac.createOscillator();
-      o2.type="triangle";
-      o2.frequency.setValueAtTime(92,t);
-      o2.frequency.exponentialRampToValueAtTime(64,t+0.095);
-      const g2=ac.createGain();
-      g2.gain.setValueAtTime(0.0001,t);
-      g2.gain.exponentialRampToValueAtTime(0.035,t+0.008);
-      g2.gain.exponentialRampToValueAtTime(0.0001,t+0.10);
-      o2.connect(g2); g2.connect(filter); o2.start(t); o2.stop(t+0.105);
+      if(typeof window.log === "function") window.log("[CLEAN FKEY] "+msg, level||"INFO");
+      else console.log("[CLEAN FKEY] "+msg);
     }catch(_){ }
   }
-  window.superEmulatorMunyuSound=munyuSound;
-  document.addEventListener("pointerdown",e=>{
-    const b=e.target.closest?.("button");
-    if(!b || b.disabled) return;
-    munyuSound();
-  },true);
-  document.addEventListener("keydown",e=>{
-    if(e.key!=="Enter" && e.key!==" ") return;
-    const a=document.activeElement;
-    if(a?.tagName==="BUTTON" && !a.disabled) munyuSound();
-  },true);
 
-  window.superEmulatorKeyboardSelfTest=function(){
-    const em=getEm();
-    const buttons=[...bar.querySelectorAll(".super-fkey")];
+  function getEmulator(){
+    const em=window.emulator;
+    if(!em) return null;
+    try{
+      if(typeof em.keyboard_set_enabled === "function") em.keyboard_set_enabled(true);
+    }catch(_){ }
+    return em;
+  }
+
+  function setVisual(button,on){
+    if(button) button.classList.toggle("is-down",!!on);
+  }
+
+  function sendMake(number){
+    const code=SC[number];
+    const em=getEmulator();
+    if(!em){
+      log("F"+number+": エミュレーター未起動","WARN");
+      return false;
+    }
+    if(typeof em.keyboard_send_scancodes !== "function"){
+      log("F"+number+": keyboard_send_scancodes APIなし","ERROR");
+      return false;
+    }
+    try{
+      /* v86 API: PS/2 Set-1 make code. */
+      em.keyboard_send_scancodes([code]);
+      log("F"+number+" make 0x"+code.toString(16)+" 送信","OK");
+      return true;
+    }catch(e){
+      log("F"+number+" make失敗: "+(e&&e.message||e),"ERROR");
+      return false;
+    }
+  }
+
+  function sendBreak(number){
+    const code=SC[number];
+    const em=getEmulator();
+    if(!em || typeof em.keyboard_send_scancodes !== "function") return false;
+    try{
+      em.keyboard_send_scancodes([code|0x80]);
+      log("F"+number+" break 0x"+(code|0x80).toString(16)+" 送信","OK");
+      return true;
+    }catch(e){
+      log("F"+number+" break失敗: "+(e&&e.message||e),"ERROR");
+      return false;
+    }
+  }
+
+  function press(number,button){
+    const now=performance.now();
+    if(lastPointerButton===button && now-lastPointerTime<80) return;
+    lastPointerButton=button;
+    lastPointerTime=now;
+
+    if(held && held.number!==number){
+      sendBreak(held.number);
+      setVisual(held.button,false);
+      held=null;
+    }
+
+    if(held && held.number===number) return;
+    if(sendMake(number)){
+      held={number,button};
+      setVisual(button,true);
+    }
+  }
+
+  function release(number,button){
+    if(held && held.number===number){
+      sendBreak(number);
+      setVisual(button||held.button,false);
+      held=null;
+    }else{
+      sendBreak(number);
+      setVisual(button,false);
+    }
+  }
+
+  /* ONE event route for the newly-created buttons. */
+  bar.addEventListener("pointerdown",function(e){
+    const b=e.target.closest(".super-fkey");
+    if(!b || !bar.contains(b)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if(b.dataset.superWin){
+      sendWin(b);
+      return;
+    }
+    const n=Number(b.dataset.superF);
+    if(!SC[n]) return;
+    try{b.setPointerCapture(e.pointerId);}catch(_){ }
+    press(n,b);
+  });
+
+  bar.addEventListener("pointerup",function(e){
+    const b=e.target.closest(".super-fkey");
+    if(!b || b.dataset.superWin) return;
+    e.preventDefault();
+    e.stopPropagation();
+    release(Number(b.dataset.superF),b);
+  });
+
+  bar.addEventListener("pointercancel",function(e){
+    const b=e.target.closest(".super-fkey");
+    if(!b || b.dataset.superWin) return;
+    release(Number(b.dataset.superF),b);
+  });
+
+  bar.addEventListener("lostpointercapture",function(){
+    if(held){
+      sendBreak(held.number);
+      setVisual(held.button,false);
+      held=null;
+    }
+  });
+
+  bar.addEventListener("contextmenu",e=>e.preventDefault());
+
+  function sendWin(button){
+    const em=getEmulator();
+    if(!em || typeof em.keyboard_send_scancodes !== "function"){
+      log("Win: keyboard APIなしまたは未起動","WARN");
+      return false;
+    }
+    try{
+      /* Left Windows key, PS/2 Set-1 extended sequence. */
+      em.keyboard_send_scancodes([0xE0,0x5B]);
+      setVisual(button,true);
+      setTimeout(function(){
+        const cur=getEmulator();
+        try{ if(cur && typeof cur.keyboard_send_scancodes === "function") cur.keyboard_send_scancodes([0xE0,0xDB]); }catch(_){ }
+        setVisual(button,false);
+      },60);
+      log("Win E0 5B / E0 DB 送信","OK");
+      return true;
+    }catch(e){
+      log("Win送信失敗: "+(e&&e.message||e),"ERROR");
+      return false;
+    }
+  }
+
+  /* Physical F keys are deliberately NOT wired here.
+     Existing physical-key handling remains untouched; this rebuild owns
+     only the visible virtual buttons, as requested. */
+
+  window.superEmulatorCleanFKeyTest=function(){
+    const em=getEmulator();
     const result={
+      rebuilt:true,
+      buttonCount:bar.querySelectorAll(".super-fkey[data-super-f]").length,
+      winButton:!!bar.querySelector(".super-win-key"),
       emulator:!!em,
-      keyboardAPI:!!(em&&typeof em.keyboard_send_scancodes==="function"),
-      keyboardEnableAPI:!!(em&&typeof em.keyboard_set_enabled==="function"),
-      fButtonCount:buttons.filter(b=>b.dataset.superF).length,
-      winButton:!!bar.querySelector("[data-super-win]"),
-      physicalFHandlers:true,
-      physicalWinHandlers:true,
-      mouseGeometry:window.__superEmulatorMouseGeometry||null,
-      fullscreenAPI:!!document.getElementById("app")?.requestFullscreen,
-      audioAPI:!!(window.AudioContext||window.webkitAudioContext)
+      keyboardEnabledAPI:!!(em&&typeof em.keyboard_set_enabled==="function"),
+      keyboardScanAPI:!!(em&&typeof em.keyboard_send_scancodes==="function"),
+      buttons:[...bar.querySelectorAll(".super-fkey")].map(b=>({
+        text:b.textContent,
+        rect:(()=>{const r=b.getBoundingClientRect();return [Math.round(r.left),Math.round(r.top),Math.round(r.width),Math.round(r.height)]})(),
+        pointerEvents:getComputedStyle(b).pointerEvents
+      }))
     };
-    console.log("[SUPEREMULATOR INPUT SELF TEST]",result);
+    console.log("[CLEAN FKEY SELF TEST]",result);
     log(JSON.stringify(result),"INFO");
     return result;
   };
 
-  log("F1-F12 / Win の入力経路を1系統に統合しました","OK");
+  log("F1-F12 / Win のボタン配線を新規DOMから再構築しました","OK");
 })();
 </script>
 
@@ -7517,5 +7466,175 @@ window.superEmulatorMemoryProfile = function(){
   };
 };
 </script>
-<!-- superEmulator keyboard/fullscreen debug build: 2026-10-07 -->
+
+<!-- =========================================================
+     superEmulator CANONICAL INPUT / FULLSCREEN HARDENING
+     One owner for physical F1-F12 + Windows key.
+     Virtual keys are rebuilt by the clean function-bar module above.
+========================================================= -->
+<script id="superEmulator-canonical-input-layer">
+(function(){
+  "use strict";
+
+  const F = Object.freeze({
+    F1:0x3B,F2:0x3C,F3:0x3D,F4:0x3E,F5:0x3F,F6:0x40,
+    F7:0x41,F8:0x42,F9:0x43,F10:0x44,F11:0x57,F12:0x58
+  });
+  const held = Object.create(null);
+  const winHeld = { left:false, right:false };
+
+  function log(msg, level="INFO"){
+    try{
+      if(typeof window.log === "function") window.log("[INPUT] "+msg, level);
+      else console.log("[INPUT] "+msg);
+    }catch(_){ }
+  }
+
+  function getEmulator(){
+    const em=window.emulator;
+    if(!em) return null;
+    try{ if(typeof em.keyboard_set_enabled === "function") em.keyboard_set_enabled(true); }catch(_){ }
+    return em;
+  }
+
+  function scan(bytes){
+    const em=getEmulator();
+    if(!em || typeof em.keyboard_send_scancodes !== "function") return false;
+    try{ em.keyboard_send_scancodes(bytes); return true; }
+    catch(e){ log("スキャンコード送信失敗: "+(e?.message||e),"ERROR"); return false; }
+  }
+
+  function pressF(name){
+    if(held[name]) return;
+    const code=F[name];
+    if(!code) return;
+    if(!getEmulator()) { log(name+"を送信できません: エミュレーター未起動","WARN"); return; }
+    if(scan([code])){
+      held[name]=true;
+      log(name+" DOWN 0x"+code.toString(16),"OK");
+    }
+  }
+
+  function releaseF(name){
+    const code=F[name];
+    if(!code) return;
+    if(!held[name]) return;
+    held[name]=false;
+    scan([code|0x80]);
+    log(name+" UP 0x"+(code|0x80).toString(16),"OK");
+  }
+
+  /*
+   * Physical F keys. The page can only receive these if ChromeOS/browser
+   * itself has not consumed the hardware shortcut first.
+   */
+  window.addEventListener("keydown",function(e){
+    const name=e.code;
+    if(!Object.prototype.hasOwnProperty.call(F,name)) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    if(!e.repeat) pressF(name);
+  },true);
+
+  window.addEventListener("keyup",function(e){
+    const name=e.code;
+    if(!Object.prototype.hasOwnProperty.call(F,name)) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    releaseF(name);
+  },true);
+
+  function releaseAll(){
+    Object.keys(F).forEach(releaseF);
+    if(winHeld.left){ scan([0xE0,0xDB]); winHeld.left=false; }
+    if(winHeld.right){ scan([0xE0,0xDC]); winHeld.right=false; }
+  }
+  window.addEventListener("blur",releaseAll);
+  document.addEventListener("visibilitychange",()=>{if(document.hidden)releaseAll();});
+
+  /* Windows keys: PS/2 Set-1 extended make/break. */
+  function pressWin(code,name){
+    const side=name==="MetaRight"?"right":"left";
+    if(winHeld[side]) return;
+    if(!getEmulator()){ log("Winキーを送信できません: エミュレーター未起動","WARN"); return; }
+    if(scan([0xE0,code])){ winHeld[side]=true; log(name+" DOWN → E0 "+code.toString(16),"OK"); }
+  }
+  function releaseWin(code,name){
+    const side=name==="MetaRight"?"right":"left";
+    if(!winHeld[side]) return;
+    winHeld[side]=false;
+    scan([0xE0,code]);
+    log(name+" UP → E0 "+code.toString(16),"OK");
+  }
+
+  window.addEventListener("keydown",function(e){
+    if(e.code!=="MetaLeft" && e.code!=="MetaRight") return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    if(!e.repeat) pressWin(e.code==="MetaRight"?0x5C:0x5B,e.code);
+  },true);
+  window.addEventListener("keyup",function(e){
+    if(e.code!=="MetaLeft" && e.code!=="MetaRight") return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    releaseWin(e.code==="MetaRight"?0xDC:0xDB,e.code);
+  },true);
+
+  /*
+   * Starting the VM is a user gesture. Request fullscreen BEFORE the async
+   * boot sequence consumes that gesture, so Chromium can accept it reliably.
+   */
+  let fullscreenRequestedForStart=false;
+  function requestAppFullscreenFromGesture(){
+    const app=document.getElementById("app");
+    if(!app || document.fullscreenElement || fullscreenRequestedForStart) return;
+    if(typeof app.requestFullscreen !== "function") return;
+    fullscreenRequestedForStart=true;
+    Promise.resolve(app.requestFullscreen({navigationUI:"hide"}))
+      .then(()=>log("起動操作から全画面化しました","OK"))
+      .catch(err=>log("起動時全画面化をブラウザが拒否: "+(err?.message||err),"WARN"))
+      .finally(()=>{setTimeout(()=>{fullscreenRequestedForStart=false;},0);});
+  }
+
+  document.addEventListener("click",function(e){
+    const b=e.target?.closest?.("#startBtn,#landingStart,#heroStart,#finalStart");
+    if(!b || b.disabled) return;
+    requestAppFullscreenFromGesture();
+  },true);
+
+  document.addEventListener("fullscreenchange",function(){
+    const active=!!document.fullscreenElement;
+    document.body.classList.toggle("super-os-fullscreen",active);
+    const app=document.getElementById("app");
+    if(app) app.classList.toggle("super-os-fullscreen",active);
+    requestAnimationFrame(()=>{
+      try{ if(typeof window.applyScreenScale === "function") window.applyScreenScale(); }catch(_){ }
+      try{ if(typeof window.syncScreenContainerGeometry === "function") window.syncScreenContainerGeometry("canonical-fullscreen"); }catch(_){ }
+    });
+  });
+
+  /* Diagnostic API: deliberately read-only. */
+  window.superEmulatorCanonicalInputSelfTest=function(){
+    const em=getEmulator();
+    const bar=document.getElementById("functionBar");
+    const result={
+      emulator:!!em,
+      keyboardScanAPI:!!(em&&typeof em.keyboard_send_scancodes==="function"),
+      keyboardEnabledAPI:!!(em&&typeof em.keyboard_set_enabled==="function"),
+      fButtons:bar?[...bar.querySelectorAll(".super-fkey[data-super-f]")].length:0,
+      winButton:!!bar?.querySelector(".super-win-key"),
+      fullscreenSupported:typeof document.getElementById("app")?.requestFullscreen==="function",
+      fullscreen:!!document.fullscreenElement,
+      dpr:window.devicePixelRatio||1,
+      viewport:[window.innerWidth,window.innerHeight]
+    };
+    console.log("[CANONICAL INPUT SELF TEST]",result);
+    log(JSON.stringify(result),"INFO");
+    return result;
+  };
+
+  log("F1-F12 / Win / 起動時全画面の共通入力層を初期化しました","OK");
+})();
+</script>
+
 </html>
