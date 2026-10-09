@@ -3917,12 +3917,10 @@ async function startEmulator(options={})
       selectedISOName = selectedISOName || selectedISO.name || "ISO";
       const blobURL=getSelectedISOBlobURL(selectedISO);
       if(blobURL){
-        // 起動ISOはまず同期ロードで読み切る。Blob URL + async:true の組み合わせで
-        // v86側の非同期CD-ROM読み込みが失敗し、ゲスト画面が黒いままになる場合の切り分け。
-        // 大きなISOではホストRAMを多く使うため、メモリ不足なら起動ログにエラーを表示する。
-        cdromImage={url:blobURL,async:false,size:selectedISO.size,use_parts:false};
+        // 大きなISOは非同期CD-ROMとして扱い、起動時のメインスレッド停止やメモリ負荷を抑える。
+        cdromImage={url:blobURL,async:true,size:selectedISO.size,use_parts:false};
         cdStatus.textContent=selectedISOName;
-        log(`CD-ROM: 同期ロード（起動ISOを読み切ってから仮想PCを開始）`,'OK');
+        log(`CD-ROM: Blob URL方式（ISO全体をJS ArrayBufferへ複製しない）`,'OK');
       }else{
         const liveISO=(isoFile?.files?.[0])||selectedISO;
         let buffer=null;
