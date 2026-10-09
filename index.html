@@ -1652,6 +1652,17 @@ button, input, select, label, a, [role="button"] { pointer-events:auto !importan
       <div style="height:8px"></div><button class="ctrl-btn" id="clearLogs">ログ消去</button>
       <div style="height:8px"></div><textarea class="debug-output" id="debugInfo" readonly>診断情報はここに表示されます。</textarea>
       <div style="height:8px"></div><button class="ctrl-btn" id="refreshDebugInfo">診断情報を更新</button>
+      <div class="setting-card" style="margin-top:12px">
+        <strong>⌨️ OS別キーボード診断</strong>
+        <div class="help" style="margin:6px 0 8px">OSグループに応じた診断プロファイルを表示し、キーイベントとv86 APIへのスキャンコード送信を記録します。ポート0x60/0x64の内部I/O自体は、HTMLだけでは直接読めません。</div>
+        <div id="keyboardProfileStatus" class="help">プロファイル: 起動OSを選択すると表示</div>
+        <div class="row" style="margin-top:8px;flex-wrap:wrap">
+          <button class="ctrl-btn" id="keyboardTraceToggle" type="button">入力トレース開始</button>
+          <button class="ctrl-btn" id="keyboardTraceClear" type="button">トレース消去</button>
+          <button class="ctrl-btn" id="keyboardTraceCopy" type="button">トレースをコピー</button>
+        </div>
+        <textarea class="debug-output" id="keyboardTraceOutput" readonly style="margin-top:8px;min-height:150px" placeholder="入力トレースはここに表示されます"></textarea>
+      </div>
       <div style="height:8px"></div><div id="logs" style="height:180px;overflow:auto;font:10px ui-monospace,SFMono-Regular,Menlo,monospace;background:#05070a;color:#9facbf;padding:9px;border-radius:8px;white-space:pre-wrap"></div>
     </div>
 
@@ -3906,9 +3917,12 @@ async function startEmulator(options={})
       selectedISOName = selectedISOName || selectedISO.name || "ISO";
       const blobURL=getSelectedISOBlobURL(selectedISO);
       if(blobURL){
-        cdromImage={url:blobURL,async:true,size:selectedISO.size,use_parts:false};
+        // 起動ISOはまず同期ロードで読み切る。Blob URL + async:true の組み合わせで
+        // v86側の非同期CD-ROM読み込みが失敗し、ゲスト画面が黒いままになる場合の切り分け。
+        // 大きなISOではホストRAMを多く使うため、メモリ不足なら起動ログにエラーを表示する。
+        cdromImage={url:blobURL,async:false,size:selectedISO.size,use_parts:false};
         cdStatus.textContent=selectedISOName;
-        log(`CD-ROM: Blob URL方式（ISO全体をJS ArrayBufferへ複製しない）`,'OK');
+        log(`CD-ROM: 同期ロード（起動ISOを読み切ってから仮想PCを開始）`,'OK');
       }else{
         const liveISO=(isoFile?.files?.[0])||selectedISO;
         let buffer=null;
@@ -4218,6 +4232,7 @@ async function startEmulator(options={})
         emulator=new V86Constructor(config);
         // 重要: UI/入力層は window.emulator を参照するため、本体インスタンスを公開する
         window.emulator = emulator;
+        try { window.superEmulatorInstallKeyboardTrace?.(emulator); } catch(traceErr) { log("キーボード診断フック失敗: "+(traceErr?.message||traceErr),"WARN"); }
         try{ if(typeof emulator.mouse_set_enabled==="function") emulator.mouse_set_enabled(true); }catch(_){}
         try{ requestAnimationFrame(()=>window.syncScreenContainerGeometry?.("v86-created")); }catch(_){}
         selectedMemoryMB=mem;
@@ -7517,5 +7532,91 @@ window.superEmulatorMemoryProfile = function(){
   };
 };
 </script>
-<!-- superEmulator keyboard/fullscreen debug build: 2026-10-07 -->
+<script id="superEmulator-os-keyboard-trace">
+(function(){
+  "use strict";
+  const out=()=>document.getElementById("keyboardTraceOutput");
+  const status=()=>document.getElementById("keyboardProfileStatus");
+  let active=false;
+  let lines=[];
+  const MAX_LINES=500;
+  const now=()=>new Date().toLocaleTimeString();
+  function currentOS(){
+    try { if(typeof selectedOS!=="undefined" && selectedOS) return String(selectedOS); } catch(_) {}
+    return document.getElementById("osSelect")?.value || "unknown";
+  }
+  function profileFor(os){
+    const winModern=["win10","win8","win7","winvista"];
+    const winLegacy=["winxp","win2000","winnt4","winme","win98","win95","win31","win2","win1"];
+    const dosLinux=["msdos","freedos","linux","debian","ubuntu","alpine","arch32"];
+    let group="その他のOS";
+    if(winModern.includes(os)) group="Windows NT系（Vista / 7 / 8 / 10）";
+    else if(winLegacy.includes(os)) group="旧Windows / DOS互換グループ";
+    else if(dosLinux.includes(os)) group="DOS / Linux系";
+    else if(["reactos","kolibrios","haiku","android","freebsd","openbsd","netbsd","serenity","9front","skift","qnx"].includes(os)) group="その他のx86 OS";
+    return {os,group,transport:"v86 PS/2 API（Set-1形式のスキャンコードを送信。必要な変換は仮想コントローラー側）"};
+  }
+  function write(line){
+    if(!active) return;
+    lines.push(`[${now()}] ${line}`);
+    if(lines.length>MAX_LINES) lines=lines.slice(-MAX_LINES);
+    const el=out(); if(el){el.value=lines.join("\n");el.scrollTop=el.scrollHeight;}
+  }
+  function updateProfile(){
+    const p=profileFor(currentOS());
+    const el=status();
+    if(el) el.textContent=`診断プロファイル: ${p.group} / OS=${p.os} / ${p.transport}`;
+    return p;
+  }
+  window.superEmulatorInstallKeyboardTrace=function(em){
+    if(!em || em.__superKeyboardTraceHooked) return;
+    try {
+      if(typeof em.keyboard_send_scancodes==="function"){
+        const original=em.keyboard_send_scancodes;
+        em.keyboard_send_scancodes=function(codes,...rest){
+          const p=profileFor(currentOS());
+          const list=Array.isArray(codes)?codes.map(v=>`0x${Number(v).toString(16).toUpperCase().padStart(2,"0")}`).join(" "):String(codes);
+          write(`API keyboard_send_scancodes [${p.os}/${p.group}] => ${list}`);
+          return original.call(this,codes,...rest);
+        };
+      }
+      if(typeof em.keyboard_send_keys==="function"){
+        const originalKeys=em.keyboard_send_keys;
+        em.keyboard_send_keys=function(codes,...rest){write(`API keyboard_send_keys [OS=${currentOS()}] => ${JSON.stringify(codes)}`);return originalKeys.call(this,codes,...rest);};
+      }
+      em.__superKeyboardTraceHooked=true;
+      write(`フック接続: keyboard_send_scancodes=${typeof em.keyboard_send_scancodes==="function"} / keyboard_send_keys=${typeof em.keyboard_send_keys==="function"}`);
+    } catch(e){write(`フック失敗: ${e?.message||e}`);}
+  };
+  window.addEventListener("keydown",e=>{
+    if(!active) return;
+    const t=e.target;
+    if(t && (t.matches?.("input,textarea,select,[contenteditable='true']") || t.closest?.("#keyboardTraceOutput"))) return;
+    write(`keydown code=${e.code||"?"} key=${JSON.stringify(e.key)} repeat=${!!e.repeat} target=${t?.id||t?.tagName||"unknown"} OS=${currentOS()}（ブラウザーが受信）`);
+  },true);
+  window.addEventListener("keyup",e=>{
+    if(!active) return;
+    const t=e.target;
+    if(t && (t.matches?.("input,textarea,select,[contenteditable='true']") || t.closest?.("#keyboardTraceOutput"))) return;
+    write(`keyup   code=${e.code||"?"} key=${JSON.stringify(e.key)} target=${t?.id||t?.tagName||"unknown"} OS=${currentOS()}（ブラウザーが受信）`);
+  },true);
+  document.getElementById("keyboardTraceToggle")?.addEventListener("click",()=>{
+    active=!active;
+    const b=document.getElementById("keyboardTraceToggle");
+    if(b) b.textContent=active?"入力トレース停止":"入力トレース開始";
+    updateProfile();
+    if(active){write("=== キーボードトレース開始 ===");write("ポート0x60/0x64の実I/OはこのHTMLログの対象外です。ここではブラウザーイベントとv86 API呼び出しを記録します。");window.superEmulatorInstallKeyboardTrace?.(window.emulator);}
+    else write("=== キーボードトレース停止 ===");
+  });
+  document.getElementById("keyboardTraceClear")?.addEventListener("click",()=>{lines=[];if(out())out().value="";});
+  document.getElementById("keyboardTraceCopy")?.addEventListener("click",async()=>{
+    try { await navigator.clipboard.writeText(out()?.value||""); if(typeof window.log==="function")window.log("キーボードトレースをコピーしました","OK"); }
+    catch(e){if(typeof window.log==="function")window.log("コピーできません。テキスト欄を手動でコピーしてください。","WARN");}
+  });
+  document.getElementById("osSelect")?.addEventListener("change",updateProfile);
+  document.getElementById("confirmManualOSBtn")?.addEventListener("click",()=>setTimeout(updateProfile,0));
+  updateProfile();
+})();
+</script>
+<!-- superEmulator keyboard/fullscreen debug build: 2026-10-09 -->
 </html>
