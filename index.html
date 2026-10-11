@@ -1885,6 +1885,12 @@ let selectedFloppy = null;
 let selectedFloppyName = "";
 let selectedDataFloppy = null;
 let selectedDataCD = null;
+// Chrome/Chromium can invalidate a File reference after the picker closes on some providers.
+// Start reading immediately inside the input change event and retain the resulting buffer.
+let selectedDataFloppyBufferPromise = null;
+let selectedDataFloppyBufferFile = null;
+let selectedDataCDBufferPromise = null;
+let selectedDataCDBufferFile = null;
 let selectedSecondaryDisk = null;
 let pendingSecondaryDisk = null;
 let mediaSourceFiles = [];
@@ -3027,21 +3033,69 @@ clickInputButton("chooseDataFloppyBtn",dataFloppyFile);
 clickInputButton("chooseDataCDBtn",dataCDFile);
 clickInputButton("chooseSecondaryDiskBtn",secondaryDiskFile);
 clickInputButton("chooseMediaSourceBtn",mediaSourceInput);
-dataFloppyFile.addEventListener("change",()=>{selectedDataFloppy=dataFloppyFile.files?.[0]||null;setMediaStatus(dataFloppyStatus,selectedDataFloppy?`${selectedDataFloppy.name} / ${formatBytes(selectedDataFloppy.size)} / 挿入準備OK`:"未接続");if(selectedDataFloppy)log(`補助フロッピー選択: ${selectedDataFloppy.name}`);});
-dataCDFile.addEventListener("change",()=>{selectedDataCD=dataCDFile.files?.[0]||null;setMediaStatus(dataCDStatus,selectedDataCD?`${selectedDataCD.name} / ${formatBytes(selectedDataCD.size)} / 挿入準備OK`:"未接続");if(selectedDataCD)log(`CD/DVDデータイメージ選択: ${selectedDataCD.name}`);});
+dataFloppyFile.addEventListener("change",()=>{
+  selectedDataFloppy=dataFloppyFile.files?.[0]||null;
+  selectedDataFloppyBufferFile=selectedDataFloppy;
+  // Initiate the read while the freshly selected File is still in the picker change event.
+  const floppyFileSnapshot=selectedDataFloppy;
+  selectedDataFloppyBufferPromise=floppyFileSnapshot?floppyFileSnapshot.arrayBuffer().then(buffer=>{
+    if(buffer.byteLength!==floppyFileSnapshot.size) throw new Error("フロッピーの読み込みサイズが一致しません");
+    return buffer;
+  }):null;
+  setMediaStatus(dataFloppyStatus,selectedDataFloppy?`${selectedDataFloppy.name} / ${formatBytes(selectedDataFloppy.size)} / 読み込み中…`:"未接続");
+  if(selectedDataFloppy){
+    const file=selectedDataFloppy;
+    selectedDataFloppyBufferPromise.then(()=>{if(selectedDataFloppy===file)setMediaStatus(dataFloppyStatus,`${file.name} / ${formatBytes(file.size)} / 挿入準備OK`);}).catch(e=>{if(selectedDataFloppy===file)setMediaStatus(dataFloppyStatus,`${file.name} / 読み込み失敗。再選択してください`);log(`補助フロッピー事前読み込み失敗: ${e?.message||e}`,"ERROR");});
+    log(`補助フロッピー選択・読み込み開始: ${file.name}`);
+  }
+});
+dataCDFile.addEventListener("change",()=>{
+  selectedDataCD=dataCDFile.files?.[0]||null;
+  selectedDataCDBufferFile=selectedDataCD;
+  // Do not defer reading until the later Insert click: some Chromium file providers
+  // throw NotReadableError when a File reference is used later.
+  const cdFileSnapshot=selectedDataCD;
+  selectedDataCDBufferPromise=cdFileSnapshot?cdFileSnapshot.arrayBuffer().then(buffer=>{
+    if(buffer.byteLength!==cdFileSnapshot.size) throw new Error(`サイズ不一致: ${buffer.byteLength} / ${cdFileSnapshot.size} bytes`);
+    return buffer;
+  }):null;
+  setMediaStatus(dataCDStatus,selectedDataCD?`${selectedDataCD.name} / ${formatBytes(selectedDataCD.size)} / 読み込み中…`:"未接続");
+  if(selectedDataCD){
+    const file=selectedDataCD;
+    selectedDataCDBufferPromise.then(()=>{if(selectedDataCD===file)setMediaStatus(dataCDStatus,`${file.name} / ${formatBytes(file.size)} / 挿入準備OK`);}).catch(e=>{if(selectedDataCD===file)setMediaStatus(dataCDStatus,`${file.name} / 読み込み失敗。もう一度選択してください`);log(`CD/DVD事前読み込み失敗: ${e?.message||e}`,"ERROR");});
+    log(`CD/DVDデータイメージ選択・読み込み開始: ${file.name} / ${formatBytes(file.size)}`);
+  }
+});
 secondaryDiskFile.addEventListener("change",()=>{pendingSecondaryDisk=secondaryDiskFile.files?.[0]||null;setMediaStatus(secondaryDiskStatus,pendingSecondaryDisk?`${pendingSecondaryDisk.name} / ${formatBytes(pendingSecondaryDisk.size)} / 「接続」を押してください`:"未接続");if(pendingSecondaryDisk)log(`2台目HDD選択: ${pendingSecondaryDisk.name}`);});
 mediaSourceInput.addEventListener("change",()=>{mediaSourceFiles=Array.from(mediaSourceInput.files||[]);setMediaStatus(mediaSourceStatus,mediaSourceFiles.length?`${mediaSourceFiles.length}個 / ${formatBytes(mediaSourceFiles.reduce((n,f)=>n+f.size,0))}`:"未選択");});
 
 document.getElementById("insertDataFloppyBtn")?.addEventListener("click",async()=>{
   if(!selectedDataFloppy){alert("先にB:用のフロッピーイメージを選択してください。");return;}
   if(!emulator){setMediaStatus(dataFloppyStatus,`${selectedDataFloppy.name} / 次回起動時にB:へ接続`);log("補助フロッピーは次回起動時にB:へ接続します。");return;}
-  try{await emulator.set_fdb({buffer:await fileToBuffer(selectedDataFloppy,dataFloppyFile,"補助フロッピー")});setMediaStatus(dataFloppyStatus,`${selectedDataFloppy.name} / B:に挿入済み`);log(`B:フロッピー挿入完了: ${selectedDataFloppy.name}`,"OK");}catch(e){log(`B:フロッピー挿入失敗: ${e?.message||e}`,"ERROR");alert("B:フロッピーを挿入できませんでした。ログを確認してください。");}
+  try{
+    const file=selectedDataFloppy;
+    const buffer=(selectedDataFloppyBufferFile===file&&selectedDataFloppyBufferPromise)?await selectedDataFloppyBufferPromise:await fileToBuffer(file,dataFloppyFile,"補助フロッピー");
+    await emulator.set_fdb({buffer});
+    setMediaStatus(dataFloppyStatus,`${file.name} / B:に挿入済み`);
+    log(`B:フロッピー挿入完了: ${file.name}`,"OK");
+  }catch(e){log(`B:フロッピー挿入失敗: ${e?.message||e}`,"ERROR");alert("B:フロッピーを読み込めませんでした。ファイル選択直後の読み込みに失敗した可能性があります。もう一度『フロッピーイメージを選択』から選び直してください。\n\n詳細: "+(e?.message||e));}
 });
 document.getElementById("ejectDataFloppyBtn")?.addEventListener("click",()=>{if(emulator&&typeof emulator.eject_fdb==="function")emulator.eject_fdb();setMediaStatus(dataFloppyStatus,"B:取り出し済み");log("B:フロッピーを取り出しました。");});
 document.getElementById("insertDataCDBtn")?.addEventListener("click",async()=>{
   if(!selectedDataCD){alert("先にCD/DVD用のISOイメージを選択してください。");return;}
   if(!emulator){const note=selectedISO?"起動用ISOを使用中。OS起動後に挿入してください":"次回起動時にデータCDとして接続予定";setMediaStatus(dataCDStatus,`${selectedDataCD.name} / ${note}`);log(selectedISO?"起動用ISOを選択中です。OS起動後に光学ドライブへ挿入してください。":"データCD/DVDは次回起動時に接続されます。");return;}
-  try{await emulator.set_cdrom({buffer:await fileToBuffer(selectedDataCD,dataCDFile,"CD/DVDイメージ")});setMediaStatus(dataCDStatus,`${selectedDataCD.name} / 光学ドライブに挿入済み`);if(typeof cdStatus!=="undefined"&&cdStatus)cdStatus.textContent=selectedDataCD.name;log(`CD/DVDイメージ挿入完了: ${selectedDataCD.name}`,"OK");}catch(e){log(`CD/DVD挿入失敗: ${e?.message||e}`,"ERROR");alert("CD/DVDイメージを挿入できませんでした。ログを確認してください。");}
+  try{
+    const file=selectedDataCD;
+    const buffer=(selectedDataCDBufferFile===file&&selectedDataCDBufferPromise)?await selectedDataCDBufferPromise:await fileToBuffer(file,dataCDFile,"CD/DVDイメージ");
+    await emulator.set_cdrom({buffer});
+    setMediaStatus(dataCDStatus,`${file.name} / 光学ドライブに挿入済み`);
+    if(typeof cdStatus!=="undefined"&&cdStatus)cdStatus.textContent=file.name;
+    log(`CD/DVDイメージ挿入完了: ${file.name} / ${formatBytes(buffer.byteLength)}`,"OK");
+  }catch(e){
+    log(`CD/DVD挿入失敗: ${e?.message||e}`,"ERROR");
+    setMediaStatus(dataCDStatus,`${selectedDataCD?.name||"CD/DVD"} / 読み込み失敗・再選択が必要`);
+    alert("CD/DVDイメージを読み込めませんでした。Chromeがファイル参照を無効にした可能性があります。『CD/DVDイメージを選択』から同じファイルをもう一度選び、選択直後に読み込み完了と表示されてから挿入してください。\n\n詳細: "+(e?.message||e));
+  }
 });
 document.getElementById("ejectDataCDBtn")?.addEventListener("click",()=>{if(emulator&&typeof emulator.eject_cdrom==="function")emulator.eject_cdrom();setMediaStatus(dataCDStatus,"光学ドライブから取り出し済み");if(typeof cdStatus!=="undefined"&&cdStatus)cdStatus.textContent="未接続";log("CD/DVDを取り出しました。");});
 document.getElementById("connectSecondaryDiskBtn")?.addEventListener("click",()=>{if(!pendingSecondaryDisk&&!selectedSecondaryDisk){alert("先に2台目HDDの .img を選択してください。");return;}if(pendingSecondaryDisk)selectedSecondaryDisk=pendingSecondaryDisk;setMediaStatus(secondaryDiskStatus,`${selectedSecondaryDisk.name} / ${formatBytes(selectedSecondaryDisk.size)} / 次回起動時に接続`);log(`2台目HDDを次回起動用に設定: ${selectedSecondaryDisk.name}`,"OK");});
