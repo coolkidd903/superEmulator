@@ -1509,7 +1509,7 @@ button, input, select, label, a, [role="button"] { pointer-events:auto !importan
     <div class="settings-section">
       <h3>💿 ISO / OS</h3>
       <label class="label">ISO / ディスクイメージ</label>
-      <input class="field" id="isoFile" type="file" accept=".iso,.img,.bin">
+      <input class="field" id="isoFile" type="file" accept=".iso,.img,.bin" style="display:none" aria-hidden="true" tabindex="-1">
       <div class="row">
         <button class="ctrl-btn primary" id="detectBtn" type="button">💿 ISOを安全に選択・自動判定</button>
         <button class="ctrl-btn" id="manualDetectBtn">手動OS</button>
@@ -1590,10 +1590,43 @@ button, input, select, label, a, [role="button"] { pointer-events:auto !importan
       <button class="ctrl-btn" id="rebuildDiskBtn">仮想ディスクを再作成</button>
       <div style="height:8px"></div><button class="ctrl-btn" id="clearDiskImageBtn">選択ディスクを解除</button>
       <div style="height:10px"></div>
-      <label class="label">フロッピーイメージ（Windows 9x等の非ブートCD対策）</label>
+      <label class="label">起動用フロッピー（A:）</label>
       <input class="field" id="floppyFile" type="file" accept=".img,.ima,.flp,.bin">
-      <div class="storage-note">非ブートCDからWindows 95/98系を起動するときに対応する起動フロッピーを指定できます。</div>
+      <div class="storage-note">起動順序で使うフロッピーです。ドライバーなどの追加メディアは下の「補助ドライブ」から別に挿入できます。</div>
       <div id="floppyStatus" class="help">未接続</div>
+
+      <div class="setting-card" style="margin-top:12px">
+        <h4 style="margin:0 0 8px">📀 補助ドライブ / メディア交換</h4>
+        <div class="help" style="margin-bottom:8px">A:の起動用フロッピーとは別に、B:フロッピー・CD/DVD・2台目HDDを接続できます。CD/DVDは1台の光学ドライブを入れ替える方式です。</div>
+        <label class="label">補助フロッピー（B:）</label>
+        <input id="dataFloppyFile" type="file" accept=".img,.ima,.flp,.bin,.ima.gz" style="display:none">
+        <div class="row"><button class="ctrl-btn" id="chooseDataFloppyBtn" type="button">📂 B:イメージを選択</button><button class="ctrl-btn primary" id="insertDataFloppyBtn" type="button">挿入</button><button class="ctrl-btn" id="ejectDataFloppyBtn" type="button">取り出す</button></div>
+        <div id="dataFloppyStatus" class="help">未接続</div>
+
+        <label class="label" style="margin-top:10px">CD / DVD データイメージ（ISO）</label>
+        <input id="dataCDFile" type="file" accept=".iso,.bin,.img" style="display:none">
+        <div class="row"><button class="ctrl-btn" id="chooseDataCDBtn" type="button">📂 CD/DVDイメージを選択</button><button class="ctrl-btn primary" id="insertDataCDBtn" type="button">光学ドライブに挿入</button><button class="ctrl-btn" id="ejectDataCDBtn" type="button">取り出す</button></div>
+        <div id="dataCDStatus" class="help">未接続</div>
+        <div class="storage-note">実行中に挿入すると、起動用ISOが入っていた場合はそれと入れ替わります。元の起動ISOに戻すには、起動ISOをもう一度選択して挿入してください。</div>
+
+        <label class="label" style="margin-top:10px">2台目HDD（D:相当 / .img）</label>
+        <input id="secondaryDiskFile" type="file" accept=".img,.bin,.raw" style="display:none">
+        <div class="row"><button class="ctrl-btn" id="chooseSecondaryDiskBtn" type="button">📂 2台目HDDイメージを選択</button><button class="ctrl-btn primary" id="connectSecondaryDiskBtn" type="button">接続 / 次回起動に適用</button><button class="ctrl-btn" id="ejectSecondaryDiskBtn" type="button">選択解除</button></div>
+        <div id="secondaryDiskStatus" class="help">未接続</div>
+        <div class="storage-note">v86の公開APIではHDD2の実行中ホットプラグを提供していないため、HDD2は次回起動時に接続されます。B:フロッピーとCD/DVDは実行中に交換できます。</div>
+      </div>
+
+      <div class="setting-card" style="margin-top:12px">
+        <h4 style="margin:0 0 8px">🧰 ファイルから仮想メディアを作成</h4>
+        <div class="help" style="margin-bottom:8px">動画・画像・ドライバー・ZIPなどのファイルを選び、ゲストOSで読めるディスクイメージとして出力します。ファイルの中身を動画からISOへ変換するのではなく、元ファイルをメディア内に格納します。</div>
+        <input id="mediaSourceFiles" type="file" multiple style="display:none">
+        <div class="row"><button class="ctrl-btn" id="chooseMediaSourceBtn" type="button">📁 格納するファイルを選択</button><span id="mediaSourceStatus" class="help" style="align-self:center">未選択</span></div>
+        <label class="label" style="margin-top:8px">出力形式</label>
+        <select class="field" id="mediaOutputFormat"><option value="iso">CD/DVDデータディスク（ISO9660 .iso）</option><option value="floppy">フロッピー（FAT12 1.44MB .img）</option><option value="hdd">データHDD（FAT16 64MB .img）</option></select>
+        <div class="row" style="margin-top:8px"><button class="ctrl-btn primary" id="buildMediaImageBtn" type="button">⚙️ 仮想イメージを作成して保存</button></div>
+        <div id="mediaBuildStatus" class="help" style="margin-top:8px">出力形式を選び、ファイルを選択してください。</div>
+        <div class="storage-note">フロッピーは容量が非常に小さく、合計ファイルサイズに上限があります。ISOはデータディスクとして作成され、起動可能なOSインストーラーにはなりません。HDDイメージはFAT16で作成するため、古いWindowsでも読みやすい形式です。</div>
+      </div>
     </div>
 
     <div class="settings-section">
@@ -1850,6 +1883,11 @@ let isoLoading = false;
 let isoReady = false;
 let selectedFloppy = null;
 let selectedFloppyName = "";
+let selectedDataFloppy = null;
+let selectedDataCD = null;
+let selectedSecondaryDisk = null;
+let pendingSecondaryDisk = null;
+let mediaSourceFiles = [];
 const VALID_OS_KEYS = new Set([
   "win10","win8","win7","winvista","winxp","win2000","winnt4","winme","win98","win95","win31","win2","win1",
   "msdos","freedos","linux","debian","ubuntu","alpine","arch32","reactos","kolibrios","haiku","freebsd","openbsd","netbsd","android","serenity","9front","skift","qnx","other"
@@ -2971,7 +3009,99 @@ async function downloadCurrentDiskImage(){
 document.getElementById("downloadDiskBtn")?.addEventListener("click",downloadSelectedDiskImage);
 document.getElementById("downloadCurrentDiskBtn")?.addEventListener("click",downloadCurrentDiskImage);
 
-floppyFile.addEventListener("change",()=>{selectedFloppy=floppyFile.files[0]||null; selectedFloppyName=selectedFloppy?selectedFloppy.name:""; if(floppyStatus) floppyStatus.textContent=selectedFloppy?`${selectedFloppyName} / ${formatBytes(selectedFloppy.size)}`:"未接続"; if(selectedFloppy) log(`フロッピー選択: ${selectedFloppyName}`);});
+floppyFile.addEventListener("change",()=>{selectedFloppy=floppyFile.files[0]||null; selectedFloppyName=selectedFloppy?selectedFloppy.name:""; if(floppyStatus) floppyStatus.textContent=selectedFloppy?`${selectedFloppyName} / ${formatBytes(selectedFloppy.size)}`:"未接続"; if(selectedFloppy) log(`起動フロッピー選択: ${selectedFloppyName}`);});
+
+// --- Removable media controls (v86 runtime APIs) ---
+const dataFloppyFile=document.getElementById("dataFloppyFile");
+const dataCDFile=document.getElementById("dataCDFile");
+const secondaryDiskFile=document.getElementById("secondaryDiskFile");
+const dataFloppyStatus=document.getElementById("dataFloppyStatus");
+const dataCDStatus=document.getElementById("dataCDStatus");
+const secondaryDiskStatus=document.getElementById("secondaryDiskStatus");
+const mediaSourceInput=document.getElementById("mediaSourceFiles");
+const mediaSourceStatus=document.getElementById("mediaSourceStatus");
+const mediaBuildStatus=document.getElementById("mediaBuildStatus");
+function setMediaStatus(el,text){if(el)el.textContent=text;}
+function clickInputButton(buttonId,input){document.getElementById(buttonId)?.addEventListener("click",()=>{input.value="";input.click();});}
+clickInputButton("chooseDataFloppyBtn",dataFloppyFile);
+clickInputButton("chooseDataCDBtn",dataCDFile);
+clickInputButton("chooseSecondaryDiskBtn",secondaryDiskFile);
+clickInputButton("chooseMediaSourceBtn",mediaSourceInput);
+dataFloppyFile.addEventListener("change",()=>{selectedDataFloppy=dataFloppyFile.files?.[0]||null;setMediaStatus(dataFloppyStatus,selectedDataFloppy?`${selectedDataFloppy.name} / ${formatBytes(selectedDataFloppy.size)} / 挿入準備OK`:"未接続");if(selectedDataFloppy)log(`補助フロッピー選択: ${selectedDataFloppy.name}`);});
+dataCDFile.addEventListener("change",()=>{selectedDataCD=dataCDFile.files?.[0]||null;setMediaStatus(dataCDStatus,selectedDataCD?`${selectedDataCD.name} / ${formatBytes(selectedDataCD.size)} / 挿入準備OK`:"未接続");if(selectedDataCD)log(`CD/DVDデータイメージ選択: ${selectedDataCD.name}`);});
+secondaryDiskFile.addEventListener("change",()=>{pendingSecondaryDisk=secondaryDiskFile.files?.[0]||null;setMediaStatus(secondaryDiskStatus,pendingSecondaryDisk?`${pendingSecondaryDisk.name} / ${formatBytes(pendingSecondaryDisk.size)} / 「接続」を押してください`:"未接続");if(pendingSecondaryDisk)log(`2台目HDD選択: ${pendingSecondaryDisk.name}`);});
+mediaSourceInput.addEventListener("change",()=>{mediaSourceFiles=Array.from(mediaSourceInput.files||[]);setMediaStatus(mediaSourceStatus,mediaSourceFiles.length?`${mediaSourceFiles.length}個 / ${formatBytes(mediaSourceFiles.reduce((n,f)=>n+f.size,0))}`:"未選択");});
+
+document.getElementById("insertDataFloppyBtn")?.addEventListener("click",async()=>{
+  if(!selectedDataFloppy){alert("先にB:用のフロッピーイメージを選択してください。");return;}
+  if(!emulator){setMediaStatus(dataFloppyStatus,`${selectedDataFloppy.name} / 次回起動時にB:へ接続`);log("補助フロッピーは次回起動時にB:へ接続します。");return;}
+  try{await emulator.set_fdb({buffer:await fileToBuffer(selectedDataFloppy,dataFloppyFile,"補助フロッピー")});setMediaStatus(dataFloppyStatus,`${selectedDataFloppy.name} / B:に挿入済み`);log(`B:フロッピー挿入完了: ${selectedDataFloppy.name}`,"OK");}catch(e){log(`B:フロッピー挿入失敗: ${e?.message||e}`,"ERROR");alert("B:フロッピーを挿入できませんでした。ログを確認してください。");}
+});
+document.getElementById("ejectDataFloppyBtn")?.addEventListener("click",()=>{if(emulator&&typeof emulator.eject_fdb==="function")emulator.eject_fdb();setMediaStatus(dataFloppyStatus,"B:取り出し済み");log("B:フロッピーを取り出しました。");});
+document.getElementById("insertDataCDBtn")?.addEventListener("click",async()=>{
+  if(!selectedDataCD){alert("先にCD/DVD用のISOイメージを選択してください。");return;}
+  if(!emulator){const note=selectedISO?"起動用ISOを使用中。OS起動後に挿入してください":"次回起動時にデータCDとして接続予定";setMediaStatus(dataCDStatus,`${selectedDataCD.name} / ${note}`);log(selectedISO?"起動用ISOを選択中です。OS起動後に光学ドライブへ挿入してください。":"データCD/DVDは次回起動時に接続されます。");return;}
+  try{await emulator.set_cdrom({buffer:await fileToBuffer(selectedDataCD,dataCDFile,"CD/DVDイメージ")});setMediaStatus(dataCDStatus,`${selectedDataCD.name} / 光学ドライブに挿入済み`);if(typeof cdStatus!=="undefined"&&cdStatus)cdStatus.textContent=selectedDataCD.name;log(`CD/DVDイメージ挿入完了: ${selectedDataCD.name}`,"OK");}catch(e){log(`CD/DVD挿入失敗: ${e?.message||e}`,"ERROR");alert("CD/DVDイメージを挿入できませんでした。ログを確認してください。");}
+});
+document.getElementById("ejectDataCDBtn")?.addEventListener("click",()=>{if(emulator&&typeof emulator.eject_cdrom==="function")emulator.eject_cdrom();setMediaStatus(dataCDStatus,"光学ドライブから取り出し済み");if(typeof cdStatus!=="undefined"&&cdStatus)cdStatus.textContent="未接続";log("CD/DVDを取り出しました。");});
+document.getElementById("connectSecondaryDiskBtn")?.addEventListener("click",()=>{if(!pendingSecondaryDisk&&!selectedSecondaryDisk){alert("先に2台目HDDの .img を選択してください。");return;}if(pendingSecondaryDisk)selectedSecondaryDisk=pendingSecondaryDisk;setMediaStatus(secondaryDiskStatus,`${selectedSecondaryDisk.name} / ${formatBytes(selectedSecondaryDisk.size)} / 次回起動時に接続`);log(`2台目HDDを次回起動用に設定: ${selectedSecondaryDisk.name}`,"OK");});
+document.getElementById("ejectSecondaryDiskBtn")?.addEventListener("click",()=>{selectedSecondaryDisk=null;pendingSecondaryDisk=null;if(secondaryDiskFile)secondaryDiskFile.value="";setMediaStatus(secondaryDiskStatus,"選択解除済み（次回起動時に未接続）");log("2台目HDDの選択を解除しました。");});
+
+// ISO9660 writer: creates a data disc, not a bootable OS installer. Uses Blob parts
+// so source video files do not all need to be copied into one giant ArrayBuffer.
+function mediaLe16(v){return [v&255,(v>>>8)&255];}
+function mediaBe16(v){return [(v>>>8)&255,v&255];}
+function mediaLe32(v){return [v&255,(v>>>8)&255,(v>>>16)&255,(v>>>24)&255];}
+function mediaBe32(v){return [(v>>>24)&255,(v>>>16)&255,(v>>>8)&255,v&255];}
+function mediaWriteBytes(dst,off,bytes){dst.set(bytes,off);}
+function mediaIsoName(file,index){let name=(file.name||`FILE${index}`).normalize("NFKD").replace(/[^\x20-\x7E]/g,"_").toUpperCase().replace(/[^A-Z0-9_.-]/g,"_");let dot=name.lastIndexOf(".");let ext=dot>0?name.slice(dot+1).replace(/[^A-Z0-9_]/g,"").slice(0,8):"";let maxBase=Math.max(1,30-(ext?ext.length+1:0)-2);let base=(dot>0?name.slice(0,dot):name).replace(/[^A-Z0-9_]/g,"_").slice(0,Math.min(24,maxBase))||`FILE${index}`;return `${base}${ext?"."+ext:""};1`;}
+function mediaIsoDirRecord(name,extent,size,isDir=false){const id=name==="."?new Uint8Array([0]):name===".."?new Uint8Array([1]):new TextEncoder().encode(name);const len=33+id.length+(id.length%2===0?1:0);const a=new Uint8Array(len);a[0]=len;a[1]=0;a.set(mediaLe32(extent),2);a.set(mediaBe32(extent),6);a.set(mediaLe32(size),10);a.set(mediaBe32(size),14);a.set([126,1,1,0,0,0,0],18);a[25]=isDir?2:0;a[26]=0;a[27]=0;a.set(mediaLe16(1),28);a.set(mediaBe16(1),30);a[32]=id.length;a.set(id,33);return a;}
+function makeISO9660(files){
+  if(!files.length)throw new Error("格納するファイルを選択してください。");
+  const names=files.map((f,i)=>mediaIsoName(f,i+1));if(new Set(names).size!==names.length)throw new Error("ファイル名が重複します。重複しない名前に変更して再選択してください。");
+  const sector=2048, pvdSector=16, termSector=17, lPathSector=18, mPathSector=19, rootSector=20, fileStartSector=21;
+  const entries=[];let nextSector=fileStartSector;
+  for(let i=0;i<files.length;i++){const f=files[i];const sectors=Math.ceil(f.size/sector);entries.push({file:f,name:names[i],sector:nextSector,size:f.size});nextSector+=Math.max(1,sectors);}
+  const totalSectors=nextSector;if(totalSectors>0xFFFFFFFF)throw new Error("ISO9660の上限を超えるサイズです。");
+  const head=new Uint8Array(fileStartSector*sector);const pvd=head.subarray(pvdSector*sector,(pvdSector+1)*sector);pvd[0]=1;pvd.set(new TextEncoder().encode("CD001"),1);pvd[6]=1;pvd.set(new TextEncoder().encode("SUPEREMULATOR"),8);pvd.set(new TextEncoder().encode("SUPEREMULATOR DATA DISC"),40);pvd.set(mediaLe32(totalSectors),80);pvd.set(mediaBe32(totalSectors),84);pvd.set(mediaLe16(1),120);pvd.set(mediaBe16(1),122);pvd.set(mediaLe16(1),124);pvd.set(mediaBe16(1),126);pvd.set(mediaLe16(sector),128);pvd.set(mediaBe16(sector),130);
+  const pathSize=10;pvd.set(mediaLe32(pathSize),132);pvd.set(mediaBe32(pathSize),136);pvd.set(mediaLe32(lPathSector),140);pvd.set(mediaLe32(0),144);pvd.set(mediaBe32(mPathSector),148);pvd.set(mediaBe32(0),152);pvd.set(mediaIsoDirRecord(".",rootSector,sector,true),156);pvd.set(new TextEncoder().encode("2026101100000000"),813);pvd.set(new TextEncoder().encode("2026101100000000"),830);pvd.set(new TextEncoder().encode("2026101100000000"),847);pvd.set(new TextEncoder().encode("0000000000000000"),864);pvd[881]=1;pvd.set(new TextEncoder().encode("\x00"),882);
+  const term=head.subarray(termSector*sector,(termSector+1)*sector);term[0]=255;term.set(new TextEncoder().encode("CD001"),1);term[6]=1;
+  const lp=head.subarray(lPathSector*sector,(lPathSector+1)*sector);lp.set([1,0,...mediaLe32(rootSector),1,0,0,0]);const mp=head.subarray(mPathSector*sector,(mPathSector+1)*sector);mp.set([1,0,...mediaBe32(rootSector),0,1,0,0]);
+  const root=head.subarray(rootSector*sector,(rootSector+1)*sector);let pos=0;for(const r of [mediaIsoDirRecord(".",rootSector,sector,true),mediaIsoDirRecord("..",rootSector,sector,true),...entries.map(e=>mediaIsoDirRecord(e.name,e.sector,e.size,false))]){if(pos+r.length>sector)throw new Error("ルートディレクトリにファイルが多すぎます。");root.set(r,pos);pos+=r.length;}
+  const parts=[head];for(const e of entries){parts.push(e.file);const storedSize=Math.max(sector,e.size);const pad=storedSize-e.size;if(pad)parts.push(new Uint8Array(pad));}return new Blob(parts,{type:"application/x-iso9660-image"});
+}
+function mediaShortName(name){let s=(name||"FILE").normalize("NFKD").toUpperCase().replace(/[^A-Z0-9_.-]/g,"_");let dot=s.lastIndexOf(".");let ext=dot>0?s.slice(dot+1).replace(/[^A-Z0-9_]/g,"").slice(0,3):"";let base=(dot>0?s.slice(0,dot):s).replace(/[^A-Z0-9_]/g,"_").slice(0,8)||"FILE";return {base,ext};}
+function mediaDosDate(){const d=new Date();return {date:((Math.max(1980,d.getFullYear())-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate(),time:(d.getHours()<<11)|(d.getMinutes()<<5)|Math.floor(d.getSeconds()/2)};}
+function makeFat12Floppy(files){
+  if(!files.length)throw new Error("格納するファイルを選択してください。");const size=1474560,sector=512,total=2880,rootEntries=224,dataStart=33,clusterBytes=512;const totalBytes=files.reduce((n,f)=>n+f.size,0);if(totalBytes>1420000)throw new Error("フロッピーの容量を超えています。合計ファイルサイズを約1.4MB以下にしてください。");if(files.length>rootEntries)throw new Error("フロッピーのルートディレクトリに格納できるファイル数を超えています。");
+  const names=files.map(f=>{const n=mediaShortName(f.name);return n.base.padEnd(8," ").slice(0,8)+n.ext.padEnd(3," ").slice(0,3);});if(new Set(names).size!==names.length)throw new Error("フロッピー形式では8.3形式のファイル名が重複します。ファイル名を変えてください。");
+  const out=new Uint8Array(size);const b=out.subarray(0,sector);b[0]=0xEB;b[1]=0x3C;b[2]=0x90;b.set(new TextEncoder().encode("MSWIN4.1"),3);b.set(mediaLe16(512),11);b[13]=1;b.set(mediaLe16(1),14);b[16]=2;b.set(mediaLe16(rootEntries),17);b.set(mediaLe16(total),19);b[21]=0xF0;b.set(mediaLe16(9),22);b.set(mediaLe16(18),24);b.set(mediaLe16(2),26);b.set(mediaLe32(0),28);b.set(mediaLe32(0),32);b[36]=0;b[38]=0x29;b.set([0x53,0x45,0x4D,0x55],39);b.set(new TextEncoder().encode("SUPEREMULATOR"),43);b.set(new TextEncoder().encode("FAT12   "),54);b[510]=0x55;b[511]=0xAA;
+  const fat=new Uint8Array(9*sector);fat[0]=0xF0;fat[1]=0xFF;fat[2]=0xFF;const rootOffset=19*sector;let cluster=2;const now=mediaDosDate(),allocations=[];
+  for(let i=0;i<files.length;i++){const f=files[i],n=mediaShortName(f.name),needed=Math.max(1,Math.ceil(f.size/clusterBytes));if(cluster+needed-1>2848)throw new Error("フロッピーのデータ領域を超えています。");allocations.push({start:cluster,needed});const rootPos=rootOffset+i*32;const raw=new Uint8Array(11);raw.set(new TextEncoder().encode(n.base.padEnd(8," ").slice(0,8)),0);raw.set(new TextEncoder().encode(n.ext.padEnd(3," ").slice(0,3)),8);out.set(raw,rootPos);out[rootPos+11]=0x20;out.set(mediaLe16(now.time),rootPos+22);out.set(mediaLe16(now.date),rootPos+24);out.set(mediaLe16(cluster),rootPos+26);out.set(mediaLe32(f.size),rootPos+28);cluster+=needed;}
+  return {out,fat,files,rootOffset,clusterStart:dataStart,allocations};
+}
+function makeFat16DataDisk(files){
+  if(!files.length)throw new Error("格納するファイルを選択してください。");const totalBytes=files.reduce((n,f)=>n+f.size,0);if(totalBytes>60*1024*1024)throw new Error("64MB HDDイメージの使用可能容量（約60MB）を超えています。");if(files.length>512)throw new Error("ファイル数が多すぎます（最大512ファイル）。");const fatNames=files.map(f=>{const n=mediaShortName(f.name);return n.base.padEnd(8," ").slice(0,8)+n.ext.padEnd(3," ").slice(0,3);});if(new Set(fatNames).size!==fatNames.length)throw new Error("FAT16形式では8.3形式のファイル名が重複します。ファイル名を変えてください。");
+  const bytes=64*1024*1024,sector=512,totalDiskSectors=bytes/sector,partitionStart=63,totalSectors=totalDiskSectors-partitionStart,spc=4,rootEntries=512,rootSectors=32;let fatSectors=128;const provisionalDataStart=1+2*fatSectors+rootSectors;const clusterCount=Math.floor((totalSectors-provisionalDataStart)/spc);fatSectors=Math.ceil((clusterCount+2)*2/sector);const realDataStart=1+2*fatSectors+rootSectors;const actualClusters=Math.floor((totalSectors-realDataStart)/spc);const out=new Uint8Array(bytes);
+  // MBR partition table: one FAT16 data partition beginning at LBA 63.
+  const mbr=out.subarray(0,sector);mbr[446]=0x00;mbr.set([0x01,0x01,0x00],447);mbr[450]=0x06;mbr.set([0xFE,0xFF,0xFF],451);mbr.set(mediaLe32(partitionStart),454);mbr.set(mediaLe32(totalSectors),458);mbr[510]=0x55;mbr[511]=0xAA;
+  const volumeBase=partitionStart*sector;const b=out.subarray(volumeBase,volumeBase+sector);b[0]=0xEB;b[1]=0x3C;b[2]=0x90;b.set(new TextEncoder().encode("MSWIN4.1"),3);b.set(mediaLe16(sector),11);b[13]=spc;b.set(mediaLe16(1),14);b[16]=2;b.set(mediaLe16(rootEntries),17);b.set(mediaLe16(0),19);b[21]=0xF8;b.set(mediaLe16(fatSectors),22);b.set(mediaLe16(63),24);b.set(mediaLe16(255),26);b.set(mediaLe32(partitionStart),28);b.set(mediaLe32(totalSectors),32);b[36]=0x80;b[38]=0x29;b.set([0x53,0x45,0x4D,0x55],39);b.set(new TextEncoder().encode("SUPEREMULATOR"),43);b.set(new TextEncoder().encode("FAT16   "),54);b[510]=0x55;b[511]=0xAA;
+  const fatBytes=fatSectors*sector;const fat=new Uint8Array(fatBytes);fat[0]=0xF8;fat[1]=0xFF;fat[2]=0xFF;fat[3]=0xFF;const dv=new DataView(fat.buffer);const rootOffset=volumeBase+(1+2*fatSectors)*sector;let cluster=2;const now=mediaDosDate();
+  for(let i=0;i<files.length;i++){const f=files[i],n=mediaShortName(f.name),needed=Math.max(1,Math.ceil(f.size/(spc*sector)));if(cluster+needed-2>actualClusters)throw new Error("HDDイメージの容量を超えています。");const rp=rootOffset+i*32;out.set(new TextEncoder().encode(n.base.padEnd(8," ").slice(0,8)+n.ext.padEnd(3," ").slice(0,3)),rp);out[rp+11]=0x20;out.set(mediaLe16(now.time),rp+22);out.set(mediaLe16(now.date),rp+24);out.set(mediaLe16(cluster),rp+26);out.set(mediaLe32(f.size),rp+28);for(let c=0;c<needed;c++){const cl=cluster+c;dv.setUint16(cl*2,c===needed-1?0xFFFF:cl+1,true);}cluster+=needed;}
+  return {out,fat,files,rootOffset,clusterStart:partitionStart+realDataStart,spc,sector,clusterCount:actualClusters,volumeBase};
+}
+async function buildMediaImage(){
+  if(!mediaSourceFiles.length)throw new Error("先に格納するファイルを選択してください。");const format=document.getElementById("mediaOutputFormat").value;setMediaStatus(mediaBuildStatus,"イメージを作成中…");
+  let blob,filename;
+  if(format==="iso") {blob=makeISO9660(mediaSourceFiles);filename="superEmulator-data-disc.iso";}
+  else if(format==="floppy"){
+    const meta=makeFat12Floppy(mediaSourceFiles);const {out,fat,files,allocations}=meta;out.set(fat,1*512);let fatBytes=out.subarray(1*512,10*512);for(let i=0;i<files.length;i++){const f=files[i],{start,needed}=allocations[i];const buf=new Uint8Array(await f.arrayBuffer());const offset=33*512+(start-2)*512;out.set(buf,offset);for(let c=0;c<needed;c++){const cl=start+c,val=c===needed-1?0xFFF:cl+1,idx=Math.floor(cl*3/2);if(cl%2===0){fatBytes[idx]=val&255;fatBytes[idx+1]=(fatBytes[idx+1]&0xF0)|((val>>8)&0x0F);}else{fatBytes[idx]=(fatBytes[idx]&0x0F)|((val<<4)&0xF0);fatBytes[idx+1]=(val>>4)&255;}}}out.set(fatBytes,10*512);blob=new Blob([out],{type:"application/octet-stream"});filename="superEmulator-floppy-1.44mb.img";
+  }else{
+    const meta=makeFat16DataDisk(mediaSourceFiles);const {out,fat,files,clusterStart,spc,sector,volumeBase}=meta;out.set(fat,volumeBase+sector);out.set(fat,volumeBase+(1+fat.length/sector)*sector);let cluster=2;for(const f of files){const needed=Math.max(1,Math.ceil(f.size/(spc*sector)));const buf=new Uint8Array(await f.arrayBuffer());let off=clusterStart*sector+(cluster-2)*spc*sector;out.set(buf,off);cluster+=needed;}blob=new Blob([out],{type:"application/octet-stream"});filename="superEmulator-data-hdd-64mb.img";
+  }
+  const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);setMediaStatus(mediaBuildStatus,`作成完了: ${filename} / ${formatBytes(blob.size)}。ダウンロードを開始しました。`);log(`仮想メディア作成: ${filename} / ${formatBytes(blob.size)}`,"OK");
+}
+document.getElementById("buildMediaImageBtn")?.addEventListener("click",()=>buildMediaImage().catch(e=>{setMediaStatus(mediaBuildStatus,`作成失敗: ${e?.message||e}`);log(`仮想メディア作成失敗: ${e?.message||e}`,"ERROR");alert(`仮想イメージを作成できませんでした。\n${e?.message||e}`);}));
 clearDiskImageBtn.addEventListener("click",()=>{
   selectedDiskFile=null; selectedDiskName="";
   selectedDiskURL=""; selectedDiskURLSize=0;
@@ -3937,6 +4067,12 @@ async function startEmulator(options={})
         log(`CD-ROM: ArrayBufferフォールバック方式`,'WARN');
       }
     }
+    else if(selectedDataCD)
+    {
+      cdromImage={buffer:await fileToBuffer(selectedDataCD,dataCDFile,"CD/DVDデータイメージ")};
+      cdStatus.textContent=selectedDataCD.name;
+      log(`データCD/DVDを接続: ${selectedDataCD.name}（起動可能ISOではなくデータ用）`,"INFO");
+    }
     else
     {
       log(
@@ -3949,7 +4085,7 @@ async function startEmulator(options={})
     }
 
 
-    if(cdromImage?.buffer){
+    if(cdromImage?.buffer && (selectedISO || options.uploadedFile || options.debugPath)){
       // 2048バイト境界を確認。CD-ROMはセクタ単位で読むため、端数があるISOは
       // v86/SeaBIOSで読めないケースがある。必要ならゼロ埋めして渡す。
       const raw = cdromImage.buffer;
@@ -4128,6 +4264,8 @@ async function startEmulator(options={})
        * フロッピー
        */
       ...(selectedFloppy ? { fda:{buffer:await fileToBuffer(selectedFloppy, floppyFile, "フロッピーイメージ")} } : {}),
+      ...(selectedDataFloppy ? { fdb:{buffer:await fileToBuffer(selectedDataFloppy, dataFloppyFile, "補助フロッピー")} } : {}),
+      ...(selectedSecondaryDisk ? { hdb:{buffer:await fileToBuffer(selectedSecondaryDisk, secondaryDiskFile, "2台目HDDイメージ")} } : {}),
 
       /*
        * CD-ROM
