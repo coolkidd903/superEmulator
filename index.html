@@ -1699,6 +1699,27 @@ button, input, select, label, a, [role="button"] { pointer-events:auto !importan
       <div style="height:8px"></div><div id="logs" style="height:180px;overflow:auto;font:10px ui-monospace,SFMono-Regular,Menlo,monospace;background:#05070a;color:#9facbf;padding:9px;border-radius:8px;white-space:pre-wrap"></div>
     </div>
 
+    <div class="settings-section" id="siteParametersSection">
+      <h3>🗂️ サイトパラメータ（仮想レジストリ）</h3>
+      <div class="help" style="margin-bottom:10px">サイト側に保存するキー／値データです。エミュレーター起動時に読み込み、設定オブジェクトとして公開します。実際のWindowsレジストリを直接変更する機能ではありません。ゲストOS内へ反映するには、OS側で読み込めるファイルやドライバーなど別の連携が必要です。</div>
+      <div class="row" style="flex-wrap:wrap;margin-bottom:8px">
+        <button class="ctrl-btn" id="siteParamAddBtn" type="button">＋ パラメータ追加</button>
+        <button class="ctrl-btn primary" id="siteParamSaveBtn" type="button">💾 保存して読み込み</button>
+        <button class="ctrl-btn" id="siteParamBackupBtn" type="button">📦 バックアップ</button>
+        <button class="ctrl-btn" id="siteParamRestoreBtn" type="button">📂 バックアップ復元</button>
+        <button class="ctrl-btn" id="siteParamGuestExportBtn" type="button">🖥️ ゲスト用設定JSON出力</button>
+        <input id="siteParamRestoreFile" type="file" accept=".json,application/json" style="display:none" aria-hidden="true" tabindex="-1">
+      </div>
+      <div class="setting-card" style="padding:8px">
+        <div style="display:grid;grid-template-columns:minmax(100px,1fr) minmax(120px,1.4fr) 72px;gap:8px;padding:3px 4px 8px;font-size:11px;color:#9caec3;font-weight:700"><span>キー</span><span>値</span><span>操作</span></div>
+        <div id="siteParamRows" style="display:grid;gap:7px"></div>
+        <div id="siteParamEmpty" class="help" style="padding:8px 4px;display:none">パラメータがありません。「パラメータ追加」から作成できます。</div>
+      </div>
+      <div id="siteParamStatus" class="help" style="margin-top:8px">パラメータを読み込み中...</div>
+      <div class="help" style="margin-top:6px">バックアップはJSONファイルとして保存されます。値はテキストとして保存されます。初期値は互換性優先の保守的な推奨値です。これらはサイト側のパラメータであり、同名のWindowsレジストリやBIOS設定を直接変更するものではありません。</div>
+      <div class="help" style="margin-top:6px">「ゲスト用設定JSON出力」で、仮想フロッピー／CD/DVD作成時に格納できる設定ファイルを出力します。ゲストOSで自動適用するには、OS側の起動スクリプトや専用ツールが別途必要です。BIOSはこのJSONを標準機能だけで自動解釈しません。</div>
+    </div>
+
     <div class="settings-section">
       <h3>⌨️ Bash / コマンド</h3>
       <input class="field" id="commandInput" placeholder="例: uname -a"><button class="ctrl-btn primary" id="sendCommand">ゲストへ送信</button>
@@ -6421,6 +6442,125 @@ window.downloadCurrentDiskImage=downloadCurrentDiskImage;
 })();
 window.superEmulatorAuditButtons=function(){const ids=["detectBtn","manualDetectBtn","confirmManualOSBtn","startBtn","powerBtn","resetBtn","fullscreenBtn","screenshotBtn","connectDiskBtn","checkDiskConnectionBtn","connectDiskURLBtn","downloadDiskBtn","downloadCurrentDiskBtn","rebuildDiskBtn","clearDiskImageBtn","settingsFullscreenBtn","settingsScreenshotBtn","debugPathBtn","debugUploadBtn","sendCommand","repairBtn","openSettingsMain"];const rows=ids.map(id=>{const e=document.getElementById(id);if(!e)return id+": MISSING";const r=e.getBoundingClientRect(),c=getComputedStyle(e);return `${id}: disabled=${!!e.disabled} pointer=${c.pointerEvents} display=${c.display} z=${c.zIndex} rect=${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)}x${Math.round(r.height)}`;});const out=rows.join("\n");console.log("[UI AUDIT]\n"+out);if(typeof window.log==="function")window.log("[UI AUDIT]\n"+out);return out;};
 </script>
+
+<script id="superEmulatorSiteParameters">
+(function(){
+  "use strict";
+  const STORE_KEY="superEmulator.siteParameters.v1";
+  const rowsEl=document.getElementById("siteParamRows");
+  const emptyEl=document.getElementById("siteParamEmpty");
+  const statusEl=document.getElementById("siteParamStatus");
+  const fileEl=document.getElementById("siteParamRestoreFile");
+  if(!rowsEl || !statusEl) return;
+  let params=[];
+  const DEFAULT_PARAMETERS=[
+    {key:"schema.version",value:"1"},
+    {key:"system.name",value:"superEmulator"},
+    {key:"system.profile",value:"auto"},
+    {key:"boot.loadSiteParameters",value:"true"},
+    {key:"boot.restoreParameters",value:"true"},
+    {key:"boot.applyMode",value:"conservative"},
+    {key:"hardware.memoryPolicy",value:"auto"},
+    {key:"hardware.videoMemoryPolicy",value:"auto"},
+    {key:"hardware.acpiPolicy",value:"auto"},
+    {key:"keyboard.profile",value:"auto"},
+    {key:"keyboard.captureMode",value:"focused-window"},
+    {key:"media.autoMount",value:"false"},
+    {key:"guest.configFormat",value:"json"},
+    {key:"guest.autoApply",value:"false"},
+    {key:"guest.applyRequiresConfirmation",value:"true"},
+    {key:"bios.customParameterLoader",value:"false"},
+    {key:"diagnostics.enabled",value:"false"},
+    {key:"stability.mode",value:"compatibility-first"}
+  ];
+  const say=(msg,ok=true)=>{statusEl.textContent=msg;statusEl.style.color=ok?"#9edfb1":"#ffb1a9";};
+  const safeString=v=>v==null?"":String(v);
+  function normalize(input){
+    const source=Array.isArray(input)?input:(input&&Array.isArray(input.parameters)?input.parameters:[]);
+    const out=[],seen=new Set();
+    for(const item of source){
+      const key=safeString(item&&item.key).trim().slice(0,160);
+      if(!key || seen.has(key)) continue;
+      seen.add(key);out.push({key,value:safeString(item.value).slice(0,4000)});
+      if(out.length>=300) break;
+    }
+    return out;
+  }
+  function withDefaults(existing){
+    const merged=normalize(existing);const keys=new Set(merged.map(x=>x.key));
+    for(const item of DEFAULT_PARAMETERS){if(!keys.has(item.key)){merged.push({...item});keys.add(item.key);}}
+    return normalize(merged);
+  }
+  function readStore(){
+    try{
+      const raw=localStorage.getItem(STORE_KEY);
+      if(raw){const parsed=JSON.parse(raw);const before=normalize(parsed).length;params=withDefaults(parsed);const added=params.length-before;say(`保存済みパラメータ ${params.length} 件を読み込みました。${added?`不足していた推奨初期値 ${added} 件を補完しました。保存すると保持されます。`:""}`);}
+      else {params=DEFAULT_PARAMETERS.map(item=>({...item}));say("安定性・互換性を優先した推奨初期パラメータを読み込みました。必要に応じて編集して保存してください。");}
+    }
+    catch(e){params=DEFAULT_PARAMETERS.map(item=>({...item}));say("保存データを読み込めませんでした。安全な推奨初期値を表示します: "+(e.message||e),false);}
+    render();applyToRuntime();
+  }
+  function render(){
+    rowsEl.replaceChildren();
+    if(emptyEl)emptyEl.style.display=params.length?"none":"block";
+    params.forEach((item,index)=>{
+      const row=document.createElement("div");row.style.cssText="display:grid;grid-template-columns:minmax(100px,1fr) minmax(120px,1.4fr) 72px;gap:8px;align-items:center";
+      const key=document.createElement("input");key.className="field";key.placeholder="例: keyboard.profile";key.value=item.key;key.setAttribute("aria-label","パラメータキー");key.style.minWidth="0";
+      const value=document.createElement("input");value.className="field";value.placeholder="値";value.value=item.value;value.setAttribute("aria-label","パラメータ値");value.style.minWidth="0";
+      key.addEventListener("input",()=>{params[index].key=key.value;});value.addEventListener("input",()=>{params[index].value=value.value;});
+      const del=document.createElement("button");del.type="button";del.className="ctrl-btn";del.textContent="削除";del.addEventListener("click",()=>{params.splice(index,1);render();});
+      row.append(key,value,del);rowsEl.append(row);
+    });
+  }
+  function applyToRuntime(){
+    const object=Object.create(null);for(const item of params){const key=safeString(item.key).trim();if(key)object[key]=safeString(item.value);}
+    window.__superEmulatorSiteParameters=Object.freeze(object);
+    window.getSuperEmulatorSiteParameter=function(key,fallback=null){return Object.prototype.hasOwnProperty.call(window.__superEmulatorSiteParameters,key)?window.__superEmulatorSiteParameters[key]:fallback;};
+    window.__superEmulatorSiteParametersLoadedAt=Date.now();
+    try{window.dispatchEvent(new CustomEvent("superemulator:site-parameters-loaded",{detail:{count:Object.keys(object).length,parameters:window.__superEmulatorSiteParameters}}));}catch(_){}
+  }
+  function save(){
+    const normalized=normalize(params);
+    if(normalized.length!==params.filter(x=>safeString(x.key).trim()).length){say("キーの重複、または空のキーがあります。キーを確認してください。",false);return false;}
+    params=normalized;
+    try{localStorage.setItem(STORE_KEY,JSON.stringify({version:1,updatedAt:new Date().toISOString(),parameters:params}));applyToRuntime();render();say(`保存完了：${params.length} 件。起動時に読み込む設定へ反映しました。`);return true;}
+    catch(e){say("保存失敗（ブラウザーの保存容量や権限を確認してください）: "+(e.message||e),false);return false;}
+  }
+  function downloadBackup(){
+    const payload={format:"superEmulator-site-parameters",version:1,exportedAt:new Date().toISOString(),parameters:normalize(params)};
+    const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="superEmulator-site-parameters-backup.json";document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);say(`バックアップを作成しました（${payload.parameters.length} 件）。`);
+  }
+  function downloadGuestConfig(){
+    const normalized=normalize(params);
+    const values=Object.create(null);
+    for(const item of normalized) values[item.key]=item.value;
+    const payload={
+      format:"superEmulator-guest-site-parameters",
+      schemaVersion:1,
+      generatedAt:new Date().toISOString(),
+      note:"Configuration data only. The guest OS must explicitly read this file; values are not automatically applied to Windows Registry or BIOS.",
+      parameters:values
+    };
+    const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+    const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="superEmulator-guest-config.json";document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
+    say(`ゲスト用設定JSONを出力しました（${normalized.length} 件）。仮想メディアに格納してゲストOSから読み込めます。自動適用にはOS側の処理が必要です。`);
+  }
+  function restoreFile(file){
+    if(!file)return;const reader=new FileReader();reader.onload=()=>{try{const data=JSON.parse(String(reader.result||""));const incoming=normalize(data);if(!Array.isArray(data)&&!Array.isArray(data?.parameters))throw new Error("パラメータ配列が見つかりません");params=incoming;render();if(save())say(`バックアップから ${params.length} 件を復元しました。`);}catch(e){say("復元できませんでした: "+(e.message||e),false);}finally{fileEl.value="";}};reader.onerror=()=>{say("バックアップファイルを読み取れませんでした。",false);fileEl.value="";};reader.readAsText(file);
+  }
+  document.getElementById("siteParamAddBtn")?.addEventListener("click",()=>{params.push({key:"new.parameter",value:""});render();const inputs=rowsEl.querySelectorAll("input");inputs[inputs.length-2]?.focus();});
+  document.getElementById("siteParamSaveBtn")?.addEventListener("click",save);
+  document.getElementById("siteParamBackupBtn")?.addEventListener("click",()=>{if(save())downloadBackup();});
+  document.getElementById("siteParamGuestExportBtn")?.addEventListener("click",()=>{if(save())downloadGuestConfig();});
+  document.getElementById("siteParamRestoreBtn")?.addEventListener("click",()=>fileEl?.click());
+  fileEl?.addEventListener("change",()=>restoreFile(fileEl.files&&fileEl.files[0]));
+  // 起動ボタンの操作直前にも保存済み値をランタイムへ再読込する。
+  document.addEventListener("click",e=>{const button=e.target&&e.target.closest&&e.target.closest("#startBtn,#powerBtn");if(button){try{const raw=localStorage.getItem(STORE_KEY);if(raw){params=normalize(JSON.parse(raw));applyToRuntime();say(`OS起動前にサイトパラメータ ${params.length} 件を読み込みました。`);}}catch(err){say("起動前のパラメータ読込失敗: "+(err.message||err),false);}}},true);
+  window.addEventListener("storage",e=>{if(e.key===STORE_KEY)readStore();});
+  readStore();
+})();
+</script>
+
 </body>
 
 <style id="superEmulator-ui-hit-fix">
