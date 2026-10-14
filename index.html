@@ -1,6 +1,6 @@
 <!DOCTYPE html>
-<!-- SUPEREMULATOR_BUILD: 2026.10.14.2 -->
-<!-- SUPEREMULATOR_SOURCE_SHA256: 618a7213c28b22da6af3067c17b7c68d841be49e1589b4f847d01aaa11b01112 -->
+<!-- SUPEREMULATOR_BUILD: 2026.10.14.3 -->
+<!-- SUPEREMULATOR_SOURCE_SHA256: 6f86f4a443a773a38b63f551fd20cf40fc2d4fae9e80f4d5e60858b2f8874c4b -->
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -1759,7 +1759,7 @@ body[data-se-theme="custom"]{--se-glass:blur(14px)}
           <button class="ctrl-btn" id="superEmulatorCheckUpdateBtn" type="button">更新を確認</button>
           <button class="ctrl-btn primary" id="superEmulatorApplyPatchBtn" type="button" disabled>修正パッチを適用して再起動</button>
         </div>
-        <div class="help" id="superEmulatorUpdateStatus" role="status" aria-live="polite" style="margin-top:8px">現在のビルド: 2026.10.14.2 / 未確認</div>
+        <div class="help" id="superEmulatorUpdateStatus" role="status" aria-live="polite" style="margin-top:8px">現在のビルド: 2026.10.14.3 / 未確認</div>
       </div>
       <div class="setting-card" style="margin-top:12px">
         <strong>🧠 CPU / ハング診断</strong>
@@ -1828,6 +1828,28 @@ body[data-se-theme="custom"]{--se-glass:blur(14px)}
       <input class="field" id="commandInput" placeholder="例: uname -a"><button class="ctrl-btn primary" id="sendCommand">ゲストへ送信</button>
       <div style="height:8px"></div><div class="row"><button class="ctrl-btn command" data-command="uname -a">uname</button><button class="ctrl-btn command" data-command="ls">ls</button></div>
       <div class="row"><button class="ctrl-btn command" data-command="pwd">pwd</button><button class="ctrl-btn command" data-command="free -h">free</button></div>
+    </div>
+
+    <div class="settings-section" id="faceVaultSection">
+      <h3>🔐 生体情報ボルト（暗号化バックアップ）</h3>
+      <div class="help" style="margin-bottom:10px">superEmulator内で利用する顔特徴データの暗号化保管領域です。データはAES-256-GCMで暗号化してIndexedDBへ保存し、必要に応じて暗号化TXTとして書き出せます。顔特徴の抽出・照合モデル自体はこの保管機能には含まれていません。顔写真そのものや、他人の生体情報を入力しないでください。</div>
+      <label class="label" for="faceVaultFeatureJson">顔認証モジュールが生成した特徴データJSON</label>
+      <textarea class="field" id="faceVaultFeatureJson" rows="4" autocomplete="off" spellcheck="false" placeholder='例: {"version":1,"features":[0.12,-0.04,0.33]}（実際の特徴ベクトルを接続した場合のみ）'></textarea>
+      <label class="label" for="faceVaultPassphrase" style="margin-top:8px">暗号化パスフレーズ（バックアップ復元にも必要）</label>
+      <input class="field" id="faceVaultPassphrase" type="password" autocomplete="new-password" minlength="12" placeholder="12文字以上を推奨。忘れると復元できません">
+      <div class="row" style="margin-top:8px;flex-wrap:wrap;gap:8px">
+        <button class="ctrl-btn primary" id="faceVaultEncryptSaveBtn" type="button">🔒 暗号化して保存</button>
+        <button class="ctrl-btn" id="faceVaultExportBtn" type="button">📄 暗号化TXTを書き出す</button>
+        <button class="ctrl-btn" id="faceVaultImportBtn" type="button">📂 暗号化TXTを復元</button>
+        <button class="ctrl-btn" id="faceVaultDeleteBtn" type="button">🗑 保存データを削除</button>
+        <input id="faceVaultImportFile" type="file" accept=".txt,.json,text/plain,application/json" hidden>
+      </div>
+      <div class="row" style="margin-top:8px;flex-wrap:wrap;gap:8px">
+        <button class="ctrl-btn" id="faceVaultPersistBtn" type="button">🛡️ 永続ストレージを申請</button>
+        <button class="ctrl-btn" id="faceVaultStatusBtn" type="button">状態を確認</button>
+      </div>
+      <div class="help" id="faceVaultStatus" role="status" aria-live="polite" style="margin-top:8px">暗号化データの状態を確認しています…</div>
+      <div class="help" style="margin-top:6px">重要：パスフレーズは保存しません。暗号化TXTは別の安全な場所にも保管してください。ブラウザーの「サイトデータをすべて削除」やプロファイル削除後の復元は、外部バックアップがないとできません。永続ストレージは対応ブラウザーが許可した場合のみ有効です。</div>
     </div>
 
     <div class="settings-section">
@@ -8164,7 +8186,7 @@ window.superEmulatorMemoryProfile = function(){
  async function tx(mode,fn){const db=await openDB();return new Promise((resolve,reject)=>{const t=db.transaction(STORE,mode),s=t.objectStore(STORE);let req;try{req=fn(s);}catch(e){db.close();reject(e);return;}if(req){req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error||new Error('IndexedDB処理に失敗'));}else{t.oncomplete=()=>resolve(true);t.onerror=()=>reject(t.error||new Error('IndexedDB処理に失敗'));}t.oncomplete=()=>{db.close();resolve(req?req.result:true);};t.onerror=()=>{db.close();reject(t.error||new Error('IndexedDB処理に失敗'));};});}
  async function readRecord(){return await tx('readonly',s=>s.get(KEY));}
  function emu(){return window.emulator||null;}
- function currentMeta(){return {savedAt:new Date().toISOString(),appBuild:'2026.10.14.2',os:(window.currentOSConfig&&window.currentOSConfig.key)||localStorage.getItem('superEmulator.lastOS')||'unknown',osName:(window.currentOSConfig&&window.currentOSConfig.name)||'',memory:window.currentOSConfig&&window.currentOSConfig.memory||null,acpi:window.currentOSConfig&&window.currentOSConfig.acpi,isoName:document.getElementById('isoStatus')?.textContent||'',diskName:document.getElementById('diskStatus')?.textContent||''};}
+ function currentMeta(){return {savedAt:new Date().toISOString(),appBuild:'2026.10.14.3',os:(window.currentOSConfig&&window.currentOSConfig.key)||localStorage.getItem('superEmulator.lastOS')||'unknown',osName:(window.currentOSConfig&&window.currentOSConfig.name)||'',memory:window.currentOSConfig&&window.currentOSConfig.memory||null,acpi:window.currentOSConfig&&window.currentOSConfig.acpi,isoName:document.getElementById('isoStatus')?.textContent||'',diskName:document.getElementById('diskStatus')?.textContent||''};}
  function callSave(e){
    if(!e||typeof e.save_state!=='function')return Promise.reject(new Error('現在のv86はsave_state()を公開していません。libv86.jsを確認してください.'));
    // Current v86 returns Promise<ArrayBuffer>; older builds use save_state(callback).
@@ -8211,8 +8233,8 @@ window.superEmulatorMemoryProfile = function(){
 <script id="superEmulator-github-updater">
 (function(){
   'use strict';
-  const BUILD='2026.10.14.2';
-  const SOURCE_HASH='618a7213c28b22da6af3067c17b7c68d841be49e1589b4f847d01aaa11b01112';
+  const BUILD='2026.10.14.3';
+  const SOURCE_HASH='6f86f4a443a773a38b63f551fd20cf40fc2d4fae9e80f4d5e60858b2f8874c4b';
   const HASH_ZERO='0'.repeat(64);
   async function sha256Hex(text){const bytes=new TextEncoder().encode(text);const digest=await crypto.subtle.digest('SHA-256',bytes);return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');}
   function normalizeSource(html){return String(html).replace(/SUPEREMULATOR_SOURCE_SHA256:\s*[a-f0-9]{64}/ig,'SUPEREMULATOR_SOURCE_SHA256: '+HASH_ZERO).replace(/const SOURCE_HASH='[a-f0-9]{64}';/g,"const SOURCE_HASH='"+HASH_ZERO+"';");}
@@ -8309,4 +8331,40 @@ window.superEmulatorMemoryProfile = function(){
   }catch(_){}
 })();
 </script>
+
+<script>
+/* superEmulator FaceVault v1 — AES-256-GCM encrypted local vault. */
+(()=>{
+  'use strict';
+  const DB_NAME='superEmulatorFaceVaultDB', STORE='vault', KEY='encrypted-face-features';
+  const ITERATIONS=310000, VERSION='superEmulator-facevault-v1';
+  const $=id=>document.getElementById(id);
+  const status=$('faceVaultStatus');
+  if(!status) return;
+  const say=(message, error=false)=>{status.textContent=message;status.style.color=error?'#ff8f8f':'';};
+  const enc=new TextEncoder();
+  const toB64=bytes=>{let bin='';for(let i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode(...bytes.subarray(i,i+0x8000));return btoa(bin);};
+  const fromB64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+  const random=n=>crypto.getRandomValues(new Uint8Array(n));
+  function openDB(){return new Promise((resolve,reject)=>{const req=indexedDB.open(DB_NAME,1);req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains(STORE))req.result.createObjectStore(STORE);};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error||new Error('IndexedDBを開けません'));});}
+  async function put(value){const db=await openDB();try{await new Promise((resolve,reject)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put(value,KEY);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error('保存処理が中断されました'));});}finally{db.close();}}
+  async function get(){const db=await openDB();try{return await new Promise((resolve,reject)=>{const req=db.transaction(STORE,'readonly').objectStore(STORE).get(KEY);req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error);});}finally{db.close();}}
+  async function remove(){const db=await openDB();try{await new Promise((resolve,reject)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).delete(KEY);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});}finally{db.close();}}
+  async function deriveKey(passphrase,salt){if(!crypto.subtle)throw new Error('Web Cryptoが利用できません。HTTPSまたは対応環境で開いてください。');const material=await crypto.subtle.importKey('raw',enc.encode(passphrase),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:ITERATIONS,hash:'SHA-256'},material,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);}
+  async function encryptPayload(payload,passphrase){const salt=random(16),iv=random(12),key=await deriveKey(passphrase,salt);const plain=enc.encode(JSON.stringify(payload));const cipher=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:enc.encode(VERSION),tagLength:128},key,plain);return {format:VERSION,algorithm:'AES-256-GCM',kdf:'PBKDF2-SHA-256',iterations:ITERATIONS,salt:toB64(salt),iv:toB64(iv),ciphertext:toB64(new Uint8Array(cipher)),createdAt:new Date().toISOString()};}
+  async function decryptPayload(blob,passphrase){if(!blob||blob.format!==VERSION||blob.algorithm!=='AES-256-GCM'||blob.kdf!=='PBKDF2-SHA-256')throw new Error('対応していない暗号化TXTです');if(blob.iterations!==ITERATIONS)throw new Error('鍵導出設定が一致しません');const key=await deriveKey(passphrase,fromB64(blob.salt));const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:fromB64(blob.iv),additionalData:enc.encode(VERSION),tagLength:128},key,fromB64(blob.ciphertext));return JSON.parse(new TextDecoder().decode(plain));}
+  function passphrase(){const value=$('faceVaultPassphrase').value;if(value.length<12)throw new Error('パスフレーズは12文字以上にしてください');return value;}
+  function downloadText(filename,text){const blob=new Blob([text],{type:'text/plain;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+  async function refresh(){try{const data=await get();let persisted='未確認';try{persisted=navigator.storage&&navigator.storage.persisted?(await navigator.storage.persisted()?'許可済み':'未許可'):'非対応';}catch(_){}let usage='';try{if(navigator.storage&&navigator.storage.estimate){const e=await navigator.storage.estimate();usage=` / 使用量 ${Math.round((e.usage||0)/1024/1024)} MB`;}}catch(_){}say(`暗号化ボルト: ${data?'保存済み':'未保存'} / 永続ストレージ: ${persisted}${usage}`);}catch(e){say('状態確認に失敗: '+(e.message||e),true);}}
+  $('faceVaultEncryptSaveBtn').addEventListener('click',async()=>{try{const p=passphrase();const raw=$('faceVaultFeatureJson').value.trim();if(!raw)throw new Error('特徴データJSONを入力するか、対応するローカル認証モジュールを接続してください');let parsed;try{parsed=JSON.parse(raw);}catch(_){throw new Error('特徴データは正しいJSON形式で入力してください');}if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))throw new Error('特徴データJSONはオブジェクト形式にしてください');const encrypted=await encryptPayload({kind:'face-feature-data',data:parsed,createdAt:new Date().toISOString()},p);await put(encrypted);$('faceVaultFeatureJson').value='';say('暗号化してIndexedDBに保存しました。入力欄の平文データは消去しました。');await refresh();}catch(e){say('保存できません: '+(e.message||e),true);}});
+  $('faceVaultExportBtn').addEventListener('click',async()=>{try{const p=passphrase();const blob=await get();if(!blob)throw new Error('保存済みデータがありません');await decryptPayload(blob,p);downloadText('superEmulator_facevault_encrypted.txt',JSON.stringify(blob,null,2));say('復号確認に成功しました。暗号化TXTを出力しました。');}catch(e){say('書き出せません: パスフレーズまたは保存データを確認してください。詳細: '+(e.message||e),true);}});
+  $('faceVaultImportBtn').addEventListener('click',()=>{$('faceVaultImportFile').click();});
+  $('faceVaultImportFile').addEventListener('change',async ev=>{try{const file=ev.target.files&&ev.target.files[0];if(!file)return;const p=passphrase();const blob=JSON.parse(await file.text());const payload=await decryptPayload(blob,p);if(!payload||payload.kind!=='face-feature-data'||!payload.data)throw new Error('このファイルに顔特徴データは含まれていません');await put(blob);say('暗号化TXTを検証してIndexedDBへ復元しました。特徴データは平文保存していません。');}catch(e){say('復元できません: '+(e.message||e),true);}finally{ev.target.value='';}});
+  $('faceVaultDeleteBtn').addEventListener('click',async()=>{if(!confirm('IndexedDBに保存した暗号化された顔特徴データを削除しますか？外部バックアップは削除されません。'))return;try{await remove();say('ローカルの暗号化データを削除しました。');}catch(e){say('削除できません: '+(e.message||e),true);}await refresh();});
+  $('faceVaultPersistBtn').addEventListener('click',async()=>{try{if(!navigator.storage||!navigator.storage.persist)throw new Error('このブラウザーは永続ストレージ申請に対応していません');const ok=await navigator.storage.persist();say(ok?'永続ストレージが許可されました。ユーザーがサイトデータを削除した場合は消えることがあります。':'永続ストレージは許可されませんでした。暗号化TXTを別途バックアップしてください。',!ok);await refresh();}catch(e){say('申請できません: '+(e.message||e),true);}});
+  $('faceVaultStatusBtn').addEventListener('click',refresh);
+  refresh();
+})();
+</script>
+
 </html>
