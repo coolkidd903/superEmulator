@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<!-- SUPEREMULATOR_BUILD: 2026.10.14.1 -->
+<!-- SUPEREMULATOR_BUILD: 2026.10.14.2 -->
+<!-- SUPEREMULATOR_SOURCE_SHA256: 618a7213c28b22da6af3067c17b7c68d841be49e1589b4f847d01aaa11b01112 -->
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -1738,6 +1739,17 @@ body[data-se-theme="custom"]{--se-glass:blur(14px)}
       <div style="height:8px"></div><button class="ctrl-btn" id="clearLogs">ログ消去</button>
       <div style="height:8px"></div><textarea class="debug-output" id="debugInfo" readonly>診断情報はここに表示されます。</textarea>
       <div style="height:8px"></div><button class="ctrl-btn" id="refreshDebugInfo">診断情報を更新</button>
+      <div class="setting-card" id="superEmulatorPersistentStateCard" style="margin-top:12px">
+        <strong>💾 OS状態の保存・復元（ページを閉じても保持）</strong>
+        <div class="help" style="margin:6px 0 8px">v86のセーブステートをブラウザーのIndexedDBに保存します。Windowsのインストール後に保存すれば、ページを再読み込み・終了した後も、同じISO／HDDイメージ／RAMなどでエミュレーターを起動してから復元できます。状態データは大きくなることがあるため、自動保存ではなく手動保存です。</div>
+        <div class="row" style="flex-wrap:wrap;gap:8px">
+          <button class="ctrl-btn primary" id="superEmulatorSaveStateBtn" type="button">💾 現在のOS状態を保存</button>
+          <button class="ctrl-btn" id="superEmulatorRestoreStateBtn" type="button">↩ 保存状態を復元</button>
+          <button class="ctrl-btn" id="superEmulatorDeleteStateBtn" type="button">🗑 保存状態を削除</button>
+        </div>
+        <div class="help" id="superEmulatorStateStatus" role="status" aria-live="polite" style="margin-top:8px">保存状態を確認しています…</div>
+        <div class="help" style="margin-top:6px">注意：復元時は、保存時と同じv86ビルド・OS設定・起動メディア構成を使ってください。ブラウザーのデータ削除やストレージ容量不足で消える可能性があります。大きな状態の保存には時間と空き容量が必要です。</div>
+      </div>
       <div class="setting-card" id="superEmulatorUpdaterCard" style="margin-top:12px">
         <strong>🔄 GitHub更新・修正パッチ</strong>
         <div class="help" style="margin:6px 0 8px">GitHub Pagesで公開している同じページの更新を確認します。更新が見つかったら、保存済み設定を維持してページを再読み込みします。ローカルの file:// で開いたHTMLは自動更新できません。</div>
@@ -1747,7 +1759,7 @@ body[data-se-theme="custom"]{--se-glass:blur(14px)}
           <button class="ctrl-btn" id="superEmulatorCheckUpdateBtn" type="button">更新を確認</button>
           <button class="ctrl-btn primary" id="superEmulatorApplyPatchBtn" type="button" disabled>修正パッチを適用して再起動</button>
         </div>
-        <div class="help" id="superEmulatorUpdateStatus" role="status" aria-live="polite" style="margin-top:8px">現在のビルド: 2026.10.14.1 / 未確認</div>
+        <div class="help" id="superEmulatorUpdateStatus" role="status" aria-live="polite" style="margin-top:8px">現在のビルド: 2026.10.14.2 / 未確認</div>
       </div>
       <div class="setting-card" style="margin-top:12px">
         <strong>🧠 CPU / ハング診断</strong>
@@ -8140,10 +8152,70 @@ window.superEmulatorMemoryProfile = function(){
 </script>
 <!-- superEmulator keyboard/fullscreen debug build: 2026-10-09 -->
 
+<script id="superEmulator-persistent-state">
+(function(){
+ 'use strict';
+ const DB='superEmulatorPersistentStateDB', STORE='states', KEY='main';
+ const $=id=>document.getElementById(id);
+ const saveBtn=$('superEmulatorSaveStateBtn'), restoreBtn=$('superEmulatorRestoreStateBtn'), deleteBtn=$('superEmulatorDeleteStateBtn'), status=$('superEmulatorStateStatus');
+ if(!saveBtn||!restoreBtn||!deleteBtn||!status)return;
+ function say(msg,error){status.textContent=msg;status.style.color=error?'#ff8f8f':'';}
+ function openDB(){return new Promise((resolve,reject)=>{const r=indexedDB.open(DB,1);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains(STORE))r.result.createObjectStore(STORE);};r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error||new Error('IndexedDBを開けません'));});}
+ async function tx(mode,fn){const db=await openDB();return new Promise((resolve,reject)=>{const t=db.transaction(STORE,mode),s=t.objectStore(STORE);let req;try{req=fn(s);}catch(e){db.close();reject(e);return;}if(req){req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error||new Error('IndexedDB処理に失敗'));}else{t.oncomplete=()=>resolve(true);t.onerror=()=>reject(t.error||new Error('IndexedDB処理に失敗'));}t.oncomplete=()=>{db.close();resolve(req?req.result:true);};t.onerror=()=>{db.close();reject(t.error||new Error('IndexedDB処理に失敗'));};});}
+ async function readRecord(){return await tx('readonly',s=>s.get(KEY));}
+ function emu(){return window.emulator||null;}
+ function currentMeta(){return {savedAt:new Date().toISOString(),appBuild:'2026.10.14.2',os:(window.currentOSConfig&&window.currentOSConfig.key)||localStorage.getItem('superEmulator.lastOS')||'unknown',osName:(window.currentOSConfig&&window.currentOSConfig.name)||'',memory:window.currentOSConfig&&window.currentOSConfig.memory||null,acpi:window.currentOSConfig&&window.currentOSConfig.acpi,isoName:document.getElementById('isoStatus')?.textContent||'',diskName:document.getElementById('diskStatus')?.textContent||''};}
+ function callSave(e){
+   if(!e||typeof e.save_state!=='function')return Promise.reject(new Error('現在のv86はsave_state()を公開していません。libv86.jsを確認してください.'));
+   // Current v86 returns Promise<ArrayBuffer>; older builds use save_state(callback).
+   if(e.save_state.length>0){return new Promise((resolve,reject)=>{try{e.save_state((err,state)=>err?reject(err):resolve(state));}catch(err){reject(err);}});}
+   try{const r=e.save_state();if(r&&typeof r.then==='function')return r;if(r instanceof ArrayBuffer||r instanceof Uint8Array)return Promise.resolve(r);return Promise.reject(new Error('save_state()の戻り値がありません。v86 API互換性を確認してください。'));}catch(err){return Promise.reject(err);}
+ }
+ function formatBytes(n){if(!Number.isFinite(n))return String(n);const u=['B','KB','MB','GB','TB'];let i=0,v=n;while(v>=1024&&i<u.length-1){v/=1024;i++;}return v.toFixed(i?2:0)+' '+u[i];}
+ async function refresh(){try{const r=await readRecord();if(r&&r.state) say('保存済み状態あり：'+formatBytes(r.state.byteLength)+' / '+(r.meta?.savedAt||'保存日時不明')+'。同じ構成で起動してから復元できます。');else say('保存済み状態はありません。');}catch(e){say('保存状態の確認に失敗：'+(e.message||e),true);}}
+ saveBtn.addEventListener('click',async()=>{
+   const e=emu();if(!e){say('先にOSを起動してください。',true);return;}
+   if(typeof e.save_state!=='function'){say('このlibv86.jsはsave_state()非対応です。対応版v86が必要です。',true);return;}
+   saveBtn.disabled=true;restoreBtn.disabled=true;deleteBtn.disabled=true;say('OS状態を取得中…RAM容量によっては数分かかります。ページを閉じないでください。');
+   try{
+     if(navigator.storage?.estimate){const q=await navigator.storage.estimate();if(q.quota&&q.usage!=null&&q.quota-q.usage<128*1024*1024)throw new Error('ブラウザーの空き容量が少なすぎます（空き '+formatBytes(q.quota-q.usage)+'）。');}
+     const state=await callSave(e);if(!(state instanceof ArrayBuffer)&&!(state instanceof Uint8Array))throw new Error('save_state()が有効な状態データを返しませんでした。');
+     const buffer=state instanceof ArrayBuffer?state:state.buffer.slice(state.byteOffset,state.byteOffset+state.byteLength);
+     await tx('readwrite',s=>s.put({state:buffer,meta:currentMeta()},KEY));
+     say('OS状態を保存しました：'+formatBytes(buffer.byteLength)+'。ページを閉じてもブラウザー内に保存されます。');
+     if(typeof window.log==='function')window.log('OSセーブステート保存完了: '+formatBytes(buffer.byteLength),'OK');
+   }catch(err){say('保存に失敗：'+(err?.message||err)+'。ストレージ容量またはv86 APIを確認してください。',true);}
+   finally{saveBtn.disabled=false;restoreBtn.disabled=false;deleteBtn.disabled=false;}
+ });
+ restoreBtn.addEventListener('click',async()=>{
+   const e=emu();if(!e){say('先に保存時と同じISO／HDD／RAM設定でOSを起動してください。',true);return;}
+   if(typeof e.restore_state!=='function'){say('このlibv86.jsはrestore_state()非対応です。',true);return;}
+   restoreBtn.disabled=true;saveBtn.disabled=true;deleteBtn.disabled=true;say('保存状態を読み込み中…');
+   try{
+     const r=await readRecord();if(!r||!r.state)throw new Error('保存済み状態がありません。');
+     const meta=r.meta||{};const now=currentMeta();
+     if(meta.os&&now.os&&meta.os!=='unknown'&&now.os!=='unknown'&&meta.os!==now.os)throw new Error('保存時と現在のOS設定が異なります（保存時 '+meta.os+' / 現在 '+now.os+'）。');
+     if(!confirm('保存状態を復元します。現在の実行状態は置き換わります。保存時と同じISO・HDDイメージ・RAM・v86ビルドで起動していますか？'))return;
+     if(typeof e.stop==='function')await e.stop();
+     await e.restore_state(r.state);
+     if(typeof e.run==='function')await e.run();
+     say('保存状態を復元しました。OSが通常どおり動作するか確認してください。');
+     if(typeof window.log==='function')window.log('OSセーブステート復元完了','OK');
+   }catch(err){say('復元に失敗：'+(err?.message||err)+'。保存時と同じ構成か確認してください。',true);}
+   finally{saveBtn.disabled=false;restoreBtn.disabled=false;deleteBtn.disabled=false;}
+ });
+ deleteBtn.addEventListener('click',async()=>{if(!confirm('ブラウザー内に保存したOS状態を削除しますか？'))return;try{await tx('readwrite',s=>s.delete(KEY));say('保存状態を削除しました。');}catch(e){say('削除に失敗：'+(e.message||e),true);}});
+ refresh();
+})();
+</script>
 <script id="superEmulator-github-updater">
 (function(){
   'use strict';
-  const BUILD='2026.10.14.1';
+  const BUILD='2026.10.14.2';
+  const SOURCE_HASH='618a7213c28b22da6af3067c17b7c68d841be49e1589b4f847d01aaa11b01112';
+  const HASH_ZERO='0'.repeat(64);
+  async function sha256Hex(text){const bytes=new TextEncoder().encode(text);const digest=await crypto.subtle.digest('SHA-256',bytes);return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');}
+  function normalizeSource(html){return String(html).replace(/SUPEREMULATOR_SOURCE_SHA256:\s*[a-f0-9]{64}/ig,'SUPEREMULATOR_SOURCE_SHA256: '+HASH_ZERO).replace(/const SOURCE_HASH='[a-f0-9]{64}';/g,"const SOURCE_HASH='"+HASH_ZERO+"';");}
   const $=id=>document.getElementById(id);
   const urlInput=$('superEmulatorUpdateUrl');
   const checkBtn=$('superEmulatorCheckUpdateBtn');
@@ -8158,11 +8230,12 @@ window.superEmulatorMemoryProfile = function(){
   } catch(_) {}
   urlInput.addEventListener('change',()=>{try{localStorage.setItem(KEY,urlInput.value.trim());}catch(_){} applyBtn.disabled=true;});
   let foundVersion='';
+  let foundContentChanged=false;
   function say(msg,isError=false){status.textContent=msg;status.style.color=isError?'#ff9b9b':'';}
   function versionTuple(v){return String(v||'').split('.').map(x=>Number.parseInt(x,10)||0);}
   function isNewer(a,b){const aa=versionTuple(a),bb=versionTuple(b);for(let i=0;i<Math.max(aa.length,bb.length);i++){const x=aa[i]||0,y=bb[i]||0;if(x!==y)return x>y;}return false;}
   checkBtn.addEventListener('click',async()=>{
-    applyBtn.disabled=true; foundVersion='';
+    applyBtn.disabled=true; foundVersion=''; foundContentChanged=false;
     const raw=urlInput.value.trim();
     if(!raw){say('更新元URLを入力してください。GitHub Pages上で公開した同じHTMLのURLが必要です。',true);return;}
     let url;
@@ -8177,18 +8250,24 @@ window.superEmulatorMemoryProfile = function(){
       if(!response.ok)throw new Error('HTTP '+response.status+'（URLまたは公開設定を確認）');
       const html=await response.text();
       const match=html.match(/SUPEREMULATOR_BUILD:\s*([0-9]+(?:\.[0-9]+)*)/i);
-      if(!match){say('更新元は取得できましたが、ビルド番号がありません。GitHub側HTMLの先頭に <!-- SUPEREMULATOR_BUILD: 2026.10.14.2 --> のような番号を追加してください。',true);return;}
+      if(!match){say('更新元は取得できましたが、ビルド番号がありません。HTML先頭にSUPEREMULATOR_BUILDを追加してください。',true);return;}
       const remote=match[1];
-      if(isNewer(remote,BUILD)){
-        foundVersion=remote;applyBtn.disabled=false;
-        say('更新あり：現在 '+BUILD+' → GitHub '+remote+'。適用ボタンで保存済み設定を維持して再読み込みできます。');
-      }else if(remote===BUILD){say('最新です（ビルド '+BUILD+'）。修正パッチはありません。');}
-      else{say('更新元のビルド '+remote+' は現在の '+BUILD+' より古いか同じです。適用しません。',remote!==BUILD);}
+      const remoteHashMatch=html.match(/SUPEREMULATOR_SOURCE_SHA256:\s*([a-f0-9]{64})/i);
+      let remoteHash=remoteHashMatch?remoteHashMatch[1].toLowerCase():'';
+      // Also hash the actual fetched source, so content edits are detected even when BUILD was not incremented.
+      let actualHash='';
+      try{actualHash=await sha256Hex(normalizeSource(html));}catch(_){}
+      const contentChanged=!!((remoteHash && remoteHash!==SOURCE_HASH.toLowerCase()) || (actualHash && actualHash!==SOURCE_HASH.toLowerCase()));
+      if(isNewer(remote,BUILD) || contentChanged){
+        foundVersion=remote;foundContentChanged=contentChanged;applyBtn.disabled=false;
+        say('更新あり：ビルド '+BUILD+' → '+remote+(contentChanged?'（ビルド番号が同じでもHTML内容の差分を検出）':'')+'。設定を維持して再読み込みできます。');
+      }else if(remote===BUILD){say('最新です（ビルド '+BUILD+'、HTML指紋一致）。修正パッチはありません。');}
+      else{say('更新元のビルド '+remote+' は現在の '+BUILD+' より古く、HTML内容も一致しています。適用しません。',true);}
     }catch(e){say('更新確認に失敗: '+(e.message||e)+'。GitHub PagesのURL、公開状態、ネットワーク/CORSを確認してください。',true);}
     finally{checkBtn.disabled=false;}
   });
   applyBtn.addEventListener('click',()=>{
-    if(!foundVersion||!isNewer(foundVersion,BUILD))return;
+    if(!foundVersion||(!isNewer(foundVersion,BUILD)&&!foundContentChanged))return;
     const raw=urlInput.value.trim();
     let updateUrl;
     try{updateUrl=new URL(raw,location.href);}catch(_){say('更新元URLが正しくありません。',true);return;}
