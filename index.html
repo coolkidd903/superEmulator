@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- SUPEREMULATOR_BUILD: 2026.10.14.1 -->
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -1685,6 +1686,17 @@ button, input, select, label, a, [role="button"] { pointer-events:auto !importan
       <div style="height:8px"></div><button class="ctrl-btn" id="clearLogs">ログ消去</button>
       <div style="height:8px"></div><textarea class="debug-output" id="debugInfo" readonly>診断情報はここに表示されます。</textarea>
       <div style="height:8px"></div><button class="ctrl-btn" id="refreshDebugInfo">診断情報を更新</button>
+      <div class="setting-card" id="superEmulatorUpdaterCard" style="margin-top:12px">
+        <strong>🔄 GitHub更新・修正パッチ</strong>
+        <div class="help" style="margin:6px 0 8px">GitHub Pagesで公開している同じページの更新を確認します。更新が見つかったら、保存済み設定を維持してページを再読み込みします。ローカルの file:// で開いたHTMLは自動更新できません。</div>
+        <label for="superEmulatorUpdateUrl">更新確認URL（GitHub PagesのこのHTML）</label>
+        <input class="field" id="superEmulatorUpdateUrl" type="url" placeholder="https://ユーザー名.github.io/リポジトリ/" style="margin-top:5px">
+        <div class="row" style="margin-top:8px;flex-wrap:wrap">
+          <button class="ctrl-btn" id="superEmulatorCheckUpdateBtn" type="button">更新を確認</button>
+          <button class="ctrl-btn primary" id="superEmulatorApplyPatchBtn" type="button" disabled>修正パッチを適用して再起動</button>
+        </div>
+        <div class="help" id="superEmulatorUpdateStatus" role="status" aria-live="polite" style="margin-top:8px">現在のビルド: 2026.10.14.1 / 未確認</div>
+      </div>
       <div class="setting-card" style="margin-top:12px">
         <strong>🧠 CPU / ハング診断</strong>
         <div class="help" style="margin:6px 0 8px">v86が公開する命令カウンターを時間差で確認し、ゲストCPUが進行しているかを診断します。命令トレースやレジスタ、CRx/MSR、トリプルフォールトの直接検出は公開APIだけでは取得できません。</div>
@@ -8035,4 +8047,95 @@ window.superEmulatorMemoryProfile = function(){
 })();
 </script>
 <!-- superEmulator keyboard/fullscreen debug build: 2026-10-09 -->
+
+<script id="superEmulator-github-updater">
+(function(){
+  'use strict';
+  const BUILD='2026.10.14.1';
+  const $=id=>document.getElementById(id);
+  const urlInput=$('superEmulatorUpdateUrl');
+  const checkBtn=$('superEmulatorCheckUpdateBtn');
+  const applyBtn=$('superEmulatorApplyPatchBtn');
+  const status=$('superEmulatorUpdateStatus');
+  if(!urlInput||!checkBtn||!applyBtn||!status) return;
+  const KEY='superEmulator.githubUpdateUrl';
+  const PENDING='superEmulator.pendingUpdateReload';
+  try {
+    const saved=localStorage.getItem(KEY);
+    urlInput.value=saved || ((location.protocol==='http:'||location.protocol==='https:') ? location.href.split('#')[0] : '');
+  } catch(_) {}
+  urlInput.addEventListener('change',()=>{try{localStorage.setItem(KEY,urlInput.value.trim());}catch(_){} applyBtn.disabled=true;});
+  let foundVersion='';
+  function say(msg,isError=false){status.textContent=msg;status.style.color=isError?'#ff9b9b':'';}
+  function versionTuple(v){return String(v||'').split('.').map(x=>Number.parseInt(x,10)||0);}
+  function isNewer(a,b){const aa=versionTuple(a),bb=versionTuple(b);for(let i=0;i<Math.max(aa.length,bb.length);i++){const x=aa[i]||0,y=bb[i]||0;if(x!==y)return x>y;}return false;}
+  checkBtn.addEventListener('click',async()=>{
+    applyBtn.disabled=true; foundVersion='';
+    const raw=urlInput.value.trim();
+    if(!raw){say('更新元URLを入力してください。GitHub Pages上で公開した同じHTMLのURLが必要です。',true);return;}
+    let url;
+    try{url=new URL(raw,location.href);if(!['http:','https:'].includes(url.protocol))throw new Error('HTTP/HTTPS URLが必要です');}
+    catch(e){say('URLを確認してください: '+(e.message||e),true);return;}
+    try{localStorage.setItem(KEY,url.href);}catch(_){}
+    if(location.protocol==='file:'){say('file:// からは更新を適用できません。GitHub Pages上のページを開いてから確認してください。',true);return;}
+    checkBtn.disabled=true;say('GitHub上の更新を確認中…');
+    try{
+      const checkUrl=new URL(url.href);checkUrl.searchParams.set('_superEmulatorUpdateCheck',String(Date.now()));
+      const response=await fetch(checkUrl.href,{cache:'no-store',credentials:'omit'});
+      if(!response.ok)throw new Error('HTTP '+response.status+'（URLまたは公開設定を確認）');
+      const html=await response.text();
+      const match=html.match(/SUPEREMULATOR_BUILD:\s*([0-9]+(?:\.[0-9]+)*)/i);
+      if(!match){say('更新元は取得できましたが、ビルド番号がありません。GitHub側HTMLの先頭に <!-- SUPEREMULATOR_BUILD: 2026.10.14.2 --> のような番号を追加してください。',true);return;}
+      const remote=match[1];
+      if(isNewer(remote,BUILD)){
+        foundVersion=remote;applyBtn.disabled=false;
+        say('更新あり：現在 '+BUILD+' → GitHub '+remote+'。適用ボタンで保存済み設定を維持して再読み込みできます。');
+      }else if(remote===BUILD){say('最新です（ビルド '+BUILD+'）。修正パッチはありません。');}
+      else{say('更新元のビルド '+remote+' は現在の '+BUILD+' より古いか同じです。適用しません。',remote!==BUILD);}
+    }catch(e){say('更新確認に失敗: '+(e.message||e)+'。GitHub PagesのURL、公開状態、ネットワーク/CORSを確認してください。',true);}
+    finally{checkBtn.disabled=false;}
+  });
+  applyBtn.addEventListener('click',()=>{
+    if(!foundVersion||!isNewer(foundVersion,BUILD))return;
+    const raw=urlInput.value.trim();
+    let updateUrl;
+    try{updateUrl=new URL(raw,location.href);}catch(_){say('更新元URLが正しくありません。',true);return;}
+    const current=new URL(location.href);
+    // A different URL cannot safely replace this page's executable HTML; require the deployed page itself.
+    if(updateUrl.origin!==current.origin || updateUrl.pathname!==current.pathname){
+      say('更新元URLと現在のページURLが異なります。GitHub PagesでこのHTMLを公開し、そのページ自身から確認・適用してください。',true);return;
+    }
+    try{
+      const snapshot={savedAt:Date.now(),build:BUILD,controls:{}};
+      document.querySelectorAll('input[id],select[id],textarea[id]').forEach(el=>{
+        if(el.type==='file'||el.type==='password')return;
+        if(el.type==='checkbox'||el.type==='radio')snapshot.controls[el.id]={type:el.type,checked:el.checked};
+        else snapshot.controls[el.id]={type:el.tagName.toLowerCase(),value:el.value};
+      });
+      sessionStorage.setItem(PENDING,JSON.stringify(snapshot));
+      localStorage.setItem('superEmulator.lastAppliedBuild',foundVersion);
+    }catch(e){say('設定の一時保存に失敗したため、再起動を中止しました: '+(e.message||e),true);return;}
+    say('ビルド '+foundVersion+' を適用するため再読み込みします…');
+    // Bust browser cache; localStorage and sessionStorage remain available.
+    const reloadUrl=new URL(location.href);reloadUrl.searchParams.set('_superEmulatorReload',String(Date.now()));
+    location.replace(reloadUrl.href);
+  });
+  // Restore transient UI control values after a successful reload. Persistent application settings
+  // remain in localStorage; this restores unsaved form selections as a best-effort convenience.
+  try{
+    const raw=sessionStorage.getItem(PENDING);
+    if(raw){
+      sessionStorage.removeItem(PENDING);
+      const snap=JSON.parse(raw);
+      if(snap&&snap.controls){
+        for(const [id,state] of Object.entries(snap.controls)){
+          const el=$(id);if(!el||el.type==='file'||el.type==='password')continue;
+          try{if(state.type==='checkbox'||state.type==='radio')el.checked=!!state.checked;else el.value=state.value;}catch(_){}
+        }
+      }
+      say('再読み込み後：設定フォームの値を復元しました。必要なら保存ボタンで設定を確定してください。');
+    }
+  }catch(_){}
+})();
+</script>
 </html>
