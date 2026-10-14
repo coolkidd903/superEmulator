@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SUPEREMULATOR_BUILD: 2026.10.14.3 -->
+<!-- SUPEREMULATOR_BUILD: 2026.10.15.1 -->
 <!-- SUPEREMULATOR_SOURCE_SHA256: 6f86f4a443a773a38b63f551fd20cf40fc2d4fae9e80f4d5e60858b2f8874c4b -->
 <html lang="ja">
 <head>
@@ -170,15 +170,6 @@ button{
 
 .primary-btn:hover{
   transform:translateY(-2px);
-}
-
-.microsoft-btn{
-  border:1px solid rgba(255,255,255,.16);
-  background:#fff;
-  color:#111;
-  padding:15px 25px;
-  border-radius:14px;
-  font-weight:800;
 }
 
 .scroll-hint{
@@ -694,7 +685,6 @@ body.super-os-fullscreen #app #screen canvas{ display:block !important; max-widt
 button,
 .ctrl-btn,
 .primary-btn,
-.microsoft-btn,
 .side-btn,
 .sidebar-close{
   -webkit-tap-highlight-color:transparent;
@@ -710,7 +700,6 @@ button,
 
 .ctrl-btn,
 .primary-btn,
-.microsoft-btn,
 .side-btn,
 .sidebar-close{
   position:relative;
@@ -946,10 +935,7 @@ progress{
     padding:0 15px;
   }
 
-  .landing-nav .microsoft-btn{
-    display:none;
-  }
-}
+  .landing-nav }
 
 /* MODAL */
 
@@ -1117,9 +1103,6 @@ body[data-se-theme="custom"]{--se-glass:blur(14px)}
     </div>
 
     <div class="nav-right">
-      <button class="microsoft-btn" id="landingMicrosoft">
-        Microsoftでログイン
-      </button>
 
       <button class="primary-btn" id="landingStart">
         無料で始める
@@ -1151,10 +1134,6 @@ body[data-se-theme="custom"]{--se-glass:blur(14px)}
       <div class="hero-actions">
         <button class="primary-btn" id="heroStart">
           🆓 無料で始める
-        </button>
-
-        <button class="microsoft-btn" id="heroMicrosoft">
-          Microsoftでログイン
         </button>
       </div>
 
@@ -1280,43 +1259,15 @@ body[data-se-theme="custom"]{--se-glass:blur(14px)}
     </div>
   </section>
 
-  <section class="landing-section">
+  <section class="landing-section" id="coreSystemLandingSection">
     <div class="section-inner">
-
-      <h2 class="section-title">Debug Linux</h2>
-
-      <p class="section-subtitle">
-        開発用に
-        <code>./debug-linux/debian.iso</code>
-        を置けば、専用のLinuxデバッグ環境として起動できます。
-      </p>
-
-      <div class="feature-card" style="margin-top:30px">
-
-        <h3>推奨フォルダ構成</h3>
-
-        <pre style="
-          overflow:auto;
-          color:#9fc9ff;
-          background:#05070a;
-          padding:18px;
-          border-radius:12px;
-        ">superEmulator/
-├─ index.html
-├─ libv86.js
-├─ v86.wasm
-├─ seabios.bin
-├─ vgabios.bin
-└─ debug-linux/
-   └─ debian.iso</pre>
-
-        <p style="margin-top:15px">
-          GitHub Pagesでは大きなISOをそのまま置けない場合があるため、
-          その場合はISOアップロード機能を使用できます。
-        </p>
-
+      <h2 class="section-title">superEmulator Core System</h2>
+      <p class="section-subtitle">エミュレーター本体を管理する、サイト内蔵の小型GUIコアシステム。ゲストOSとは独立した管理環境です。</p>
+      <div class="feature-card" style="margin-top:24px;max-width:760px">
+        <h3>🧩 Core System GUI</h3>
+        <p>システム状態、仮想デバイス、サイトパラメータ、保存領域、ログをまとめて管理します。Linuxデバッグ用ファイルは互換性と資産保全のため保持しますが、ここから自動起動しません。</p>
+        <button class="primary-btn" id="launchCoreSystemLanding" type="button">🖥️ コアシステムを起動</button>
       </div>
-
     </div>
   </section>
 
@@ -1515,7 +1466,7 @@ body[data-se-theme="custom"]{--se-glass:blur(14px)}
 
         <div class="panel">
           <h3>⚙️ 詳細設定</h3>
-          <div class="help" style="margin-bottom:10px">デバッグ、ログ、Debug Linux、修復、画面倍率は設定にまとめています。</div>
+          <div class="help" style="margin-bottom:10px">デバッグ、ログ、コアシステム、修復、画面倍率は設定にまとめています。</div>
           <button class="ctrl-btn primary" id="openSettingsMain">設定を開く</button>
         </div>
 
@@ -1719,13 +1670,10 @@ body[data-se-theme="custom"]{--se-glass:blur(14px)}
       <div id="memoryImageStatus" class="help" style="margin-top:8px">未接続</div>
       <div class="help" style="margin-top:8px">※これは実RAMそのものを保存する巨大な.imgではなく、起動RAM容量を記録した小さなプロファイルです。実際のRAMはv86が起動時に確保します。</div>
     </div>
-
-    <div class="settings-section">
-      <h3>🐧 Debug Linux</h3>
-      <div class="help" style="margin-bottom:9px">標準パス: <code>./debug-linux/debian.iso</code></div>
-      <button class="ctrl-btn" id="debugPathBtn">Debug Linuxを読み込む</button>
-      <div style="height:8px"></div><input class="field" id="debugIsoFile" type="file" accept=".iso,.img,.bin">
-      <button class="ctrl-btn" id="debugUploadBtn">選択ISOでDebug Linux</button>
+    <div class="settings-section" id="coreSystemSettingsLaunch">
+      <h3>🧩 コアシステム</h3>
+      <div class="help" style="margin-bottom:9px">Linuxデバッグ環境の代わりに、サイト内蔵の管理GUIを起動します。debug-linux以下のファイルは削除しません。</div>
+      <button class="ctrl-btn primary" id="launchCoreSystemSettings" type="button">🖥️ コアシステムを起動</button>
     </div>
 
     <div class="settings-section">
@@ -1759,7 +1707,7 @@ body[data-se-theme="custom"]{--se-glass:blur(14px)}
           <button class="ctrl-btn" id="superEmulatorCheckUpdateBtn" type="button">更新を確認</button>
           <button class="ctrl-btn primary" id="superEmulatorApplyPatchBtn" type="button" disabled>修正パッチを適用して再起動</button>
         </div>
-        <div class="help" id="superEmulatorUpdateStatus" role="status" aria-live="polite" style="margin-top:8px">現在のビルド: 2026.10.14.3 / 未確認</div>
+        <div class="help" id="superEmulatorUpdateStatus" role="status" aria-live="polite" style="margin-top:8px">現在のビルド: 2026.10.15.1 / 未確認</div>
       </div>
       <div class="setting-card" style="margin-top:12px">
         <strong>🧠 CPU / ハング診断</strong>
@@ -1805,6 +1753,13 @@ body[data-se-theme="custom"]{--se-glass:blur(14px)}
     <div class="settings-section" id="siteParametersSection">
       <h3>🗂️ サイトパラメータ（仮想レジストリ）</h3>
       <div class="help" style="margin-bottom:10px">サイト側に保存するキー／値データです。エミュレーター起動時に読み込み、設定オブジェクトとして公開します。実際のWindowsレジストリを直接変更する機能ではありません。ゲストOS内へ反映するには、OS側で読み込めるファイルやドライバーなど別の連携が必要です。</div>
+      <div class="row" style="flex-wrap:wrap;margin-bottom:8px;gap:8px">
+        <label class="label" for="siteParamHiveFilter">ハイブ / ジャンル</label>
+        <select class="field" id="siteParamHiveFilter" style="max-width:240px">
+          <option value="all">すべてのハイブ</option><option value="Boot">Boot</option><option value="System">System</option><option value="Hardware">Hardware</option><option value="Keyboard">Keyboard</option><option value="Media">Media</option><option value="Guest">Guest</option><option value="BIOS">BIOS</option><option value="Diagnostics">Diagnostics</option><option value="Security">Security</option><option value="Other">Other</option>
+        </select>
+        <input class="field" id="siteParamSearch" placeholder="キー・値を検索" style="max-width:260px">
+      </div>
       <div class="row" style="flex-wrap:wrap;margin-bottom:8px">
         <button class="ctrl-btn" id="siteParamAddBtn" type="button">＋ パラメータ追加</button>
         <button class="ctrl-btn primary" id="siteParamSaveBtn" type="button">💾 保存して読み込み</button>
@@ -1851,14 +1806,40 @@ body[data-se-theme="custom"]{--se-glass:blur(14px)}
       <div class="help" id="faceVaultStatus" role="status" aria-live="polite" style="margin-top:8px">暗号化データの状態を確認しています…</div>
       <div class="help" style="margin-top:6px">重要：パスフレーズは保存しません。暗号化TXTは別の安全な場所にも保管してください。ブラウザーの「サイトデータをすべて削除」やプロファイル削除後の復元は、外部バックアップがないとできません。永続ストレージは対応ブラウザーが許可した場合のみ有効です。</div>
     </div>
+  </div>
+</div>
 
-    <div class="settings-section">
-      <h3>🔐 Microsoft</h3>
-      <label class="label">Microsoft Client ID</label><input class="field" id="clientIdInput" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"><button class="ctrl-btn primary" id="saveClientId">保存</button>
-      <div class="help" style="margin-top:10px">テナントは <code>common</code> 固定。GitHub Pagesで使う場合は現在のページURLをリダイレクトURIに登録してください。</div>
+<div id="coreSystemWindow" class="modal" style="display:none;z-index:100000">
+  <div class="modal-card" style="width:min(980px,96vw);max-height:90vh;overflow:auto">
+    <div class="row" style="align-items:center;justify-content:space-between;gap:12px"><div><h2 style="margin:0">🧩 superEmulator Core System</h2><div class="help">内蔵GUI / ゲストOSとは独立</div></div><button class="ctrl-btn" id="closeCoreSystem" type="button">閉じる ✕</button></div>
+    <div style="display:grid;grid-template-columns:180px minmax(0,1fr);gap:14px;margin-top:16px">
+      <nav id="coreSystemNav" style="display:grid;align-content:start;gap:8px"><button class="ctrl-btn core-tab" data-core-view="overview">🏠 概要</button><button class="ctrl-btn core-tab" data-core-view="devices">🧩 仮想デバイス</button><button class="ctrl-btn core-tab" data-core-view="registry">🗂️ サイトハイブ</button><button class="ctrl-btn core-tab" data-core-view="storage">💾 保存領域</button><button class="ctrl-btn core-tab" data-core-view="logs">📋 ログ</button></nav>
+      <main id="coreSystemContent" class="setting-card" style="min-height:360px;padding:16px"><h3>システム概要</h3><p>superEmulatorの管理用コアシステムです。</p><div id="coreSystemOverview" class="help">状態を読み込み中…</div></main>
     </div>
   </div>
 </div>
+<style>#coreSystemWindow.show{display:flex!important;align-items:center;justify-content:center;background:rgba(0,0,0,.72);position:fixed;inset:0;padding:12px}#coreSystemWindow .modal-card{margin:auto}.core-tab.active{outline:2px solid var(--se-accent);font-weight:700}@media(max-width:650px){#coreSystemWindow .modal-card>div:nth-of-type(2){grid-template-columns:1fr!important}#coreSystemNav{grid-template-columns:repeat(2,minmax(0,1fr))}}</style>
+<script id="superEmulatorCoreSystem">
+(function(){
+ const $=id=>document.getElementById(id), win=$('coreSystemWindow'), content=$('coreSystemContent');
+ function open(){if(!win)return;win.style.display='flex';win.classList.add('show');show('overview');}
+ function close(){if(!win)return;win.classList.remove('show');win.style.display='none';}
+ function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+ function show(view){document.querySelectorAll('.core-tab').forEach(b=>b.classList.toggle('active',b.dataset.coreView===view));let html='';
+  if(view==='overview'){html='<h3>システム概要</h3><p>エミュレーター管理用の内蔵GUIです。ゲストOSのCPUやBIOSを置き換えるものではありません。</p><div class="settings-grid"><div class="setting-card"><strong>エミュレーター</strong><p>'+ (window.emulator?'起動中':'停止中')+'</p></div><div class="setting-card"><strong>ビルド</strong><p>2026.10.15.1</p></div><div class="setting-card"><strong>保存領域</strong><p>IndexedDB / LocalStorage</p></div><div class="setting-card"><strong>Linux資産</strong><p>削除・自動起動なし</p></div></div><button class="ctrl-btn primary" data-core-action="settings">サイト設定を開く</button>'}
+  else if(view==='devices'){const details=`OS: ${window.currentOSConfig?.name||localStorage.getItem('superEmulator.lastOS')||'未選択'}\nEmulator: ${window.emulator?'active':'stopped'}\nScreen: ${$('screen')?.querySelector('canvas')?'canvas ready':'not initialized'}\nDisk: ${$('diskStatus')?.textContent||'未接続'}\nISO: ${$('isoStatus')?.textContent||'未接続'}`;html='<h3>仮想デバイス</h3><p>現在の構成を読み取り専用で表示します。</p><pre>'+esc(details)+'</pre><button class="ctrl-btn" data-core-action="settings">ハードウェア設定を開く</button>'}
+  else if(view==='registry'){html='<h3>サイトパラメータ・ハイブ</h3><p>Boot / System / Hardware / Keyboard / Media / Guest / BIOS / Diagnostics / Securityの各ハイブとして管理します。</p><button class="ctrl-btn primary" data-core-action="registry">サイトハイブを開く</button>'}
+  else if(view==='storage'){html='<h3>保存領域</h3><p>保存済み設定、OS状態、暗号化バックアップを管理します。保存データはブラウザーのサイトデータ削除で失われる可能性があります。</p><button class="ctrl-btn" data-core-action="settings">保存・復元設定を開く</button>'}
+  else {html='<h3>最近のログ</h3><div style="max-height:260px;overflow:auto;white-space:pre-wrap;font:12px monospace">'+esc(($('logs')?.textContent||'ログはまだありません').slice(-12000))+'</div><button class="ctrl-btn" data-core-action="logs">詳細ログへ移動</button>'}
+  content.innerHTML=html;
+ }
+ document.querySelectorAll('[data-core-view]').forEach(b=>b.addEventListener('click',()=>show(b.dataset.coreView)));
+ document.addEventListener('click',e=>{const a=e.target.closest('[data-core-action]');if(!a)return;const action=a.dataset.coreAction;if(action==='settings'){close();$('openSettingsMain')?.click()}if(action==='registry'){close();$('openSettingsMain')?.click();setTimeout(()=>$('siteParametersSection')?.scrollIntoView({behavior:'smooth'}),100)}if(action==='logs'){close();$('logs')?.scrollIntoView({behavior:'smooth'})}});
+ $('closeCoreSystem')?.addEventListener('click',close);$('launchCoreSystemLanding')?.addEventListener('click',open);$('launchCoreSystemSettings')?.addEventListener('click',open);
+ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&win?.classList.contains('show'))close()});
+ window.superEmulatorCoreSystem={open,close,show};
+})();
+</script>
 
 <!-- superEmulator OS CONFIG EARLY BOOTSTRAP -->
 <script>
@@ -1880,31 +1861,8 @@ window.OS_CONFIG = window.OS_CONFIG || {
 };
 </script>
 
-<!-- 設定ボタンの独立ハンドラ。メインスクリプトの他のエラーに影響されないようにする。 -->
-<script>
-(function(){
-  function openSuperEmulatorSettings(e){
-    if(e) e.preventDefault();
-    var modal=document.getElementById("settingsModal");
-    if(!modal) return;
-    var input=document.getElementById("clientIdInput");
-    if(input){
-      try{ input.value=localStorage.getItem("superEmulator.microsoftClientId")||""; }catch(_){}
-    }
-    modal.classList.add("show");
-    modal.style.display="flex";
-  }
-  window.openSuperEmulatorSettings=openSuperEmulatorSettings;
-  document.addEventListener("click",function(e){
-    var btn=e.target.closest && e.target.closest('[data-panel="settings"],#openSettingsMain');
-    if(btn) openSuperEmulatorSettings(e);
-    if(e.target.id==="closeSettings" || (e.target.closest && e.target.closest("#closeSettings"))) {
-      var modal=document.getElementById("settingsModal");
-      if(modal){ modal.classList.remove("show"); modal.style.display="none"; }
-    }
-  },true);
-})();
-</script>
+<!-- 設定ボタンの独立ハンドラ -->
+<script>(function(){function openSuperEmulatorSettings(e){if(e)e.preventDefault();var m=document.getElementById("settingsModal");if(m){m.classList.add("show");m.style.display="flex";}}window.openSuperEmulatorSettings=openSuperEmulatorSettings;document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest('[data-panel="settings"],#openSettingsMain');if(b)openSuperEmulatorSettings(e);if(e.target.id==="closeSettings"||(e.target.closest&&e.target.closest("#closeSettings"))){var m=document.getElementById("settingsModal");if(m){m.classList.remove("show");m.style.display="none";}}},true);})();</script>
 
 
 <!-- =========================================================
@@ -1969,8 +1927,7 @@ const TENANT = "common";
  * Client IDはここに直接書いてもOK。
  * 設定画面から保存することもできます。
  */
-let MICROSOFT_CLIENT_ID =
-  localStorage.getItem("superEmulator.microsoftClientId") || "";
+const MICROSOFT_CLIENT_ID = ""; // Microsoft OAuth removed
 
 
 /*
@@ -1999,11 +1956,7 @@ const FILE_PATHS = {
 };
 
 
-/*
- * Debug Linux
- */
-const DEBUG_LINUX_PATH =
-  "./debug-linux/debian.iso";
+/* Legacy debug-linux files may remain in the project directory; no launcher is provided. */
 
 
 let emulator = null;
@@ -2070,16 +2023,6 @@ const app = document.getElementById("app");
 const landingStart = document.getElementById("landingStart");
 const heroStart = document.getElementById("heroStart");
 const finalStart = document.getElementById("finalStart");
-
-const landingMicrosoft =
-  document.getElementById("landingMicrosoft");
-
-const heroMicrosoft =
-  document.getElementById("heroMicrosoft");
-
-const sideMicrosoft =
-  document.getElementById("sideMicrosoft");
-
 const screen = document.getElementById("screen");
 const screenPlaceholder =
   document.getElementById("screenPlaceholder");
@@ -2363,50 +2306,9 @@ bindClick("closeSidebar", () =>
 const settingsModal =
   document.getElementById("settingsModal");
 
-document.querySelectorAll(
-  '[data-panel="settings"]'
-).forEach(btn =>
-{
-  btn.onclick = () =>
-  {
-    document.getElementById(
-      "clientIdInput"
-    ).value =
-      MICROSOFT_CLIENT_ID;
-
-    settingsModal.classList.add("show");
-  };
-});
-
-
-document.getElementById("closeSettings")
-  .onclick = () =>
-{
-  settingsModal.classList.remove("show");
-  settingsModal.style.display = "none";
-};
-
-
-document.getElementById("saveClientId")
-  .onclick = () =>
-{
-  MICROSOFT_CLIENT_ID =
-    document.getElementById(
-      "clientIdInput"
-    ).value.trim();
-
-  localStorage.setItem(
-    "superEmulator.microsoftClientId",
-    MICROSOFT_CLIENT_ID
-  );
-
-  settingsModal.classList.remove("show");
-
-  log("Microsoft Client IDを保存しました");
-};
-
-
-document.getElementById("openSettingsMain").onclick=()=>{document.getElementById("clientIdInput").value=MICROSOFT_CLIENT_ID;settingsModal.classList.add("show");};
+document.querySelectorAll('[data-panel="settings"]').forEach(btn=>{btn.onclick=()=>{settingsModal.classList.add("show");settingsModal.style.display="flex";};});
+document.getElementById("closeSettings").onclick=()=>{settingsModal.classList.remove("show");settingsModal.style.display="none";};
+document.getElementById("openSettingsMain").onclick=()=>{settingsModal.classList.add("show");settingsModal.style.display="flex";};
 document.getElementById("showLogsBtn").onclick=()=>{const el=document.getElementById("logs");if(el)el.scrollIntoView({behavior:"smooth"});};
 document.getElementById("refreshDebugInfo").onclick=()=>{debugInfo.value=[`protocol=${location.protocol}`,`viewport=${innerWidth}x${innerHeight}`,`devicePixelRatio=${devicePixelRatio}`,`hardwareConcurrency=${navigator.hardwareConcurrency||"unknown"}`,`deviceMemory=${navigator.deviceMemory||"unknown"}GB`,`OS=${getOSName(selectedOS)}`,`storage=${storageType.toUpperCase()}`,`disk=${selectedDiskURL?("URL:"+selectedDiskURL):(selectedDiskFile?selectedDiskName:(Number(diskSize.value)/1024)+"GB config")}`,`emulator=${!!emulator}`,`canvas=${screen.querySelector("canvas")?"OK":"not yet"}`].join("\n");log("デバッグ診断情報を更新");};
 
@@ -4035,98 +3937,7 @@ async function urlExists(url)
 }
 
 
-/* =========================================================
-   DEBUG LINUX
-========================================================= */
-
-async function loadDebugLinuxFromPath()
-{
-  log(
-    "Debug Linux検索: " +
-    DEBUG_LINUX_PATH
-  );
-
-  const exists =
-    await urlExists(
-      DEBUG_LINUX_PATH
-    );
-
-  if(!exists)
-  {
-    throw new Error(
-      "debug-linux/debian.iso が見つかりません"
-    );
-  }
-
-  return {
-    url:DEBUG_LINUX_PATH,
-    async:true
-  };
-}
-
-
-document.getElementById("debugPathBtn")
-  .onclick = async () =>
-{
-  selectedOS = "linux";
-
-  try
-  {
-    await startEmulator({
-      debugPath:true
-    });
-  }
-  catch(e)
-  {
-    log(
-      "Debug Linux起動失敗: " + e,
-      "ERROR"
-    );
-
-    alert(
-      "Debug Linuxを読み込めませんでした。\n\n" +
-      e.message
-    );
-  }
-};
-
-
-document.getElementById("debugUploadBtn")
-  .onclick = async () =>
-{
-  const file =
-    debugIsoFile.files[0];
-
-  if(!file)
-  {
-    alert(
-      "Debug Linux用ISOを選択してください。"
-    );
-
-    return;
-  }
-
-  selectedISO = file;
-  selectedISOName = file.name;
-  selectedOS = "linux";
-
-  try
-  {
-    await startEmulator({
-      uploadedFile:file
-    });
-  }
-  catch(e)
-  {
-    log(
-      "Debug Linux起動失敗: " + e,
-      "ERROR"
-    );
-
-    alert(e.message);
-  }
-};
-
+/* Legacy debug-linux launcher removed. Files under ./debug-linux are intentionally retained. */
 
 /* =========================================================
    START EMULATOR
@@ -4170,7 +3981,7 @@ function getSelectedISOBlobURL(file){
 
 async function startEmulator(options={})
 {
-  if(!options.debugPath && !options.uploadedFile && !selectedISO)
+  if(!options.uploadedFile && !selectedISO)
   {
     const recovery = window.__superEmulatorSelectedISO || (isoFile && isoFile.files && isoFile.files[0]);
     if(recovery)
@@ -4252,10 +4063,10 @@ async function startEmulator(options={})
     // ISOがある場合、空の「16/32/64GB設定」だけを実体ディスクとして渡さない。
     // それが原因で大容量ArrayBuffer確保に失敗したり、空HDDから起動待ちになるのを防ぐ。
     // 実ディスクが必要な場合はIMGファイルまたはURL HDDを接続する。
-    if(!virtualDisk && !selectedDiskFile && !selectedDiskURL && !selectedISO && !options.debugPath && !options.uploadedFile){
+    if(!virtualDisk && !selectedDiskFile && !selectedDiskURL && !selectedISO && !options.uploadedFile){
       createVirtualDisk();
     }
-    if(!virtualDisk && !selectedDiskFile && !selectedDiskURL && !selectedISO && !options.debugPath && !options.uploadedFile){
+    if(!virtualDisk && !selectedDiskFile && !selectedDiskURL && !selectedISO && !options.uploadedFile){
       throw new Error("起動用HDDがありません。OSのISOを接続するか、ディスクイメージを指定してください。");
     }
 
@@ -4269,16 +4080,7 @@ async function startEmulator(options={})
      * 3. CD-ROM
      */
     let cdromImage = null;
-
-    if(options.debugPath)
-    {
-      cdromImage =
-        await loadDebugLinuxFromPath();
-
-      cdStatus.textContent =
-        "debug-linux/debian.iso";
-    }
-    else if(options.uploadedFile)
+    if(options.uploadedFile)
     {
       const buffer =
         await fileToBuffer(
@@ -4339,7 +4141,7 @@ async function startEmulator(options={})
     }
 
 
-    if(cdromImage?.buffer && (selectedISO || options.uploadedFile || options.debugPath)){
+    if(cdromImage?.buffer && (selectedISO || options.uploadedFile)){
       // 2048バイト境界を確認。CD-ROMはセクタ単位で読むため、端数があるISOは
       // v86/SeaBIOSで読めないケースがある。必要ならゼロ埋めして渡す。
       const raw = cdromImage.buffer;
@@ -5517,12 +5319,12 @@ do
 done
 
 echo
-echo "[2] Check debug Linux"
+echo "[2] Preserve legacy Linux assets (not launched by Core System)"
 
 if [ -f "./debug-linux/debian.iso" ]; then
   echo "[OK] ./debug-linux/debian.iso"
 else
-  echo "[INFO] Debug Linux ISO not found"
+  echo "[INFO] ./debug-linux directory not present (optional legacy assets)"
 fi
 
 echo
@@ -5596,384 +5398,7 @@ document.getElementById("clearLogs")
   .onclick = clearLog;
 
 
-/* =========================================================
-   MICROSOFT LOGIN
-========================================================= */
-
-function base64url(bytes)
-{
-  let str = "";
-
-  for(const b of bytes)
-    str += String.fromCharCode(b);
-
-  return btoa(str)
-    .replace(/\+/g,"-")
-    .replace(/\//g,"_")
-    .replace(/=+$/,"");
-}
-
-
-function randomString(length=32)
-{
-  const bytes =
-    new Uint8Array(length);
-
-  crypto.getRandomValues(bytes);
-
-  return base64url(bytes);
-}
-
-
-async function sha256(text)
-{
-  const data =
-    new TextEncoder()
-      .encode(text);
-
-  return crypto.subtle.digest(
-    "SHA-256",
-    data
-  );
-}
-
-
-async function startMicrosoftLogin()
-{
-  if(location.protocol === "file:")
-  {
-    alert(
-      "Microsoftログインはfile://では使用できません。\n\n" +
-      "GitHub PagesなどのHTTPS、またはlocalhostで開いてください。"
-    );
-
-    return;
-  }
-
-
-  if(!MICROSOFT_CLIENT_ID)
-  {
-    document.getElementById(
-      "clientIdInput"
-    ).value = "";
-
-    settingsModal.classList.add(
-      "show"
-    );
-
-    alert(
-      "先にMicrosoft Client IDを設定してください。"
-    );
-
-    return;
-  }
-
-
-  const redirectUri =
-    location.origin +
-    location.pathname;
-
-
-  const verifier =
-    randomString(48);
-
-  const state =
-    randomString(32);
-
-  const challengeBytes =
-    await sha256(
-      verifier
-    );
-
-  const challenge =
-    base64url(
-      new Uint8Array(
-        challengeBytes
-      )
-    );
-
-
-  sessionStorage.setItem(
-    "superEmulator.pkce_verifier",
-    verifier
-  );
-
-  sessionStorage.setItem(
-    "superEmulator.oauth_state",
-    state
-  );
-
-
-  const params =
-    new URLSearchParams({
-
-      client_id:
-        MICROSOFT_CLIENT_ID,
-
-      response_type:
-        "code",
-
-      redirect_uri:
-        redirectUri,
-
-      response_mode:
-        "query",
-
-      scope:
-        "openid profile email",
-
-      state,
-
-      code_challenge:
-        challenge,
-
-      code_challenge_method:
-        "S256",
-
-      prompt:
-        "select_account"
-    });
-
-
-  const url =
-    "https://login.microsoftonline.com/" +
-    TENANT +
-    "/oauth2/v2.0/authorize?" +
-    params.toString();
-
-
-  log(
-    "Microsoftログインへ移動します"
-  );
-
-  location.href =
-    url;
-}
-
-
-if(landingMicrosoft) landingMicrosoft.onclick = startMicrosoftLogin;
-if(heroMicrosoft) heroMicrosoft.onclick = startMicrosoftLogin;
-if(sideMicrosoft) sideMicrosoft.onclick = startMicrosoftLogin;
-
-
-/* =========================================================
-   MICROSOFT CALLBACK
-========================================================= */
-
-async function handleMicrosoftCallback()
-{
-  const params =
-    new URLSearchParams(
-      location.search
-    );
-
-  const error =
-    params.get("error");
-
-  if(error)
-  {
-    const desc =
-      params.get("error_description") ||
-      error;
-
-    log(
-      "Microsoftログインエラー: " +
-      desc,
-      "ERROR"
-    );
-
-    history.replaceState(
-      {},
-      document.title,
-      location.pathname
-    );
-
-    return;
-  }
-
-
-  const code =
-    params.get("code");
-
-  if(!code)
-    return;
-
-
-  const returnedState =
-    params.get("state");
-
-  const savedState =
-    sessionStorage.getItem(
-      "superEmulator.oauth_state"
-    );
-
-  const verifier =
-    sessionStorage.getItem(
-      "superEmulator.pkce_verifier"
-    );
-
-
-  if(
-    !returnedState ||
-    !savedState ||
-    returnedState !== savedState
-  )
-  {
-    log(
-      "OAuth state検証失敗",
-      "ERROR"
-    );
-
-    alert(
-      "Microsoftログインのstate検証に失敗しました。"
-    );
-
-    return;
-  }
-
-
-  if(!verifier)
-  {
-    log(
-      "PKCE verifierがありません",
-      "ERROR"
-    );
-
-    return;
-  }
-
-
-  try
-  {
-    const redirectUri =
-      location.origin +
-      location.pathname;
-
-
-    const body =
-      new URLSearchParams({
-
-        client_id:
-          MICROSOFT_CLIENT_ID,
-
-        grant_type:
-          "authorization_code",
-
-        code,
-
-        redirect_uri:
-          redirectUri,
-
-        scope:
-          "openid profile email",
-
-        code_verifier:
-          verifier
-      });
-
-
-    log(
-      "Microsoft認証コード交換中..."
-    );
-
-
-    const response =
-      await fetch(
-        "https://login.microsoftonline.com/" +
-        TENANT +
-        "/oauth2/v2.0/token",
-        {
-          method:"POST",
-
-          headers:{
-            "Content-Type":
-              "application/x-www-form-urlencoded"
-          },
-
-          body:
-            body.toString()
-        }
-      );
-
-
-    const data =
-      await response.json();
-
-
-    if(!response.ok)
-    {
-      throw new Error(
-        data.error_description ||
-        data.error ||
-        "Token exchange failed"
-      );
-    }
-
-
-    /*
-     * sessionStorageのみ。
-     * 永続保存はしない。
-     */
-    sessionStorage.setItem(
-      "superEmulator.microsoft.accessToken",
-      data.access_token || ""
-    );
-
-    sessionStorage.setItem(
-      "superEmulator.microsoft.idToken",
-      data.id_token || ""
-    );
-
-
-    log(
-      "Microsoftログイン成功"
-    );
-
-
-    /*
-     * URLからcodeを消す
-     */
-    history.replaceState(
-      {},
-      document.title,
-      redirectUri
-    );
-
-
-    /*
-     * appを開く
-     */
-    openApp();
-
-    alert(
-      "Microsoftでログインしました。"
-    );
-
-  }
-  catch(e)
-  {
-    log(
-      "Microsoft token交換失敗: " + e,
-      "ERROR"
-    );
-
-    alert(
-      "Microsoftログインに失敗しました。\n\n" +
-      e.message
-    );
-  }
-  finally
-  {
-    sessionStorage.removeItem(
-      "superEmulator.pkce_verifier"
-    );
-
-    sessionStorage.removeItem(
-      "superEmulator.oauth_state"
-    );
-  }
-}
-
+/* Microsoft OAuth removed: superEmulator uses its own local authentication UI. */
 
 /* =========================================================
    FORMAT
@@ -6067,27 +5492,11 @@ window.downloadCurrentDiskImage=downloadCurrentDiskImage;
 
 (async function()
 {
+  try{localStorage.removeItem("superEmulator.microsoftClientId");localStorage.removeItem("superEmulator.microsoft.accessToken");localStorage.removeItem("superEmulator.microsoft.idToken");}catch(_){}
   log(
     APP_NAME +
     " 初期化開始"
   );
-
-  /*
-   * Microsoft callback
-   */
-  try
-  {
-    await handleMicrosoftCallback();
-  }
-  catch(e)
-  {
-    log(
-      "OAuth callback処理失敗: " + e,
-      "ERROR"
-    );
-  }
-
-
   /*
    * 初期仮想ディスク
    */
@@ -6212,8 +5621,6 @@ window.downloadCurrentDiskImage=downloadCurrentDiskImage;
   }
   function openSettings(){
     const m=el("settingsModal"); if(!m) return;
-    const c=el("clientIdInput");
-    if(c){try{c.value=localStorage.getItem("superEmulator.microsoftClientId")||"";}catch(_){} }
     m.classList.add("show"); m.style.display="flex";
   }
   function closeSettings(){const m=el("settingsModal");if(m){m.classList.remove("show");m.style.display="none";}}
@@ -6222,8 +5629,6 @@ window.downloadCurrentDiskImage=downloadCurrentDiskImage;
   wire("landingStart",()=>{if(typeof window.openApp==="function")window.openApp();});
   wire("heroStart",()=>{if(typeof window.openApp==="function")window.openApp();});
   wire("finalStart",()=>{if(typeof window.openApp==="function")window.openApp();});
-  wire("landingMicrosoft",openSettings);
-  wire("heroMicrosoft",openSettings);
 
   /* サイドバー */
   wire("openSidebar",()=>{const x=el("sidebar");if(x)x.classList.remove("collapsed");});
@@ -6272,7 +5677,6 @@ window.downloadCurrentDiskImage=downloadCurrentDiskImage;
     const f=el("diskImageFile");if(f)f.value="";
     if(el("diskStatus"))el("diskStatus").textContent="未作成";
   });
-  wire("saveClientId",()=>{const v=(el("clientIdInput")?.value||"").trim();try{localStorage.setItem("superEmulator.microsoftClientId",v);}catch(_){}closeSettings();});
   wire("showLogsBtn",()=>{const x=el("logs");if(x)x.scrollIntoView({behavior:'smooth',block:'nearest'});});
   wire("clearLogs",()=>{const x=el("logs");if(x)x.textContent="";});
   wire("refreshDebugInfo",()=>{
@@ -6624,7 +6028,7 @@ window.downloadCurrentDiskImage=downloadCurrentDiskImage;
   const run=function(e){if(e){e.preventDefault();e.stopPropagation();}try{const fn=window.superEmulatorSetSelectedOS;if(typeof fn!=="function")throw new Error("OS確定APIが未準備");if(fn(s.value,"手動設定",true)!==true)throw new Error("OS確定処理が完了しませんでした");const st=document.getElementById("manualOSConfirmStatus");if(st){st.textContent="確定済み: "+s.options[s.selectedIndex].text;st.style.color="#8ff0b0";}if(typeof window.log==="function")window.log("[OS CONFIRM BRIDGE] "+s.value+" を確定","OK");}catch(err){if(typeof window.log==="function")window.log("[OS CONFIRM BRIDGE] 失敗: "+(err?.message||err),"ERROR");}return false;};
   b.onclick=run;b.addEventListener("pointerup",run,false);b.disabled=false;b.style.pointerEvents="auto";b.style.touchAction="manipulation";
 })();
-window.superEmulatorAuditButtons=function(){const ids=["detectBtn","manualDetectBtn","confirmManualOSBtn","startBtn","powerBtn","resetBtn","fullscreenBtn","screenshotBtn","connectDiskBtn","checkDiskConnectionBtn","connectDiskURLBtn","downloadDiskBtn","downloadCurrentDiskBtn","rebuildDiskBtn","clearDiskImageBtn","settingsFullscreenBtn","settingsScreenshotBtn","debugPathBtn","debugUploadBtn","sendCommand","repairBtn","openSettingsMain"];const rows=ids.map(id=>{const e=document.getElementById(id);if(!e)return id+": MISSING";const r=e.getBoundingClientRect(),c=getComputedStyle(e);return `${id}: disabled=${!!e.disabled} pointer=${c.pointerEvents} display=${c.display} z=${c.zIndex} rect=${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)}x${Math.round(r.height)}`;});const out=rows.join("\n");console.log("[UI AUDIT]\n"+out);if(typeof window.log==="function")window.log("[UI AUDIT]\n"+out);return out;};
+window.superEmulatorAuditButtons=function(){const ids=["detectBtn","manualDetectBtn","confirmManualOSBtn","startBtn","powerBtn","resetBtn","fullscreenBtn","screenshotBtn","connectDiskBtn","checkDiskConnectionBtn","connectDiskURLBtn","downloadDiskBtn","downloadCurrentDiskBtn","rebuildDiskBtn","clearDiskImageBtn","settingsFullscreenBtn","settingsScreenshotBtn","sendCommand","repairBtn","openSettingsMain"];const rows=ids.map(id=>{const e=document.getElementById(id);if(!e)return id+": MISSING";const r=e.getBoundingClientRect(),c=getComputedStyle(e);return `${id}: disabled=${!!e.disabled} pointer=${c.pointerEvents} display=${c.display} z=${c.zIndex} rect=${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)}x${Math.round(r.height)}`;});const out=rows.join("\n");console.log("[UI AUDIT]\n"+out);if(typeof window.log==="function")window.log("[UI AUDIT]\n"+out);return out;};
 </script>
 
 <script id="superEmulatorSiteParameters">
@@ -6687,7 +6091,12 @@ window.superEmulatorAuditButtons=function(){const ids=["detectBtn","manualDetect
   function render(){
     rowsEl.replaceChildren();
     if(emptyEl)emptyEl.style.display=params.length?"none":"block";
+    let lastHive="";
+    const hiveOf=key=>{const k=String(key||"").toLowerCase();if(k.startsWith("boot.")||k.startsWith("startup."))return "Boot";if(k.startsWith("system."))return "System";if(k.startsWith("hardware.")||k.startsWith("cpu.")||k.startsWith("memory.")||k.startsWith("video."))return "Hardware";if(k.startsWith("keyboard.")||k.startsWith("input."))return "Keyboard";if(k.startsWith("media.")||k.startsWith("disk.")||k.startsWith("storage."))return "Media";if(k.startsWith("guest."))return "Guest";if(k.startsWith("bios."))return "BIOS";if(k.startsWith("diagnostics.")||k.startsWith("debug."))return "Diagnostics";if(k.startsWith("security.")||k.startsWith("auth."))return "Security";return "Other";};
+    const hiveFilter=document.getElementById("siteParamHiveFilter")?.value||"all", query=(document.getElementById("siteParamSearch")?.value||"").trim().toLowerCase();
     params.forEach((item,index)=>{
+      const hive=hiveOf(item.key);if(hiveFilter!=="all"&&hive!==hiveFilter)return;if(query&&!((item.key+" "+item.value).toLowerCase().includes(query)))return;
+      if(hive!==lastHive){const heading=document.createElement("div");heading.textContent=hive+" ハイブ";heading.style.cssText="font-weight:800;padding:9px 4px 2px;color:var(--se-accent);border-bottom:1px solid var(--se-border)";rowsEl.append(heading);lastHive=hive;}
       const row=document.createElement("div");row.style.cssText="display:grid;grid-template-columns:minmax(100px,1fr) minmax(120px,1.4fr) 72px;gap:8px;align-items:center";
       const key=document.createElement("input");key.className="field";key.placeholder="例: keyboard.profile";key.value=item.key;key.setAttribute("aria-label","パラメータキー");key.style.minWidth="0";
       const value=document.createElement("input");value.className="field";value.placeholder="値";value.value=item.value;value.setAttribute("aria-label","パラメータ値");value.style.minWidth="0";
@@ -6732,7 +6141,9 @@ window.superEmulatorAuditButtons=function(){const ids=["detectBtn","manualDetect
   function restoreFile(file){
     if(!file)return;const reader=new FileReader();reader.onload=()=>{try{const data=JSON.parse(String(reader.result||""));const incoming=normalize(data);if(!Array.isArray(data)&&!Array.isArray(data?.parameters))throw new Error("パラメータ配列が見つかりません");params=incoming;render();if(save())say(`バックアップから ${params.length} 件を復元しました。`);}catch(e){say("復元できませんでした: "+(e.message||e),false);}finally{fileEl.value="";}};reader.onerror=()=>{say("バックアップファイルを読み取れませんでした。",false);fileEl.value="";};reader.readAsText(file);
   }
-  document.getElementById("siteParamAddBtn")?.addEventListener("click",()=>{params.push({key:"new.parameter",value:""});render();const inputs=rowsEl.querySelectorAll("input");inputs[inputs.length-2]?.focus();});
+  document.getElementById("siteParamHiveFilter")?.addEventListener("change",render);
+  document.getElementById("siteParamSearch")?.addEventListener("input",render);
+  document.getElementById("siteParamAddBtn")?.addEventListener("click",()=>{params.push({key:"boot.newParameter",value:""});render();const inputs=rowsEl.querySelectorAll("input");inputs[inputs.length-2]?.focus();});
   document.getElementById("siteParamSaveBtn")?.addEventListener("click",save);
   document.getElementById("siteParamBackupBtn")?.addEventListener("click",()=>{if(save())downloadBackup();});
   document.getElementById("siteParamGuestExportBtn")?.addEventListener("click",()=>{if(save())downloadGuestConfig();});
@@ -6816,8 +6227,6 @@ window.superEmulatorAuditButtons=function(){const ids=["detectBtn","manualDetect
   function openSettings(){
     const m=byId("settingsModal"); if(!m)return false;
     try{
-      const c=byId("clientIdInput");
-      if(c)c.value=localStorage.getItem("superEmulator.microsoftClientId")||"";
     }catch(_){ }
     m.classList.add("show");
     m.style.display="flex";
@@ -7056,7 +6465,7 @@ window.superEmulatorAuditButtons=function(){const ids=["detectBtn","manualDetect
   };
 
   /* 主要な「選択」系ボタンも、無反応にならないよう最終確認 */
-  ["debugPathBtn","debugUploadBtn","connectDiskURLBtn","downloadDiskBtn","downloadCurrentDiskBtn","rebuildDiskBtn","clearDiskImageBtn","sendCommand","repairBtn","clearLogs","refreshDebugInfo"].forEach(id=>{
+  ["connectDiskURLBtn","downloadDiskBtn","downloadCurrentDiskBtn","rebuildDiskBtn","clearDiskImageBtn","sendCommand","repairBtn","clearLogs","refreshDebugInfo"].forEach(id=>{
     const b=$(id); if(!b) return;
     b.disabled=false;
     b.style.pointerEvents="auto";
@@ -8186,7 +7595,7 @@ window.superEmulatorMemoryProfile = function(){
  async function tx(mode,fn){const db=await openDB();return new Promise((resolve,reject)=>{const t=db.transaction(STORE,mode),s=t.objectStore(STORE);let req;try{req=fn(s);}catch(e){db.close();reject(e);return;}if(req){req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error||new Error('IndexedDB処理に失敗'));}else{t.oncomplete=()=>resolve(true);t.onerror=()=>reject(t.error||new Error('IndexedDB処理に失敗'));}t.oncomplete=()=>{db.close();resolve(req?req.result:true);};t.onerror=()=>{db.close();reject(t.error||new Error('IndexedDB処理に失敗'));};});}
  async function readRecord(){return await tx('readonly',s=>s.get(KEY));}
  function emu(){return window.emulator||null;}
- function currentMeta(){return {savedAt:new Date().toISOString(),appBuild:'2026.10.14.3',os:(window.currentOSConfig&&window.currentOSConfig.key)||localStorage.getItem('superEmulator.lastOS')||'unknown',osName:(window.currentOSConfig&&window.currentOSConfig.name)||'',memory:window.currentOSConfig&&window.currentOSConfig.memory||null,acpi:window.currentOSConfig&&window.currentOSConfig.acpi,isoName:document.getElementById('isoStatus')?.textContent||'',diskName:document.getElementById('diskStatus')?.textContent||''};}
+ function currentMeta(){return {savedAt:new Date().toISOString(),appBuild:'2026.10.15.1',os:(window.currentOSConfig&&window.currentOSConfig.key)||localStorage.getItem('superEmulator.lastOS')||'unknown',osName:(window.currentOSConfig&&window.currentOSConfig.name)||'',memory:window.currentOSConfig&&window.currentOSConfig.memory||null,acpi:window.currentOSConfig&&window.currentOSConfig.acpi,isoName:document.getElementById('isoStatus')?.textContent||'',diskName:document.getElementById('diskStatus')?.textContent||''};}
  function callSave(e){
    if(!e||typeof e.save_state!=='function')return Promise.reject(new Error('現在のv86はsave_state()を公開していません。libv86.jsを確認してください.'));
    // Current v86 returns Promise<ArrayBuffer>; older builds use save_state(callback).
@@ -8233,7 +7642,7 @@ window.superEmulatorMemoryProfile = function(){
 <script id="superEmulator-github-updater">
 (function(){
   'use strict';
-  const BUILD='2026.10.14.3';
+  const BUILD='2026.10.15.1';
   const SOURCE_HASH='6f86f4a443a773a38b63f551fd20cf40fc2d4fae9e80f4d5e60858b2f8874c4b';
   const HASH_ZERO='0'.repeat(64);
   async function sha256Hex(text){const bytes=new TextEncoder().encode(text);const digest=await crypto.subtle.digest('SHA-256',bytes);return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');}
