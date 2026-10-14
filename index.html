@@ -1686,6 +1686,16 @@ button, input, select, label, a, [role="button"] { pointer-events:auto !importan
       <div style="height:8px"></div><textarea class="debug-output" id="debugInfo" readonly>診断情報はここに表示されます。</textarea>
       <div style="height:8px"></div><button class="ctrl-btn" id="refreshDebugInfo">診断情報を更新</button>
       <div class="setting-card" style="margin-top:12px">
+        <strong>🧠 CPU / ハング診断</strong>
+        <div class="help" style="margin:6px 0 8px">v86が公開する命令カウンターを時間差で確認し、ゲストCPUが進行しているかを診断します。命令トレースやレジスタ、CRx/MSR、トリプルフォールトの直接検出は公開APIだけでは取得できません。</div>
+        <div class="row" style="margin-top:8px;flex-wrap:wrap">
+          <button class="ctrl-btn" id="cpuProgressCheckBtn" type="button">CPU進行状況を計測（3秒）</button>
+          <button class="ctrl-btn" id="cpuStatsBtn" type="button">命令統計を取得</button>
+          <button class="ctrl-btn" id="downloadDiagnosticLogBtn" type="button">診断ログを保存</button>
+        </div>
+        <textarea class="debug-output" id="cpuDiagnosticOutput" readonly style="margin-top:8px;min-height:100px" placeholder="CPU診断結果がここに表示されます"></textarea>
+      </div>
+      <div class="setting-card" style="margin-top:12px">
         <strong>⌨️ OS別キーボード診断</strong>
         <div class="help" style="margin:6px 0 8px">OSグループに応じた診断プロファイルを表示し、キーイベントとv86 APIへのスキャンコード送信を記録します。ポート0x60/0x64の内部I/O自体は、HTMLだけでは直接読めません。</div>
         <div id="keyboardProfileStatus" class="help">プロファイル: 起動OSを選択すると表示</div>
@@ -2282,6 +2292,46 @@ document.getElementById("saveClientId")
 document.getElementById("openSettingsMain").onclick=()=>{document.getElementById("clientIdInput").value=MICROSOFT_CLIENT_ID;settingsModal.classList.add("show");};
 document.getElementById("showLogsBtn").onclick=()=>{const el=document.getElementById("logs");if(el)el.scrollIntoView({behavior:"smooth"});};
 document.getElementById("refreshDebugInfo").onclick=()=>{debugInfo.value=[`protocol=${location.protocol}`,`viewport=${innerWidth}x${innerHeight}`,`devicePixelRatio=${devicePixelRatio}`,`hardwareConcurrency=${navigator.hardwareConcurrency||"unknown"}`,`deviceMemory=${navigator.deviceMemory||"unknown"}GB`,`OS=${getOSName(selectedOS)}`,`storage=${storageType.toUpperCase()}`,`disk=${selectedDiskURL?("URL:"+selectedDiskURL):(selectedDiskFile?selectedDiskName:(Number(diskSize.value)/1024)+"GB config")}`,`emulator=${!!emulator}`,`canvas=${screen.querySelector("canvas")?"OK":"not yet"}`].join("\n");log("デバッグ診断情報を更新");};
+
+(function installCPUHangDiagnostics(){
+  const out=document.getElementById("cpuDiagnosticOutput");
+  const check=document.getElementById("cpuProgressCheckBtn");
+  const stats=document.getElementById("cpuStatsBtn");
+  const save=document.getElementById("downloadDiagnosticLogBtn");
+  const write=(msg)=>{if(out)out.value=msg;};
+  const count=()=>{
+    const e=window.emulator||emulator;
+    if(!e) return {error:"エミュレーターが起動していません。"};
+    if(typeof e.get_instruction_counter!=="function") return {error:"このv86ビルドでは get_instruction_counter() が公開されていません。"};
+    try{return {emulator:e,value:e.get_instruction_counter()};}catch(err){return {error:err?.message||String(err)};}
+  };
+  if(check)check.addEventListener("click",async()=>{
+    const first=count();
+    if(first.error){write(first.error);log("CPU診断: "+first.error,"WARN");return;}
+    write("計測中… 3秒後に命令カウンターを比較します。\n開始カウンター: "+first.value);
+    await new Promise(resolve=>setTimeout(resolve,3000));
+    const last=count();
+    if(last.error){write("計測中に取得できなくなりました: "+last.error);log("CPU診断: "+last.error,"WARN");return;}
+    const delta=Number(last.value)-Number(first.value);
+    let status;
+    if(!Number.isFinite(delta)) status="カウンター値を数値として比較できません";
+    else if(delta>0) status="命令カウンターは進行しています。完全停止ではなく、OS側の待機・互換性・I/O等を調査してください";
+    else status="カウンターの進行を確認できません。停止・一時停止・CPUのHLT待機・計測APIの制限などが考えられます。これだけでトリプルフォールトとは断定できません";
+    const report=["CPU進行状況診断",new Date().toLocaleString(),"OS: "+(typeof getOSName==="function"?getOSName(selectedOS):selectedOS),"ACPI: "+(window.currentOSConfig?.acpi??"不明"),"開始: "+first.value,"終了: "+last.value,"差分（3秒）: "+delta,"結果: "+status,"命令カウンターは実行命令の詳細・レジスタ値・例外原因を示すものではありません。"].join("\n");
+    write(report);log("CPU進行診断: 3秒間の命令カウンター差分="+delta+(delta>0?" (進行あり)":" (進行未確認)"),delta>0?"INFO":"WARN");
+  });
+  if(stats)stats.addEventListener("click",()=>{
+    const e=window.emulator||emulator;
+    if(!e){write("エミュレーターが起動していません。");return;}
+    if(typeof e.get_instruction_stats!=="function"){write("このv86ビルドでは get_instruction_stats() が公開されていません。CPU命令の完全トレースは取得できません。");return;}
+    try{const result=e.get_instruction_stats();write("v86命令統計\n"+String(result));log("v86命令統計を取得しました");}catch(err){write("命令統計の取得に失敗: "+(err?.message||err));log("命令統計の取得に失敗: "+(err?.message||err),"WARN");}
+  });
+  if(save)save.addEventListener("click",()=>{
+    const c=count();
+    const textContent=["superEmulator diagnostic log",new Date().toISOString(),"Selected OS: "+selectedOS,"Current config: "+JSON.stringify(window.currentOSConfig||{}),"Instruction counter: "+(c.value??c.error??"unavailable"),"\n--- Application log ---\n",document.getElementById("logs")?.textContent||"","\n--- CPU diagnostic ---\n",out?.value||"(no CPU diagnostic yet)","\n--- Keyboard trace ---\n",document.getElementById("keyboardTraceOutput")?.value||""].join("\n");
+    const url=URL.createObjectURL(new Blob([textContent],{type:"text/plain;charset=utf-8"}));const a=document.createElement("a");a.href=url;a.download="superEmulator-diagnostic-"+new Date().toISOString().replace(/[:.]/g,"-")+".txt";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);log("診断ログをテキストファイルに保存しました");
+  });
+})();
 
 /* =========================================================
    LOAD SCRIPT
@@ -4396,6 +4446,7 @@ async function startEmulator(options={})
     if(winHW){
       log(`[WINDOWS HW] ${getOSName(selectedOS)}: RAM基準=${winHW.memory}MB / VGA=${winHW.vga}MB / ACPI=${winHW.acpi?"ON":"OFF"} / CPUID level=${winHW.cpuid}`,"INFO");
       log("[WINDOWS HW] v86が公開している設定だけを使用。未実装のCPUフラグやQ35/HPETを偽装していません。","INFO");
+      log("[CPU DEBUG] v86の命令セットはPentium 4級/SSE3までを目安とし、APICは部分対応です。CPUIDレベル指定だけではNX/EFERやACPI/APICの完全互換を保証しません。","WARN");
       if(selectedOS === "win8") log("[WIN8] 0x0000000A対策プロファイル: 2048MB RAM / 128MB VGA / ACPI ON / CPUID level 6。なおv86側のNX等のCPU実装限界は残ります。","WARN");
       if(selectedOS === "win10") log("[WIN10] 2048MB RAM / 64MB VGA / ACPI ON / CPUID level 6。Windows 10はv86公式互換表で完全対応OSではありません。","WARN");
       if(selectedMemoryProfileMB){
