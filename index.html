@@ -1069,6 +1069,35 @@ button, input, select, label, a, [role="button"] { pointer-events:auto !importan
   max-height:none !important;
 }
 
+
+/* SUPEREMULATOR UI THEMES: presentation-only; emulator/guest settings are untouched */
+:root{--se-accent:#438cff;--se-bg:#080b12;--se-panel:#101722;--se-card:#0a0f17;--se-text:#f4f7fb;--se-muted:#98a6ba;--se-border:rgba(255,255,255,.12);--se-radius:16px;--se-glass:blur(18px)}
+body{background:var(--se-bg);color:var(--se-text);transition:background .18s,color .18s}
+#landing{background:radial-gradient(circle at 15% 15%,color-mix(in srgb,var(--se-accent) 24%,transparent),transparent 32%),linear-gradient(180deg,var(--se-bg),var(--se-panel) 55%,var(--se-bg))}
+.landing-nav,.topbar,#functionBar,#controlPanel{background:color-mix(in srgb,var(--se-panel) 82%,transparent);backdrop-filter:var(--se-glass)}
+.primary-btn,.ctrl-btn.primary{background:linear-gradient(135deg,var(--se-accent),color-mix(in srgb,var(--se-accent) 60%,#8057ff));border-color:var(--se-accent)}
+.logo span,.hero h1 span,code{color:var(--se-accent)}
+.modal-card{background:var(--se-panel);color:var(--se-text);border-color:var(--se-border);border-radius:var(--se-radius)}
+.setting-card,.iso-detected{background:var(--se-card);border-color:var(--se-border);color:var(--se-text)}
+.help,.hero p,.setting-card small{color:var(--se-muted)}
+button,input,select,textarea{accent-color:var(--se-accent)}
+#settingsModal input:not([type=file]),#settingsModal select,#settingsModal textarea{color:var(--se-text);background:var(--se-card);border-color:var(--se-border)}
+body[data-se-theme="luna"]{--se-accent:#2b82e8;--se-bg:#dce8f8;--se-panel:#eaf2ff;--se-card:#f5f8ff;--se-text:#152943;--se-muted:#425d7b;--se-border:#91b6e6;--se-radius:10px;--se-glass:blur(8px)}
+body[data-se-theme="luna"] .landing-nav{background:linear-gradient(#5fa8f5,#1764bd);border-bottom:1px solid #a8d2ff;color:white}
+body[data-se-theme="luna"] #landing{background:linear-gradient(#c9e2ff,#f0f6ff)}
+body[data-se-theme="luna"] .modal-card{box-shadow:0 12px 34px rgba(24,69,120,.28);border:1px solid #7da9dc}
+body[data-se-theme="classic95"]{--se-accent:#000080;--se-bg:#c0c0c0;--se-panel:#c0c0c0;--se-card:#d4d0c8;--se-text:#000;--se-muted:#333;--se-border:#808080;--se-radius:0px;--se-glass:none;font-family:Tahoma,"MS Sans Serif",sans-serif}
+body[data-se-theme="classic95"] .modal-card{border:2px outset #fff;box-shadow:4px 4px 0 #404040}
+body[data-se-theme="classic95"] .landing-nav{background:#000080;color:#fff;backdrop-filter:none;border-bottom:2px solid #fff}
+body[data-se-theme="classic95"] button{border-radius:0;box-shadow:inset 1px 1px #fff,inset -1px -1px #555}
+body[data-se-theme="aero"]{--se-accent:#6abaff;--se-bg:#081522;--se-panel:rgba(18,35,54,.78);--se-card:rgba(14,28,44,.7);--se-text:#f4fbff;--se-muted:#b7cddd;--se-border:rgba(180,225,255,.25);--se-radius:17px;--se-glass:blur(22px)}
+body[data-se-theme="dark"]{--se-accent:#8b9cff;--se-bg:#090b10;--se-panel:#151922;--se-card:#10131a;--se-text:#f4f5f7;--se-muted:#a1a9b8;--se-border:#303744;--se-radius:12px;--se-glass:none}
+body[data-se-theme="light"]{--se-accent:#2563eb;--se-bg:#f4f6fa;--se-panel:#fff;--se-card:#f8fafc;--se-text:#172033;--se-muted:#596579;--se-border:#d8dee8;--se-radius:12px;--se-glass:none}
+body[data-se-theme="light"] .landing-nav{background:rgba(255,255,255,.92);color:#172033;border-color:#d8dee8}
+body[data-se-theme="light"] #landing{background:linear-gradient(180deg,#edf4ff,#fff)}
+body[data-se-theme="custom"]{--se-glass:blur(14px)}
+.theme-swatch{width:20px;height:20px;border-radius:50%;display:inline-block;border:1px solid rgba(127,127,127,.5);vertical-align:middle;margin-right:6px}
+
 </style>
 </head>
 
@@ -1506,6 +1535,29 @@ button, input, select, label, a, [role="button"] { pointer-events:auto !importan
   <div class="modal-card">
     <button class="close-modal" id="closeSettings">×</button>
     <h2>⚙️ 設定</h2>
+
+    <div class="settings-section" id="uiThemeSection">
+      <h3>🎨 UIテーマ・色の変更</h3>
+      <div class="help" style="margin-bottom:10px">サイトの見た目だけを変更します。ゲストOSの設定やエミュレーターのCPU・メモリ設定には影響しません。選択はこのブラウザーに保存されます。</div>
+      <label class="label" for="seThemeSelect">テーマ</label>
+      <select class="field" id="seThemeSelect" style="width:100%;margin:6px 0 12px">
+        <option value="aero">Aero Glass（透明・ぼかし）</option>
+        <option value="luna">Windows XP Luna（青・明るい）</option>
+        <option value="classic95">Windows 95 クラシック（青・グレー）</option>
+        <option value="dark">ダーク</option>
+        <option value="light">ホワイト / ライト</option>
+        <option value="custom">カスタム RGB</option>
+      </select>
+      <div class="settings-grid">
+        <div class="setting-card"><label for="seAccentColor"><strong>アクセント / ボタン色</strong></label><input id="seAccentColor" type="color" value="#438cff" style="width:100%;height:38px;margin-top:8px"></div>
+        <div class="setting-card"><label for="seBackgroundColor"><strong>背景色</strong></label><input id="seBackgroundColor" type="color" value="#080b12" style="width:100%;height:38px;margin-top:8px"></div>
+      </div>
+      <div class="row" style="margin-top:10px;flex-wrap:wrap">
+        <button class="ctrl-btn primary" id="seApplyThemeBtn" type="button">🎨 テーマを適用</button>
+        <button class="ctrl-btn" id="seResetThemeBtn" type="button">初期テーマに戻す</button>
+      </div>
+      <div class="help" id="seThemeStatus" style="margin-top:8px" aria-live="polite">Aero Glassテーマを選択中</div>
+    </div>
 
     <div class="settings-section">
       <h3>💿 ISO / OS</h3>
@@ -6656,6 +6708,46 @@ window.superEmulatorAuditButtons=function(){const ids=["detectBtn","manualDetect
   document.addEventListener("click",e=>{const button=e.target&&e.target.closest&&e.target.closest("#startBtn,#powerBtn");if(button){try{const raw=localStorage.getItem(STORE_KEY);if(raw){params=normalize(JSON.parse(raw));applyToRuntime();say(`OS起動前にサイトパラメータ ${params.length} 件を読み込みました。`);}}catch(err){say("起動前のパラメータ読込失敗: "+(err.message||err),false);}}},true);
   window.addEventListener("storage",e=>{if(e.key===STORE_KEY)readStore();});
   readStore();
+})();
+</script>
+
+
+<script>
+/* UI theme controller - independent from guest OS emulation */
+(function(){
+  const KEY='superEmulator.uiTheme.v1';
+  const defaults={theme:'aero',accent:'#438cff',background:'#080b12'};
+  const $=id=>document.getElementById(id);
+  function validColor(v,fallback){return /^#[0-9a-fA-F]{6}$/.test(v||'')?v:fallback;}
+  function read(){try{return Object.assign({},defaults,JSON.parse(localStorage.getItem(KEY)||'{}'));}catch(_){return {...defaults};}}
+  function apply(cfg,save){
+    const theme=['aero','luna','classic95','dark','light','custom'].includes(cfg.theme)?cfg.theme:'aero';
+    const accent=validColor(cfg.accent,defaults.accent), background=validColor(cfg.background,defaults.background);
+    document.body.dataset.seTheme=theme;
+    document.documentElement.style.setProperty('--se-accent',accent);
+    if(theme==='custom'){
+      document.documentElement.style.setProperty('--se-bg',background);
+      document.documentElement.style.setProperty('--se-panel',background);
+      document.documentElement.style.setProperty('--se-card',background);
+    }else{
+      document.documentElement.style.removeProperty('--se-bg');
+      document.documentElement.style.removeProperty('--se-panel');
+      document.documentElement.style.removeProperty('--se-card');
+    }
+    if($('seThemeSelect'))$('seThemeSelect').value=theme;
+    if($('seAccentColor'))$('seAccentColor').value=accent;
+    if($('seBackgroundColor'))$('seBackgroundColor').value=background;
+    const names={aero:'Aero Glass',luna:'Windows XP Luna',classic95:'Windows 95 クラシック',dark:'ダーク',light:'ホワイト / ライト',custom:'カスタム RGB'};
+    if($('seThemeStatus'))$('seThemeStatus').textContent=names[theme]+' を適用中'+(save?'（保存済み）':'');
+    if(save){try{localStorage.setItem(KEY,JSON.stringify({theme,accent,background}));}catch(e){if($('seThemeStatus'))$('seThemeStatus').textContent+='。保存できませんでした';}}
+  }
+  function init(){
+    const cfg=read(); apply(cfg,false);
+    $('seApplyThemeBtn')?.addEventListener('click',()=>apply({theme:$('seThemeSelect').value,accent:$('seAccentColor').value,background:$('seBackgroundColor').value},true));
+    $('seResetThemeBtn')?.addEventListener('click',()=>apply(defaults,true));
+    $('seThemeSelect')?.addEventListener('change',()=>{const t=$('seThemeSelect').value;if(t==='custom'){$('seThemeStatus').textContent='RGB色を選び「テーマを適用」を押してください';}});
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
 </script>
 
