@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SUPEREMULATOR_BUILD: 2026.10.15.6 -->
+<!-- SUPEREMULATOR_BUILD: 2026.10.16.1 -->
 <!-- SUPEREMULATOR_SOURCE_SHA256: 02bd628aeb9401ec2c64403d33bee5b1c798eaaedbf755257722669544c12bc8 -->
 <html lang="ja">
 <head>
@@ -1826,7 +1826,7 @@ body[data-se-theme="custom"]{--se-glass:blur(14px)}
  function close(){if(!win)return;win.classList.remove('show');win.style.display='none';}
  function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
  function show(view){document.querySelectorAll('.core-tab').forEach(b=>b.classList.toggle('active',b.dataset.coreView===view));let html='';
-  if(view==='overview'){html='<h3>システム概要</h3><p>エミュレーター管理用の内蔵GUIです。ゲストOSのCPUやBIOSを置き換えるものではありません。</p><div class="settings-grid"><div class="setting-card"><strong>エミュレーター</strong><p>'+ (window.emulator?'起動中':'停止中')+'</p></div><div class="setting-card"><strong>ビルド</strong><p>2026.10.15.6</p></div><div class="setting-card"><strong>保存領域</strong><p>IndexedDB / LocalStorage</p></div><div class="setting-card"><strong>Linux資産</strong><p>削除・自動起動なし</p></div></div><button class="ctrl-btn primary" data-core-action="settings">サイト設定を開く</button>'}
+  if(view==='overview'){html='<h3>システム概要</h3><p>エミュレーター管理用の内蔵GUIです。ゲストOSのCPUやBIOSを置き換えるものではありません。</p><div class="settings-grid"><div class="setting-card"><strong>エミュレーター</strong><p>'+ (window.emulator?'起動中':'停止中')+'</p></div><div class="setting-card"><strong>ビルド</strong><p>2026.10.16.1</p></div><div class="setting-card"><strong>保存領域</strong><p>IndexedDB / LocalStorage</p></div><div class="setting-card"><strong>Linux資産</strong><p>削除・自動起動なし</p></div></div><button class="ctrl-btn primary" data-core-action="settings">サイト設定を開く</button>'}
   else if(view==='devices'){const details=`OS: ${window.currentOSConfig?.name||localStorage.getItem('superEmulator.lastOS')||'未選択'}\nEmulator: ${window.emulator?'active':'stopped'}\nScreen: ${$('screen')?.querySelector('canvas')?'canvas ready':'not initialized'}\nDisk: ${$('diskStatus')?.textContent||'未接続'}\nISO: ${$('isoStatus')?.textContent||'未接続'}`;html='<h3>仮想デバイス</h3><p>現在の構成を読み取り専用で表示します。</p><pre>'+esc(details)+'</pre><button class="ctrl-btn" data-core-action="settings">ハードウェア設定を開く</button>'}
   else if(view==='wasm'){html=`<h3>WASMカーネルラッパー（実験機能）</h3><p>内蔵 CoreSystem.wasm を自動読込し、SeaBIOS と SeaVGABIOS（VGABIOS）を既存の superEmulator ファームウェアローダーから自動取得します。BIOSファイルの手動選択は不要です。</p><div class="settings-grid"><div class="setting-card"><strong>WASMコア</strong><p class="help">HTML内蔵 CoreSystem.wasm（独自WASMで上書き可能）</p><label for="coreWasmFile">任意のWASMで上書き</label><input id="coreWasmFile" type="file" accept=".wasm,application/wasm"></div><div class="setting-card"><strong>ファームウェア</strong><p id="coreFirmwareStatus" class="help">SeaBIOS / VGABIOS：起動時に自動読込</p><p class="help">既存の FILE_PATHS（seabios.bin / vgabios.bin）を使用します。</p></div><div class="setting-card"><label for="coreDiskFile">起動ディスクイメージ (.img/.bin)</label><input id="coreDiskFile" type="file" accept=".img,.bin,application/octet-stream"><p class="help">OSを起動するには対応したディスクイメージが必要です。</p></div></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button class="ctrl-btn primary" id="coreKernelBoot" type="button">ファームウェア自動読込・起動</button><button class="ctrl-btn" id="coreKernelReset" type="button">リセット</button><button class="ctrl-btn" id="coreKernelStop" type="button">停止</button></div><div id="coreKernelStatus" role="status" class="help">停止中。SeaBIOS / VGABIOS は起動時に自動取得します。HTTP/HTTPSで開いてください。</div><canvas id="coreKernelCanvas" width="1024" height="768" tabindex="0" style="display:block;width:100%;max-width:680px;height:auto;background:#000;border:1px solid var(--se-border,#345);margin-top:12px"></canvas><p class="help">重要：現行 CoreSystem.wasm は完全なx86 PCエミュレーターではありません。ファームウェアをメモリに配置できても、WASM側にx86実行・チップセット・割り込み・VGA BIOS呼出しの実装がなければSeaBIOSからOSを起動できません。通常のOS起動には既存のv86エミュレーターを使用します。</p>`}
   else if(view==='registry'){html='<h3>サイトパラメータ・ハイブ</h3><p>Boot / System / Hardware / Keyboard / Media / Guest / BIOS / Diagnostics / Securityの各ハイブとして管理します。</p><button class="ctrl-btn primary" data-core-action="registry">サイトハイブを開く</button>'}
@@ -7675,7 +7675,7 @@ window.superEmulatorMemoryProfile = function(){
 <script id="superEmulator-github-updater">
 (function(){
   'use strict';
-  const BUILD='2026.10.15.6';
+  const BUILD='2026.10.16.1';
   const SOURCE_HASH='02bd628aeb9401ec2c64403d33bee5b1c798eaaedbf755257722669544c12bc8';
   const HASH_ZERO='0'.repeat(64);
   async function sha256Hex(text){const bytes=new TextEncoder().encode(text);const digest=await crypto.subtle.digest('SHA-256',bytes);return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');}
@@ -7806,6 +7806,48 @@ window.superEmulatorMemoryProfile = function(){
   $('faceVaultPersistBtn').addEventListener('click',async()=>{try{if(!navigator.storage||!navigator.storage.persist)throw new Error('このブラウザーは永続ストレージ申請に対応していません');const ok=await navigator.storage.persist();say(ok?'永続ストレージが許可されました。ユーザーがサイトデータを削除した場合は消えることがあります。':'永続ストレージは許可されませんでした。暗号化TXTを別途バックアップしてください。',!ok);await refresh();}catch(e){say('申請できません: '+(e.message||e),true);}});
   $('faceVaultStatusBtn').addEventListener('click',refresh);
   refresh();
+})();
+</script>
+
+<script id="superEmulator-pointer-capture-fix-2026-10-16">
+(function(){
+  "use strict";
+  const screen=document.getElementById('screen');
+  if(!screen) return;
+  const say=(message,level='INFO')=>{try{if(typeof window.log==='function')window.log('[MOUSE CAPTURE] '+message,level);else console.info('[MOUSE CAPTURE] '+message);}catch(_){}};
+  let lastRequest=0;
+  function guestRunning(){return !!(window.emulator && (window.emulator.is_running || window.emulator.running || document.querySelector('#screen canvas')));}
+  function guestCanvas(){return screen.querySelector('canvas');}
+  function requestCapture(){
+    const c=guestCanvas();
+    if(!c || !c.requestPointerLock || !guestRunning()) return;
+    if(document.pointerLockElement===c || document.pointerLockElement===screen) return;
+    const now=Date.now(); if(now-lastRequest<700) return; lastRequest=now;
+    try{
+      let result;
+      try{ result=c.requestPointerLock({unadjustedMovement:true}); }
+      catch(_){ result=c.requestPointerLock(); }
+      if(result && typeof result.catch==='function') result.catch(err=>say('ポインターロックを取得できません: '+(err?.message||err),'WARN'));
+    }catch(err){say('ポインターロックを取得できません: '+(err?.message||err),'WARN');}
+  }
+  /* Capture only after a deliberate click directly on the guest display.
+     This lets the pointer continue moving when the OS canvas edge is reached.
+     v86 remains the only source of guest mouse packets. */
+  screen.addEventListener('click',e=>{
+    if(e.target?.closest?.('button,input,select,textarea,a')) return;
+    requestCapture();
+  },true);
+  document.addEventListener('pointerlockchange',()=>{
+    const locked=!!document.pointerLockElement;
+    document.documentElement.classList.toggle('superEmulator-pointer-locked',locked);
+    say(locked?'マウス捕捉中。ゲスト画面外へ移動できます。':'マウス捕捉解除。ゲスト画面をクリックすると再捕捉できます。');
+    requestAnimationFrame(()=>window.syncScreenContainerGeometry?.('pointerlock-change'));
+  });
+  document.addEventListener('pointerlockerror',()=>say('ブラウザーがマウス捕捉を拒否しました。ゲスト画面をクリックして再試行してください。','WARN'));
+  document.addEventListener('fullscreenchange',()=>requestAnimationFrame(()=>window.syncScreenContainerGeometry?.('fullscreen-mouse-capture')));
+  window.superEmulatorReleaseMouseCapture=function(){try{if(document.pointerLockElement)document.exitPointerLock();}catch(err){say(err?.message||String(err),'WARN');}};
+  window.superEmulatorMouseCaptureStatus=function(){return {locked:!!document.pointerLockElement,element:document.pointerLockElement?.id||null,screen:!!screen,canvas:!!guestCanvas(),geometry:window.__superEmulatorMouseGeometry||null};};
+  say('マウス捕捉修正を登録しました。ゲスト画面をクリックすると画面外までマウスを動かせます。');
 })();
 </script>
 
