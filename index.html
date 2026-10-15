@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SUPEREMULATOR_BUILD: 2026.10.15.5 -->
+<!-- SUPEREMULATOR_BUILD: 2026.10.15.6 -->
 <!-- SUPEREMULATOR_SOURCE_SHA256: 02bd628aeb9401ec2c64403d33bee5b1c798eaaedbf755257722669544c12bc8 -->
 <html lang="ja">
 <head>
@@ -1826,7 +1826,7 @@ body[data-se-theme="custom"]{--se-glass:blur(14px)}
  function close(){if(!win)return;win.classList.remove('show');win.style.display='none';}
  function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
  function show(view){document.querySelectorAll('.core-tab').forEach(b=>b.classList.toggle('active',b.dataset.coreView===view));let html='';
-  if(view==='overview'){html='<h3>システム概要</h3><p>エミュレーター管理用の内蔵GUIです。ゲストOSのCPUやBIOSを置き換えるものではありません。</p><div class="settings-grid"><div class="setting-card"><strong>エミュレーター</strong><p>'+ (window.emulator?'起動中':'停止中')+'</p></div><div class="setting-card"><strong>ビルド</strong><p>2026.10.15.5</p></div><div class="setting-card"><strong>保存領域</strong><p>IndexedDB / LocalStorage</p></div><div class="setting-card"><strong>Linux資産</strong><p>削除・自動起動なし</p></div></div><button class="ctrl-btn primary" data-core-action="settings">サイト設定を開く</button>'}
+  if(view==='overview'){html='<h3>システム概要</h3><p>エミュレーター管理用の内蔵GUIです。ゲストOSのCPUやBIOSを置き換えるものではありません。</p><div class="settings-grid"><div class="setting-card"><strong>エミュレーター</strong><p>'+ (window.emulator?'起動中':'停止中')+'</p></div><div class="setting-card"><strong>ビルド</strong><p>2026.10.15.6</p></div><div class="setting-card"><strong>保存領域</strong><p>IndexedDB / LocalStorage</p></div><div class="setting-card"><strong>Linux資産</strong><p>削除・自動起動なし</p></div></div><button class="ctrl-btn primary" data-core-action="settings">サイト設定を開く</button>'}
   else if(view==='devices'){const details=`OS: ${window.currentOSConfig?.name||localStorage.getItem('superEmulator.lastOS')||'未選択'}\nEmulator: ${window.emulator?'active':'stopped'}\nScreen: ${$('screen')?.querySelector('canvas')?'canvas ready':'not initialized'}\nDisk: ${$('diskStatus')?.textContent||'未接続'}\nISO: ${$('isoStatus')?.textContent||'未接続'}`;html='<h3>仮想デバイス</h3><p>現在の構成を読み取り専用で表示します。</p><pre>'+esc(details)+'</pre><button class="ctrl-btn" data-core-action="settings">ハードウェア設定を開く</button>'}
   else if(view==='wasm'){html=`<h3>WASMカーネルラッパー（実験機能）</h3><p>内蔵 CoreSystem.wasm を自動読込し、SeaBIOS と SeaVGABIOS（VGABIOS）を既存の superEmulator ファームウェアローダーから自動取得します。BIOSファイルの手動選択は不要です。</p><div class="settings-grid"><div class="setting-card"><strong>WASMコア</strong><p class="help">HTML内蔵 CoreSystem.wasm（独自WASMで上書き可能）</p><label for="coreWasmFile">任意のWASMで上書き</label><input id="coreWasmFile" type="file" accept=".wasm,application/wasm"></div><div class="setting-card"><strong>ファームウェア</strong><p id="coreFirmwareStatus" class="help">SeaBIOS / VGABIOS：起動時に自動読込</p><p class="help">既存の FILE_PATHS（seabios.bin / vgabios.bin）を使用します。</p></div><div class="setting-card"><label for="coreDiskFile">起動ディスクイメージ (.img/.bin)</label><input id="coreDiskFile" type="file" accept=".img,.bin,application/octet-stream"><p class="help">OSを起動するには対応したディスクイメージが必要です。</p></div></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button class="ctrl-btn primary" id="coreKernelBoot" type="button">ファームウェア自動読込・起動</button><button class="ctrl-btn" id="coreKernelReset" type="button">リセット</button><button class="ctrl-btn" id="coreKernelStop" type="button">停止</button></div><div id="coreKernelStatus" role="status" class="help">停止中。SeaBIOS / VGABIOS は起動時に自動取得します。HTTP/HTTPSで開いてください。</div><canvas id="coreKernelCanvas" width="1024" height="768" tabindex="0" style="display:block;width:100%;max-width:680px;height:auto;background:#000;border:1px solid var(--se-border,#345);margin-top:12px"></canvas><p class="help">重要：現行 CoreSystem.wasm は完全なx86 PCエミュレーターではありません。ファームウェアをメモリに配置できても、WASM側にx86実行・チップセット・割り込み・VGA BIOS呼出しの実装がなければSeaBIOSからOSを起動できません。通常のOS起動には既存のv86エミュレーターを使用します。</p>`}
   else if(view==='registry'){html='<h3>サイトパラメータ・ハイブ</h3><p>Boot / System / Hardware / Keyboard / Media / Guest / BIOS / Diagnostics / Securityの各ハイブとして管理します。</p><button class="ctrl-btn primary" data-core-action="registry">サイトハイブを開く</button>'}
@@ -4080,14 +4080,27 @@ async function startEmulator(options={})
     /*
      * 2. 仮想ディスク
      */
-    // ISOがある場合、空の「16/32/64GB設定」だけを実体ディスクとして渡さない。
-    // それが原因で大容量ArrayBuffer確保に失敗したり、空HDDから起動待ちになるのを防ぐ。
-    // 実ディスクが必要な場合はIMGファイルまたはURL HDDを接続する。
-    if(!virtualDisk && !selectedDiskFile && !selectedDiskURL && !selectedISO && !options.uploadedFile){
-      createVirtualDisk();
-    }
-    if(!virtualDisk && !selectedDiskFile && !selectedDiskURL && !selectedISO && !options.uploadedFile){
-      throw new Error("起動用HDDがありません。OSのISOを接続するか、ディスクイメージを指定してください。");
+    // 起動メディアがない場合は、ブラウザー内で最小の起動可能な診断フロッピーを生成する。
+    // 外部 .img/.iso は不要。これはOSではなく、BIOSとCPU実行経路の確認用テキスト画面。
+    const noBootMediaMode = !virtualDisk && !selectedDiskFile && !selectedDiskURL &&
+      !(window.__superEmulatorSelectedDiskBuffer instanceof ArrayBuffer) && !selectedDiskBuffer &&
+      !selectedISO && !options.uploadedFile && !selectedFloppy;
+    let builtinDiagnosticFloppy = null;
+    if(noBootMediaMode){
+      const image = new Uint8Array(1474560); // 1.44 MB floppy
+      image.fill(0);
+      image.set([0xFA,0x31,0xC0,0x8E,0xD8,0xBE,0x20,0x7C,0xAC,0x84,0xC0,0x74,0x09,0xB4,0x0E,0xBB,0x07,0x00,0xCD,0x10,0xEB,0xF2,0xF4,0xEB,0xFD],0);
+      const msg = new TextEncoder().encode('superEmulator diagnostic mode - no IMG/ISO required. BIOS and CPU boot path OK. Attach an OS image to boot Windows/Linux.');
+      image.set(msg,32);
+      image[510]=0x55; image[511]=0xAA;
+      builtinDiagnosticFloppy={buffer:image.buffer};
+      window.__superEmulatorNoBootMediaMode=true;
+      log('起動メディアなし：内蔵診断フロッピーを生成（外部IMG/ISO不要）','OK');
+    } else {
+      window.__superEmulatorNoBootMediaMode=false;
+      if(!virtualDisk && !selectedDiskFile && !selectedDiskURL && !selectedISO && !options.uploadedFile){
+        createVirtualDisk();
+      }
     }
 
     setBoot(
@@ -4341,7 +4354,7 @@ async function startEmulator(options={})
       /*
        * フロッピー
        */
-      ...(selectedFloppy ? { fda:{buffer:await fileToBuffer(selectedFloppy, floppyFile, "フロッピーイメージ")} } : {}),
+      ...(selectedFloppy ? { fda:{buffer:await fileToBuffer(selectedFloppy, floppyFile, "フロッピーイメージ")} } : (builtinDiagnosticFloppy ? {fda:builtinDiagnosticFloppy} : {})),
       ...(selectedDataFloppy ? { fdb:{buffer:await fileToBuffer(selectedDataFloppy, dataFloppyFile, "補助フロッピー")} } : {}),
       ...(selectedSecondaryDisk ? { hdb:{buffer:await fileToBuffer(selectedSecondaryDisk, secondaryDiskFile, "2台目HDDイメージ")} } : {}),
 
@@ -4360,9 +4373,9 @@ async function startEmulator(options={})
       // v86公式UIと同じ「CD → Floppy → HDD」を使用。
       // ISO起動時はCDを必ず最優先にする。
       boot_order:
-        (cdromImage
+        (noBootMediaMode ? 0x231 : (cdromImage
           ? ((["winvista","win7","win8","win10","winxp","win2000","winnt4"].includes(selectedOS)) ? 0x123 : 0x213)
-          : (selectedFloppy ? 0x231 : 0x132)),
+          : (selectedFloppy ? 0x231 : 0x132))),
 
       acpi:
         (selectedOS === "win10" && window.superEmulatorWin10Diag?.acpi === "off"
@@ -7662,7 +7675,7 @@ window.superEmulatorMemoryProfile = function(){
 <script id="superEmulator-github-updater">
 (function(){
   'use strict';
-  const BUILD='2026.10.15.5';
+  const BUILD='2026.10.15.6';
   const SOURCE_HASH='02bd628aeb9401ec2c64403d33bee5b1c798eaaedbf755257722669544c12bc8';
   const HASH_ZERO='0'.repeat(64);
   async function sha256Hex(text){const bytes=new TextEncoder().encode(text);const digest=await crypto.subtle.digest('SHA-256',bytes);return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');}
