@@ -1,0 +1,5 @@
+SUPEREMULATOR_RAMIMG
+VERSION=1
+RAM_MB=2048
+TYPE=RAM_PROFILE
+NOTE=This is a compact RAM profile, not a raw RAM dump.
