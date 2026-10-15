@@ -1,6 +1,6 @@
 <!DOCTYPE html>
-<!-- SUPEREMULATOR_BUILD: 2026.10.15.1 -->
-<!-- SUPEREMULATOR_SOURCE_SHA256: 6f86f4a443a773a38b63f551fd20cf40fc2d4fae9e80f4d5e60858b2f8874c4b -->
+<!-- SUPEREMULATOR_BUILD: 2026.10.15.2 -->
+<!-- SUPEREMULATOR_SOURCE_SHA256: 6c5e6ece23655f369ad8afcdafe574e05783d25784a43cc2b049628f121260ba -->
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -7642,8 +7642,8 @@ window.superEmulatorMemoryProfile = function(){
 <script id="superEmulator-github-updater">
 (function(){
   'use strict';
-  const BUILD='2026.10.15.1';
-  const SOURCE_HASH='6f86f4a443a773a38b63f551fd20cf40fc2d4fae9e80f4d5e60858b2f8874c4b';
+  const BUILD='2026.10.15.2';
+  const SOURCE_HASH='6c5e6ece23655f369ad8afcdafe574e05783d25784a43cc2b049628f121260ba';
   const HASH_ZERO='0'.repeat(64);
   async function sha256Hex(text){const bytes=new TextEncoder().encode(text);const digest=await crypto.subtle.digest('SHA-256',bytes);return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');}
   function normalizeSource(html){return String(html).replace(/SUPEREMULATOR_SOURCE_SHA256:\s*[a-f0-9]{64}/ig,'SUPEREMULATOR_SOURCE_SHA256: '+HASH_ZERO).replace(/const SOURCE_HASH='[a-f0-9]{64}';/g,"const SOURCE_HASH='"+HASH_ZERO+"';");}
