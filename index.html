@@ -1,6 +1,6 @@
 <!DOCTYPE html>
-<!-- SUPEREMULATOR_BUILD: 2026.10.16.1 -->
-<!-- SUPEREMULATOR_SOURCE_SHA256: 02bd628aeb9401ec2c64403d33bee5b1c798eaaedbf755257722669544c12bc8 -->
+<!-- SUPEREMULATOR_BUILD: 2026.10.16.3 -->
+<!-- SUPEREMULATOR_SOURCE_SHA256: cbead6c2d651d2eca0d10f0fa89db182b9cf63ecd7d79ad0c413eaca419cd760 -->
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -1707,7 +1707,7 @@ body[data-se-theme="custom"]{--se-glass:blur(14px)}
           <button class="ctrl-btn" id="superEmulatorCheckUpdateBtn" type="button">更新を確認</button>
           <button class="ctrl-btn primary" id="superEmulatorApplyPatchBtn" type="button" disabled>修正パッチを適用して再起動</button>
         </div>
-        <div class="help" id="superEmulatorUpdateStatus" role="status" aria-live="polite" style="margin-top:8px">現在のビルド: 2026.10.15.1 / 未確認</div>
+        <div class="help" id="superEmulatorUpdateStatus" role="status" aria-live="polite" style="margin-top:8px">現在のビルド: 2026.10.16.3 / 最新版確認前</div>
       </div>
       <div class="setting-card" style="margin-top:12px">
         <strong>🧠 CPU / ハング診断</strong>
@@ -4509,6 +4509,10 @@ async function startEmulator(options={})
             "event: emulator-ready"
           );
 
+          // Restore saved guest state only after the same machine configuration has been created.
+          // Do not block the normal boot UI if no compatible state exists.
+          superVmAutoRestore(emulator).catch(err=>log("自動復元処理エラー: "+(err?.message||err),"WARN"));
+
           setBoot(
             80,
             "仮想PC準備完了"
@@ -4781,11 +4785,79 @@ function setBoot(
 
 
 /* =========================================================
+   AUTOMATIC VM PERSISTENCE — IndexedDB
+   v86 save_state stores the full emulated machine state, including guest RAM
+   and emulated device/disk state. Restore only with matching machine options.
+========================================================= */
+const SUPER_VM_STATE_DB = "superEmulatorAutoPowerStateDB";
+const SUPER_VM_STATE_STORE = "states";
+const SUPER_VM_STATE_KEY = "last-machine";
+function superVmOpenDB(){
+  return new Promise((resolve,reject)=>{
+    const req=indexedDB.open(SUPER_VM_STATE_DB,1);
+    req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains(SUPER_VM_STATE_STORE))req.result.createObjectStore(SUPER_VM_STATE_STORE);};
+    req.onsuccess=()=>resolve(req.result);
+    req.onerror=()=>reject(req.error||new Error("IndexedDBを開けません"));
+  });
+}
+async function superVmReadSavedState(){
+  const db=await superVmOpenDB();
+  try{return await new Promise((resolve,reject)=>{const req=db.transaction(SUPER_VM_STATE_STORE,"readonly").objectStore(SUPER_VM_STATE_STORE).get(SUPER_VM_STATE_KEY);req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error||new Error("保存状態を読み込めません"));});}
+  finally{db.close();}
+}
+async function superVmWriteSavedState(record){
+  const db=await superVmOpenDB();
+  try{await new Promise((resolve,reject)=>{const tx=db.transaction(SUPER_VM_STATE_STORE,"readwrite");tx.objectStore(SUPER_VM_STATE_STORE).put(record,SUPER_VM_STATE_KEY);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error||new Error("保存状態を書き込めません"));tx.onabort=()=>reject(tx.error||new Error("保存状態の書き込みが中断されました"));});}
+  finally{db.close();}
+}
+function superVmCurrentSignature(){
+  const cfg=window.currentOSConfig||{};
+  const diskName=selectedDiskURL?"url:"+selectedDiskURL:(selectedDiskFile?"file:"+selectedDiskName:(virtualDisk?"ram:"+String(virtualDisk.byteLength):"none"));
+  return JSON.stringify({os:cfg.key||localStorage.getItem("superEmulator.lastOS")||selectedOS||"unknown",memory:Number(selectedMemoryMB)||Number(cfg.memory)||0,disk:diskName,iso:selectedISOName||"",buildMajor:"v86-state-v1"});
+}
+async function superVmAutoSave(reason="power-off"){
+  const e=window.emulator;
+  if(!e||typeof e.save_state!=="function")return false;
+  try{
+    if(navigator.storage?.estimate){const q=await navigator.storage.estimate();if(q.quota&&q.usage!=null&&q.quota-q.usage<32*1024*1024)throw new Error("ブラウザーの保存容量が不足しています");}
+    let result;
+    if(e.save_state.length>0){result=await new Promise((resolve,reject)=>e.save_state((err,state)=>err?reject(err):resolve(state)));}
+    else result=await e.save_state();
+    if(!(result instanceof ArrayBuffer)&&!(result instanceof Uint8Array))throw new Error("v86 save_state()から状態データが返りませんでした");
+    const buffer=result instanceof ArrayBuffer?result:result.buffer.slice(result.byteOffset,result.byteOffset+result.byteLength);
+    await superVmWriteSavedState({state:buffer,signature:superVmCurrentSignature(),savedAt:new Date().toISOString(),reason,build:"2026.10.16.3",bytes:buffer.byteLength});
+    if(typeof window.log==="function")window.log("電源OFF用の仮想マシン状態を保存: "+(buffer.byteLength/1048576).toFixed(1)+" MB","OK");
+    return true;
+  }catch(err){if(typeof window.log==="function")window.log("自動保存に失敗: "+(err?.message||err)+"。仮想マシンは停止しますが、最新状態は保存されていない可能性があります。","ERROR");return false;}
+}
+async function superVmAutoRestore(e){
+  if(!e||typeof e.restore_state!=="function"||window.__superVmRestoreAttempted)return false;
+  window.__superVmRestoreAttempted=true;
+  try{
+    const record=await superVmReadSavedState();
+    if(!record||!record.state)return false;
+    if(record.signature!==superVmCurrentSignature()){
+      if(typeof window.log==="function")window.log("自動復元をスキップ: 保存時とOS/メモリ/ディスク/ISO構成が異なります。保存状態は保持されています。","WARN");
+      return false;
+    }
+    if(typeof e.stop==="function")await e.stop();
+    await e.restore_state(record.state);
+    if(typeof e.run==="function")await e.run();
+    if(typeof window.log==="function")window.log("保存済み仮想マシン状態を自動復元しました（"+record.savedAt+"）","OK");
+    return true;
+  }catch(err){if(typeof window.log==="function")window.log("自動復元に失敗: "+(err?.message||err)+"。通常起動を継続します。","WARN");return false;}
+}
+
+/* =========================================================
    STOP / DESTROY
 ========================================================= */
 
 async function stopAndDestroy()
 {
+  if(emulator){
+    // Save while the instance still exists; this captures RAM and emulated disk/device state.
+    await superVmAutoSave("power-off-or-restart");
+  }
   clearInterval(
     screenTimer
   );
@@ -5068,7 +5140,7 @@ document.addEventListener("fullscreenchange",()=>{
   log(active ? "全画面: OS画面 + F1〜F12 + Winのみ表示" : "全画面解除");
   requestAnimationFrame(()=>{applyScreenScale();syncScreenContainerGeometry("fullscreen-change");});
 });
-screen.addEventListener("dblclick",()=>{if(emulator)document.getElementById("fullscreenBtn").click();});
+// ダブルクリックによる全画面切り替えは無効化。全画面ボタンからのみ切り替える。
 screen.tabIndex=0;
 screen.style.pointerEvents="auto";
 // v86自身のマウスイベント処理に任せる。HTML側で二重にpointer lockしない。
@@ -7675,8 +7747,8 @@ window.superEmulatorMemoryProfile = function(){
 <script id="superEmulator-github-updater">
 (function(){
   'use strict';
-  const BUILD='2026.10.16.1';
-  const SOURCE_HASH='02bd628aeb9401ec2c64403d33bee5b1c798eaaedbf755257722669544c12bc8';
+  const BUILD='2026.10.16.3';
+  const SOURCE_HASH='cbead6c2d651d2eca0d10f0fa89db182b9cf63ecd7d79ad0c413eaca419cd760';
   const HASH_ZERO='0'.repeat(64);
   async function sha256Hex(text){const bytes=new TextEncoder().encode(text);const digest=await crypto.subtle.digest('SHA-256',bytes);return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');}
   function normalizeSource(html){return String(html).replace(/SUPEREMULATOR_SOURCE_SHA256:\s*[a-f0-9]{64}/ig,'SUPEREMULATOR_SOURCE_SHA256: '+HASH_ZERO).replace(/const SOURCE_HASH='[a-f0-9]{64}';/g,"const SOURCE_HASH='"+HASH_ZERO+"';");}
