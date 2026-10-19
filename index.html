@@ -1104,7 +1104,10 @@ body[data-se-edition="lite"] *,body[data-se-edition="lite"] *::before,body[data-
 body[data-se-edition="lite"] .landing-nav,body[data-se-edition="lite"] .topbar,body[data-se-edition="lite"] #functionBar,body[data-se-edition="lite"] #controlPanel,body[data-se-edition="lite"] #editionModal{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
 body[data-se-edition="lite"] #landing{background:var(--se-bg,#080b12)!important}
 body[data-se-edition="lite"] .feature-card,body[data-se-edition="lite"] .modal-card,body[data-se-edition="lite"] .setting-card{box-shadow:none!important}
-body[data-se-edition="lite"] #coreSystemLandingSection,body[data-se-edition="lite"] #coreSystemSettingsLaunch,body[data-se-edition="lite"] #debugPanel,body[data-se-edition="lite"] #debugSection,body[data-se-edition="lite"] #secondaryDriveSection,body[data-se-edition="lite"] .advanced-diagnostics,body[data-se-edition="lite"] .feature-card:not(.essential-feature){display:none!important}
+/* LiteEdition never hides the interface: it keeps the emulator UI visible, but uses flat low-cost rendering. Optional advanced actions are disabled by the edition controller, not hidden. */
+body[data-se-edition="lite"] .feature-card,body[data-se-edition="lite"] .setting-card,body[data-se-edition="lite"] .modal-card,body[data-se-edition="lite"] button{box-shadow:none!important;filter:none!important;text-shadow:none!important}
+body[data-se-edition="lite"] #landing,body[data-se-edition="lite"] #app{background-image:none!important}
+body[data-se-edition="lite"] video,body[data-se-edition="lite"] .decorative-canvas,body[data-se-edition="lite"] .ambient-background{display:none!important}
 body[data-se-edition="lite"] .feature-card,body[data-se-edition="lite"] .setting-card,body[data-se-edition="lite"] .modal-card{border-radius:6px!important;background-image:none!important}
 body[data-se-edition="super"].guest-running *,body[data-se-edition="super"].guest-running *::before,body[data-se-edition="super"].guest-running *::after{animation-play-state:paused!important;transition:none!important}
 body[data-se-edition="super"].guest-running .landing-nav,body[data-se-edition="super"].guest-running .topbar,body[data-se-edition="super"].guest-running #functionBar,body[data-se-edition="super"].guest-running #controlPanel{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
@@ -1147,7 +1150,8 @@ body[data-se-edition="super"] .cursor-status { display: initial; }
 </head>
 
 <body>
-<div id="superEmulatorDebugBanner" style="position:fixed;right:10px;bottom:10px;z-index:99999;padding:7px 10px;border:1px solid rgba(255,255,255,.25);border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,.06));backdrop-filter:blur(12px);color:#dff4ff;font:11px ui-monospace,monospace;box-shadow:0 4px 18px rgba(0,0,0,.25);pointer-events:none">DEBUG • AERO GLASS</div>
+<button id="releaseNotesOpen" type="button" style="position:fixed;left:10px;bottom:10px;z-index:100000;padding:8px 12px;border:1px solid rgba(255,255,255,.25);border-radius:10px;background:rgba(15,25,42,.9);color:#eaf5ff;font:12px system-ui;cursor:pointer">📋 リリースノート</button>
+<div id="superEmulatorDebugBanner" style="position:fixed;right:10px;bottom:10px;z-index:99999;padding:7px 10px;border:1px solid rgba(255,255,255,.25);border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,.06));backdrop-filter:blur(12px);color:#dff4ff;font:11px ui-monospace,monospace;box-shadow:0 4px 18px rgba(0,0,0,.25);pointer-events:none">BUILD 2026.10.19.4</div>
 
 <!-- =========================================================
      LANDING
@@ -1362,23 +1366,43 @@ body[data-se-edition="super"] .cursor-status { display: initial; }
     <div class="edition-options" role="group" aria-label="Edition">
       <button type="button" class="edition-option" data-edition-choice="lite" aria-pressed="false">
         <div class="edition-icon">🪶</div><div class="edition-title">LiteEdition</div><div class="edition-tag">低スペック端末向け</div>
-        <div class="edition-desc">起動・基本設定・ディスク選択・電源操作を中心にした最小構成。装飾、アニメーション、追加ドライブ、Core System、詳細デバッグUIを隠し、描画負荷と操作の複雑さを抑えます。</div>
+        <div class="edition-desc">Emulatorとして必要な基本機能を優先。OS起動、メディア選択、仮想ディスク、入力、電源操作は維持し、視覚効果と不要なバックグラウンド処理を最小限にします。UI自体は隠しません。</div>
       </button>
       <button type="button" class="edition-option" data-edition-choice="normal" aria-pressed="true">
         <div class="edition-icon">⚖️</div><div class="edition-title">NormalEdition</div><div class="edition-tag">バランス重視</div>
-        <div class="edition-desc">見た目と動作負荷のバランスを取る標準モード。初めての方におすすめです。</div>
+        <div class="edition-desc">基本的なEmulator機能と便利な追加機能を両立し、視覚効果・描画負荷・操作性のバランスを取ります。</div>
       </button>
       <button type="button" class="edition-option" data-edition-choice="super" aria-pressed="false">
         <div class="edition-icon">🚀</div><div class="edition-title">SuperEdition</div><div class="edition-tag">ハイスペックPC向け</div>
-        <div class="edition-desc">ゲストOSの実行を最優先。VM実行中はホスト側のアニメーションや装飾の更新を抑えて、エミュレーターに処理時間を回します。通常画面では高品質な視覚効果も利用できます。</div>
+        <div class="edition-desc">ハイスペックPC向け。ゲストOS実行中はホスト側の不要なアニメーション・監視処理・描画更新を抑え、可能な範囲でゲストOSに処理資源を優先配分します。停止中の画面は高品質な視覚効果を使用します。</div>
       </button>
     </div>
     <div class="edition-actions">
       <button type="button" id="editionCancel" class="ctrl-btn">キャンセル</button>
       <button type="button" id="editionConfirm" class="primary-btn">このEditionで開始 →</button>
     </div>
-    <p style="font-size:12px;line-height:1.6;opacity:.65;margin:14px 0 0">※ Editionはブラウザー側のUI効果と描画負荷を調整します。ゲストOSのCPU性能そのものを保証・増幅する設定ではありません。</p>
+    <p style="font-size:12px;line-height:1.6;opacity:.65;margin:14px 0 0">※ どのEditionでも同じEmulator起動経路を使います。Editionは起動互換性を保証するものではなく、CPUエミュレーションそのものを高速化する保証もありません。</p>
   </div>
+</div>
+
+<!-- RELEASE NOTES -->
+<div id="releaseNotesModal" role="dialog" aria-modal="true" aria-labelledby="releaseNotesTitle" style="display:none;position:fixed;inset:0;z-index:100600;background:rgba(0,0,0,.72);backdrop-filter:blur(8px);padding:18px;align-items:center;justify-content:center">
+ <section style="width:min(900px,100%);max-height:90vh;overflow:auto;background:#101722;color:#f4f7fb;border:1px solid rgba(255,255,255,.2);border-radius:18px;padding:24px;box-shadow:0 24px 80px rgba(0,0,0,.5)">
+  <div style="display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap"><h2 id="releaseNotesTitle" style="margin:0">superEmulator リリースノート</h2><button id="releaseNotesClose" type="button" class="ctrl-btn">閉じる ✕</button></div>
+  <p style="opacity:.8;line-height:1.6">これまでの会話・配布ビルドで確認できる変更履歴。過去版のすべての内部変更を完全に記録したものではなく、実装・実機検証の状況も区別しています。</p>
+  <article style="line-height:1.75">
+   <h3>2026.10.19.4（今回）</h3><ul><li>Editionの役割を再整理。LiteはUIを隠さず、Emulatorの基本機能を維持して視覚効果・不要な描画を最小化。</li><li>Normalは基本機能と便利な追加機能のバランスを重視。</li><li>SuperはゲストOS実行中にホスト側の不要な装飾処理を抑え、停止中は高品質な視覚効果を使用。</li><li>リリースノート画面を追加。すべてのEditionで同じ起動経路を維持する方針を明記。</li></ul>
+   <h3>2026.10.19.4</h3><ul><li>Editionの動作方針とCoreSystemの起動表示を調整。</li><li>CoreSystem.wasm単体では完全なx86 PCエミュレーターではないことを明確化。</li></ul>
+   <h3>2026.10.19.2</h3><ul><li>SuperEditionの視覚効果を強化するスタイルを追加。</li></ul>
+   <h3>2026.10.19.1</h3><ul><li>「無料で始める」操作後にEditionを選択する画面を追加。</li><li>選択したEditionをブラウザー側に保存。</li></ul>
+   <h3>2026.10.16.3</h3><ul><li>仮想マシンの状態保存・復元の自動化を追加する変更。</li><li>※仮想マシン状態の保存と、仮想ディスクの永続書き込みは別々に検証が必要。</li></ul>
+   <h3>2026.10.16.2</h3><ul><li>ダブルクリックで全画面が解除される動作を抑止。</li></ul>
+   <h3>2026.10.16.1</h3><ul><li>ゲスト画面のクリックによるポインターロック要求を追加し、画面端でのマウス移動を改善する変更。</li><li>※座標ズレの完全解消は実機確認が必要。</li></ul>
+   <h3>2026.10.15.6</h3><ul><li>IMG/ISOがない場合の診断起動経路を追加する変更。</li><li>依存するv86・BIOSファイルは別途取得が必要な場合がある。</li></ul>
+   <h3>2026.10.15.5 以前</h3><ul><li>superEmulatorの基本となる単一HTML構成、v86ベースのx86エミュレーション、OSイメージ・仮想ディスクの選択、設定・Core System診断UIなどを整備。</li><li>Windows 7／8／8.1／10の32bit版を幅広く対象にする方針。各OSの実際の起動可否は個別検証が必要。</li></ul>
+   <h3>既知の制限・信頼性方針</h3><ul><li>Windows 11は現行基盤で対応済みと扱わない。x86-64・ファームウェア等の検証が必要。</li><li>ゲストOS内のダウンロードファイルを再起動後も保持するには、仮想ディスクの書き込みを永続化し、実際に再起動試験する必要がある。</li><li>構文チェックだけではOS起動・マウス精度・保存の成功を証明しない。</li></ul>
+  </article>
+ </section>
 </div>
 
 <!-- =========================================================
@@ -2330,6 +2354,7 @@ function applyEdition(edition){
   document.querySelectorAll("[data-edition-choice]").forEach(btn=>btn.setAttribute("aria-pressed",String(btn.dataset.editionChoice===selectedEdition)));
   const banner=document.getElementById("superEmulatorDebugBanner");
   if(banner) banner.textContent="EDITION • "+({lite:"LITE",normal:"NORMAL",super:"SUPER"}[selectedEdition]);
+  if(typeof applyEditionFeatureProfile==="function")applyEditionFeatureProfile();
 }
 function showEditionSelector(event){
   editionReturnFocus=event?.currentTarget||document.activeElement;
@@ -2352,6 +2377,23 @@ if(editionModal) editionModal.addEventListener("click",e=>{if(e.target===edition
 if(editionConfirm) editionConfirm.addEventListener("click",()=>{applyEdition(selectedEdition);hideEditionSelector();openApp();});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&editionModal?.classList.contains("open"))hideEditionSelector();});
 applyEdition(selectedEdition);
+
+// Keep the complete UI visible in every Edition. Lite only disables nonessential optional actions.
+function applyEditionFeatureProfile(){
+  const lite=selectedEdition==="lite";
+  document.querySelectorAll("[data-lite-optional]").forEach(el=>{
+    if(el.dataset.liteOriginalDisabled===undefined) el.dataset.liteOriginalDisabled=String(!!el.disabled);
+    el.disabled=lite || el.dataset.liteOriginalDisabled==="true";
+    el.title=lite?"LiteEditionでは負荷軽減のため、この追加機能は無効です。NormalEditionへ切り替えると利用できます。":"";
+    el.setAttribute("aria-disabled",String(!!el.disabled));
+  });
+}
+applyEditionFeatureProfile();
+const releaseNotesModal=document.getElementById("releaseNotesModal");
+document.getElementById("releaseNotesOpen")?.addEventListener("click",()=>{releaseNotesModal.style.display="flex";document.body.style.overflow="hidden";});
+function closeReleaseNotes(){releaseNotesModal.style.display="none";document.body.style.overflow="auto";}
+document.getElementById("releaseNotesClose")?.addEventListener("click",closeReleaseNotes);
+releaseNotesModal?.addEventListener("click",e=>{if(e.target===releaseNotesModal)closeReleaseNotes();});
 
 // SuperEdition: suspend host-side decorative motion while guest execution is active.
 let editionGuestState=false;
