@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SUPEREMULATOR_BUILD: 2026.10.16.3 -->
+<!-- SUPEREMULATOR_BUILD: 2026.10.19.2 -->
 <!-- SUPEREMULATOR_SOURCE_SHA256: cbead6c2d651d2eca0d10f0fa89db182b9cf63ecd7d79ad0c413eaca419cd760 -->
 <html lang="ja">
 <head>
@@ -1086,6 +1086,64 @@ body[data-se-theme="custom"]{--se-glass:blur(14px)}
 .theme-swatch{width:20px;height:20px;border-radius:50%;display:inline-block;border:1px solid rgba(127,127,127,.5);vertical-align:middle;margin-right:6px}
 
 </style>
+
+<style id="superEmulator-edition-styles">
+#editionModal{position:fixed;inset:0;z-index:100500;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(3,8,18,.76);backdrop-filter:blur(12px)}
+#editionModal.open{display:flex}
+#editionModal .edition-dialog{width:min(900px,100%);max-height:92vh;overflow:auto;background:var(--se-panel,#101722);color:var(--se-text,#f4f7fb);border:1px solid var(--se-border,rgba(255,255,255,.18));border-radius:22px;padding:clamp(18px,4vw,32px);box-shadow:0 28px 90px rgba(0,0,0,.5)}
+#editionModal .edition-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:22px 0}
+#editionModal .edition-option{appearance:none;text-align:left;color:inherit;background:var(--se-card,#0a0f17);border:2px solid var(--se-border,rgba(255,255,255,.15));border-radius:16px;padding:18px;cursor:pointer;min-height:205px;transition:border-color .15s,transform .15s,box-shadow .15s}
+#editionModal .edition-option:hover,#editionModal .edition-option:focus-visible{border-color:var(--se-accent,#438cff);transform:translateY(-2px);outline:none}
+#editionModal .edition-option[aria-pressed="true"]{border-color:var(--se-accent,#438cff);box-shadow:0 0 0 2px color-mix(in srgb,var(--se-accent,#438cff) 25%,transparent)}
+#editionModal .edition-icon{font-size:30px;margin-bottom:12px}
+#editionModal .edition-title{font-weight:800;font-size:18px;margin-bottom:8px}
+#editionModal .edition-tag{display:inline-block;font-size:11px;opacity:.8;border:1px solid currentColor;border-radius:999px;padding:3px 8px;margin-bottom:10px}
+#editionModal .edition-desc{font-size:13px;line-height:1.65;opacity:.84}
+#editionModal .edition-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+body[data-se-edition="lite"] *,body[data-se-edition="lite"] *::before,body[data-se-edition="lite"] *::after{scroll-behavior:auto!important;animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+body[data-se-edition="lite"] .landing-nav,body[data-se-edition="lite"] .topbar,body[data-se-edition="lite"] #functionBar,body[data-se-edition="lite"] #controlPanel,body[data-se-edition="lite"] #editionModal{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+body[data-se-edition="lite"] #landing{background:var(--se-bg,#080b12)!important}
+body[data-se-edition="lite"] .feature-card,body[data-se-edition="lite"] .modal-card,body[data-se-edition="lite"] .setting-card{box-shadow:none!important}
+body[data-se-edition="lite"] #coreSystemLandingSection,body[data-se-edition="lite"] #coreSystemSettingsLaunch,body[data-se-edition="lite"] #debugPanel,body[data-se-edition="lite"] #debugSection,body[data-se-edition="lite"] #secondaryDriveSection,body[data-se-edition="lite"] .advanced-diagnostics,body[data-se-edition="lite"] .feature-card:not(.essential-feature){display:none!important}
+body[data-se-edition="lite"] .feature-card,body[data-se-edition="lite"] .setting-card,body[data-se-edition="lite"] .modal-card{border-radius:6px!important;background-image:none!important}
+body[data-se-edition="super"].guest-running *,body[data-se-edition="super"].guest-running *::before,body[data-se-edition="super"].guest-running *::after{animation-play-state:paused!important;transition:none!important}
+body[data-se-edition="super"].guest-running .landing-nav,body[data-se-edition="super"].guest-running .topbar,body[data-se-edition="super"].guest-running #functionBar,body[data-se-edition="super"].guest-running #controlPanel{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+/* SuperEdition: maximize visual quality; do not disable glass or shadows. */
+body[data-se-edition="super"] .landing-nav,
+body[data-se-edition="super"] .topbar,
+body[data-se-edition="super"] #functionBar,
+body[data-se-edition="super"] #controlPanel,
+body[data-se-edition="super"] .feature-card,
+body[data-se-edition="super"] .hero,
+body[data-se-edition="super"] .final-cta,
+body[data-se-edition="super"] .modal-card,
+body[data-se-edition="super"] .setting-card,
+body[data-se-edition="super"] #editionModal .edition-dialog {
+  backdrop-filter: blur(24px) saturate(175%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(175%) !important;
+  box-shadow: 0 18px 55px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.18) !important;
+}
+body[data-se-edition="super"] .feature-card,
+body[data-se-edition="super"] .setting-card,
+body[data-se-edition="super"] .modal-card {
+  border-color: rgba(190,225,255,.34) !important;
+  background-image: linear-gradient(135deg,rgba(255,255,255,.12),rgba(255,255,255,.025) 48%,rgba(90,160,255,.08)) !important;
+  transition: transform .28s cubic-bezier(.2,.8,.2,1), box-shadow .28s ease, border-color .28s ease !important;
+}
+body[data-se-edition="super"] .feature-card:hover,
+body[data-se-edition="super"] .setting-card:hover {
+  transform: translateY(-5px) scale(1.012);
+  box-shadow: 0 24px 65px rgba(0,0,0,.48), 0 0 28px rgba(90,165,255,.18), inset 0 1px 0 rgba(255,255,255,.28) !important;
+  border-color: rgba(150,210,255,.65) !important;
+}
+body[data-se-edition="super"] #landing {
+  background-image: radial-gradient(ellipse at 15% 10%,rgba(63,139,255,.22),transparent 38%), radial-gradient(ellipse at 85% 35%,rgba(148,93,255,.16),transparent 36%), var(--se-bg,#080b12) !important;
+}
+body[data-se-edition="super"] #editionModal { backdrop-filter: blur(24px) saturate(180%) !important; -webkit-backdrop-filter: blur(24px) saturate(180%) !important; }
+body[data-se-edition="super"] .cursor-status { display: initial; }
+@media(max-width:720px){#editionModal .edition-options{grid-template-columns:1fr}#editionModal .edition-option{min-height:0}}
+</style>
+
 </head>
 
 <body>
@@ -1293,6 +1351,35 @@ body[data-se-theme="custom"]{--se-glass:blur(14px)}
   カーソル: Windows 95風
 </div>
 
+
+
+<!-- EDITION SELECTOR -->
+<div id="editionModal" role="dialog" aria-modal="true" aria-labelledby="editionModalTitle">
+  <div class="edition-dialog">
+    <div style="font-size:12px;letter-spacing:.16em;opacity:.7;font-weight:700">SUPEREMULATOR STARTUP</div>
+    <h2 id="editionModalTitle" style="margin:8px 0 0;font-size:clamp(24px,4vw,34px)">Editionを選択</h2>
+    <p style="margin:10px 0 0;line-height:1.7;opacity:.82">端末に合わせて動作モードを選べます。あとから選び直すこともできます。</p>
+    <div class="edition-options" role="group" aria-label="Edition">
+      <button type="button" class="edition-option" data-edition-choice="lite" aria-pressed="false">
+        <div class="edition-icon">🪶</div><div class="edition-title">LiteEdition</div><div class="edition-tag">低スペック端末向け</div>
+        <div class="edition-desc">起動・基本設定・ディスク選択・電源操作を中心にした最小構成。装飾、アニメーション、追加ドライブ、Core System、詳細デバッグUIを隠し、描画負荷と操作の複雑さを抑えます。</div>
+      </button>
+      <button type="button" class="edition-option" data-edition-choice="normal" aria-pressed="true">
+        <div class="edition-icon">⚖️</div><div class="edition-title">NormalEdition</div><div class="edition-tag">バランス重視</div>
+        <div class="edition-desc">見た目と動作負荷のバランスを取る標準モード。初めての方におすすめです。</div>
+      </button>
+      <button type="button" class="edition-option" data-edition-choice="super" aria-pressed="false">
+        <div class="edition-icon">🚀</div><div class="edition-title">SuperEdition</div><div class="edition-tag">ハイスペックPC向け</div>
+        <div class="edition-desc">ゲストOSの実行を最優先。VM実行中はホスト側のアニメーションや装飾の更新を抑えて、エミュレーターに処理時間を回します。通常画面では高品質な視覚効果も利用できます。</div>
+      </button>
+    </div>
+    <div class="edition-actions">
+      <button type="button" id="editionCancel" class="ctrl-btn">キャンセル</button>
+      <button type="button" id="editionConfirm" class="primary-btn">このEditionで開始 →</button>
+    </div>
+    <p style="font-size:12px;line-height:1.6;opacity:.65;margin:14px 0 0">※ Editionはブラウザー側のUI効果と描画負荷を調整します。ゲストOSのCPU性能そのものを保証・増幅する設定ではありません。</p>
+  </div>
+</div>
 
 <!-- =========================================================
      APP
@@ -1707,7 +1794,7 @@ body[data-se-theme="custom"]{--se-glass:blur(14px)}
           <button class="ctrl-btn" id="superEmulatorCheckUpdateBtn" type="button">更新を確認</button>
           <button class="ctrl-btn primary" id="superEmulatorApplyPatchBtn" type="button" disabled>修正パッチを適用して再起動</button>
         </div>
-        <div class="help" id="superEmulatorUpdateStatus" role="status" aria-live="polite" style="margin-top:8px">現在のビルド: 2026.10.16.3 / 最新版確認前</div>
+        <div class="help" id="superEmulatorUpdateStatus" role="status" aria-live="polite" style="margin-top:8px">現在のビルド: 2026.10.19.2 / 最新版確認前</div>
       </div>
       <div class="setting-card" style="margin-top:12px">
         <strong>🧠 CPU / ハング診断</strong>
@@ -1854,7 +1941,7 @@ body[data-se-theme="custom"]{--se-glass:blur(14px)}
  function diskRead(sector,ptr){try{const off=sector*512;if(!st.disk||!st.memory||!Number.isInteger(sector)||sector<0||off+512>st.disk.length||ptr<0||ptr+512>st.memory.buffer.byteLength)return -1;new Uint8Array(st.memory.buffer,ptr,512).set(st.disk.subarray(off,off+512));return 0;}catch(_){return -1;}}
  function diskWrite(sector,ptr){try{const off=sector*512;if(!st.disk||!st.memory||!Number.isInteger(sector)||sector<0||off+512>st.disk.length||ptr<0||ptr+512>st.memory.buffer.byteLength)return -1;st.disk.set(new Uint8Array(st.memory.buffer,ptr,512),off);return 0;}catch(_){return -1;}}
  function attach(){if(st.handlers)return;st.handlers=true;window.addEventListener('keydown',e=>{const c=$('coreKernelCanvas');if(!st.running||document.activeElement!==c)return;try{fn('send_keyboard_interrupt')?.(e.keyCode||0,1);}catch(x){log(x.message);}});window.addEventListener('keyup',e=>{const c=$('coreKernelCanvas');if(!st.running||document.activeElement!==c)return;try{fn('send_keyboard_interrupt')?.(e.keyCode||0,0);}catch(x){log(x.message);}});document.addEventListener('mousemove',e=>{const c=$('coreKernelCanvas');if(!st.running||!c||!e.target||!(e.target===c||c.contains(e.target)))return;const f=fn('send_mouse_interrupt');if(!f)return;const r=c.getBoundingClientRect();if(!r.width||!r.height)return;try{f(Math.max(0,Math.min(1023,Math.floor((e.clientX-r.left)/r.width*1024))),Math.max(0,Math.min(767,Math.floor((e.clientY-r.top)/r.height*768))),0);}catch(x){log(x.message);}});}
- async function boot(){stop();try{const c=$('coreKernelCanvas');if(!c)throw Error('WASM画面を開いてください');st.ctx=c.getContext('2d');if(!st.ctx)throw Error('Canvasを初期化できません');status('内蔵WASMを読み込み中…');const wasm=await read('coreWasmFile');status('SeaBIOS / VGABIOS を自動取得中…');if(location.protocol==='file:')throw Error('自動ファームウェア読込にはHTTP/HTTPSが必要です。ローカルサーバー経由で開いてください。');if(typeof loadV86Assets!=='function')throw Error('ファームウェアローダーが見つかりません');await loadV86Assets();if(!biosBuffer||!vgaBuffer)throw Error('SeaBIOS / VGABIOS の取得に失敗しました。seabios.bin と vgabios.bin を確認してください。');const bios=new Uint8Array(biosBuffer),vga=new Uint8Array(vgaBuffer),disk=await read('coreDiskFile');if(wasm[0]!==0||wasm[1]!==97||wasm[2]!==115||wasm[3]!==109)throw Error('WASMファイル形式が不正です');if(!bios.length||!vga.length)throw Error('SeaBIOS / VGABIOS が空です');st.disk=disk;const mem=new WebAssembly.Memory({initial:256});const imports={env:{memory:mem,js_print_debug:(ptr,len)=>{try{if(!st.memory)return;log('[WASM] '+new TextDecoder().decode(new Uint8Array(st.memory.buffer,ptr,len)));}catch(_){}},js_get_timestamp:()=>Date.now(),js_read_disk:diskRead,js_write_disk:diskWrite}};const result=await WebAssembly.instantiate(wasm,imports);st.instance=result.instance;st.memory=st.instance.exports.memory||mem;const init=fn('init_emulator_core'),cycle=fn('emulate_cpu_cycle');if(!init||!cycle)throw Error('必要な exports init_emulator_core / emulate_cpu_cycle がありません');const vgaAddr=0xC0000,biosMapped=bios.length>0x20000?bios.subarray(bios.length-0x20000):bios,biosAddr=0x100000-biosMapped.length;if(biosAddr+biosMapped.length>st.memory.buffer.byteLength||vgaAddr+vga.length>st.memory.buffer.byteLength)throw Error('SeaBIOS / VGABIOS の配置に必要なWASMメモリが不足しています');if(!(vgaAddr+vga.length<=biosAddr||biosAddr+biosMapped.length<=vgaAddr))throw Error('SeaBIOSとVGABIOSのメモリ領域が重なっています');new Uint8Array(st.memory.buffer).set(vga,vgaAddr);new Uint8Array(st.memory.buffer).set(biosMapped,biosAddr);const vgaHook=fn('set_vga_bios')||fn('load_vga_bios')||fn('core_set_vga_bios');if(vgaHook)vgaHook(vgaAddr,vga.length);const firmwareHook=fn('set_firmware')||fn('core_set_firmware');if(firmwareHook)firmwareHook(biosAddr,biosMapped.length,vgaAddr,vga.length);st.vram=Number(init(biosAddr,biosMapped.length,c.width,c.height,vgaAddr,vga.length));if(!Number.isInteger(st.vram)||st.vram<0||st.vram+c.width*c.height*4>st.memory.buffer.byteLength)throw Error('VRAMオフセットがWASMメモリ範囲外です');st.ticks=0;st.running=true;attach();const fs=$('coreFirmwareStatus');if(fs)fs.textContent='SeaBIOS '+bios.length.toLocaleString()+' bytes（上位 '+biosMapped.length.toLocaleString()+' bytes を配置） / VGABIOS '+vga.length.toLocaleString()+' bytes を自動取得・メモリ配置済み'+(vgaHook||firmwareHook?'（WASMファームウェア連携関数あり）':'（現在のWASM ABIにはBIOS実行連携関数がありません）');status('内蔵WASMとSeaBIOS/VGABIOSの読込・配置に成功。実際のOS起動はx86エミュレーション実装に依存します。');log('CoreSystem.wasm読込成功');log('SeaBIOS '+bios.length+' bytes（上位 '+biosMapped.length+' bytes）を 0x'+biosAddr.toString(16)+' に配置');log('VGABIOS '+vga.length+' bytes を 0x'+vgaAddr.toString(16)+' に配置');log('Firmware hook: '+(vgaHook||firmwareHook?'あり':'なし'));log('注意：BIOSバイナリの配置はBIOSコード実行を意味しません');frame();}catch(e){stop();status('起動できません: '+(e?.message||e));log('エラー: '+(e?.message||e));console.error('[Core System WASM]',e);}}
+ async function boot(){stop();const c=$('coreKernelCanvas');if(c){st.ctx=c.getContext('2d');if(st.ctx){st.ctx.clearRect(0,0,c.width,c.height);st.ctx.fillStyle="#101722";st.ctx.fillRect(0,0,c.width,c.height);st.ctx.fillStyle="#f4f7fb";st.ctx.font="bold 22px sans-serif";st.ctx.fillText("CoreSystem: 実験用コア",28,48);st.ctx.font="15px sans-serif";st.ctx.fillText("このWASMはx86 PCを実行できないため、OSイメージを起動できません。",28,82);st.ctx.fillText("通常のエミュレーター画面でディスク/ISOを選択して起動してください。",28,110);}}status("起動を中止しました。CoreSystem.wasmは完全なx86エミュレーターではないため、イメージを実行できません。通常のv86エミュレーターを使用してください。");log("CoreSystemは実験用WASMで、OSイメージの起動には非対応です。通常のエミュレーターを使用してください。");return;try{if(!c)throw Error('WASM画面を開いてください');st.ctx=c.getContext('2d');if(!st.ctx)throw Error('Canvasを初期化できません');status('内蔵WASMを読み込み中…');const wasm=await read('coreWasmFile');status('SeaBIOS / VGABIOS を自動取得中…');if(location.protocol==='file:')throw Error('自動ファームウェア読込にはHTTP/HTTPSが必要です。ローカルサーバー経由で開いてください。');if(typeof loadV86Assets!=='function')throw Error('ファームウェアローダーが見つかりません');await loadV86Assets();if(!biosBuffer||!vgaBuffer)throw Error('SeaBIOS / VGABIOS の取得に失敗しました。seabios.bin と vgabios.bin を確認してください。');const bios=new Uint8Array(biosBuffer),vga=new Uint8Array(vgaBuffer),disk=await read('coreDiskFile');if(wasm[0]!==0||wasm[1]!==97||wasm[2]!==115||wasm[3]!==109)throw Error('WASMファイル形式が不正です');if(!bios.length||!vga.length)throw Error('SeaBIOS / VGABIOS が空です');st.disk=disk;const mem=new WebAssembly.Memory({initial:256});const imports={env:{memory:mem,js_print_debug:(ptr,len)=>{try{if(!st.memory)return;log('[WASM] '+new TextDecoder().decode(new Uint8Array(st.memory.buffer,ptr,len)));}catch(_){}},js_get_timestamp:()=>Date.now(),js_read_disk:diskRead,js_write_disk:diskWrite}};const result=await WebAssembly.instantiate(wasm,imports);st.instance=result.instance;st.memory=st.instance.exports.memory||mem;const init=fn('init_emulator_core'),cycle=fn('emulate_cpu_cycle');if(!init||!cycle)throw Error('必要な exports init_emulator_core / emulate_cpu_cycle がありません');const vgaAddr=0xC0000,biosMapped=bios.length>0x20000?bios.subarray(bios.length-0x20000):bios,biosAddr=0x100000-biosMapped.length;if(biosAddr+biosMapped.length>st.memory.buffer.byteLength||vgaAddr+vga.length>st.memory.buffer.byteLength)throw Error('SeaBIOS / VGABIOS の配置に必要なWASMメモリが不足しています');if(!(vgaAddr+vga.length<=biosAddr||biosAddr+biosMapped.length<=vgaAddr))throw Error('SeaBIOSとVGABIOSのメモリ領域が重なっています');new Uint8Array(st.memory.buffer).set(vga,vgaAddr);new Uint8Array(st.memory.buffer).set(biosMapped,biosAddr);const vgaHook=fn('set_vga_bios')||fn('load_vga_bios')||fn('core_set_vga_bios');if(vgaHook)vgaHook(vgaAddr,vga.length);const firmwareHook=fn('set_firmware')||fn('core_set_firmware');if(firmwareHook)firmwareHook(biosAddr,biosMapped.length,vgaAddr,vga.length);st.vram=Number(init(biosAddr,biosMapped.length,c.width,c.height,vgaAddr,vga.length));if(!Number.isInteger(st.vram)||st.vram<0||st.vram+c.width*c.height*4>st.memory.buffer.byteLength)throw Error('VRAMオフセットがWASMメモリ範囲外です');st.ticks=0;st.running=true;attach();const fs=$('coreFirmwareStatus');if(fs)fs.textContent='SeaBIOS '+bios.length.toLocaleString()+' bytes（上位 '+biosMapped.length.toLocaleString()+' bytes を配置） / VGABIOS '+vga.length.toLocaleString()+' bytes を自動取得・メモリ配置済み'+(vgaHook||firmwareHook?'（WASMファームウェア連携関数あり）':'（現在のWASM ABIにはBIOS実行連携関数がありません）');status('内蔵WASMとSeaBIOS/VGABIOSの読込・配置に成功。実際のOS起動はx86エミュレーション実装に依存します。');log('CoreSystem.wasm読込成功');log('SeaBIOS '+bios.length+' bytes（上位 '+biosMapped.length+' bytes）を 0x'+biosAddr.toString(16)+' に配置');log('VGABIOS '+vga.length+' bytes を 0x'+vgaAddr.toString(16)+' に配置');log('Firmware hook: '+(vgaHook||firmwareHook?'あり':'なし'));log('注意：BIOSバイナリの配置はBIOSコード実行を意味しません');frame();}catch(e){stop();status('起動できません: '+(e?.message||e));log('エラー: '+(e?.message||e));console.error('[Core System WASM]',e);}}
  function frame(){if(!st.running)return;try{fn('emulate_cpu_cycle')();st.ticks++;const c=$('coreKernelCanvas'),n=c.width*c.height*4;if(st.vram!==null&&st.vram+n<=st.memory.buffer.byteLength)st.ctx.putImageData(new ImageData(new Uint8ClampedArray(st.memory.buffer,st.vram,n),c.width,c.height),0,0);if(st.ticks%120===0)status('WASMコア実行中 · CPU関数呼び出し '+st.ticks+' 回（実クロック数ではありません）');st.raf=requestAnimationFrame(frame);}catch(e){stop();status('実行停止: '+(e?.message||e));log('実行時エラー: '+(e?.message||e));}}
  document.addEventListener('click',e=>{const id=e.target?.closest?.('button')?.id;if(id==='coreKernelBoot')boot();if(id==='coreKernelStop')stop();if(id==='coreKernelReset'){stop();st.instance=st.memory=st.disk=null;st.vram=null;st.ticks=0;const fs=$('coreFirmwareStatus');if(fs)fs.textContent='SeaBIOS / VGABIOS：次回起動時に自動読込';status('状態をリセットしました。');}});
  window.superEmulatorWasmKernel={boot,stop,getState:()=>({running:st.running,ticks:st.ticks})};
@@ -2230,9 +2317,47 @@ function openLanding()
 }
 
 
-landingStart.onclick = openApp;
-heroStart.onclick = openApp;
-finalStart.onclick = openApp;
+// Edition selector is shown before entering the emulator.
+const editionModal = document.getElementById("editionModal");
+const editionConfirm = document.getElementById("editionConfirm");
+const editionCancel = document.getElementById("editionCancel");
+let selectedEdition = ["lite","normal","super"].includes(localStorage.getItem("superEmulator.edition")) ? localStorage.getItem("superEmulator.edition") : "normal";
+let editionReturnFocus = null;
+function applyEdition(edition){
+  selectedEdition = ["lite","normal","super"].includes(edition) ? edition : "normal";
+  document.body.dataset.seEdition = selectedEdition;
+  try{localStorage.setItem("superEmulator.edition",selectedEdition);}catch(_){}
+  document.querySelectorAll("[data-edition-choice]").forEach(btn=>btn.setAttribute("aria-pressed",String(btn.dataset.editionChoice===selectedEdition)));
+  const banner=document.getElementById("superEmulatorDebugBanner");
+  if(banner) banner.textContent="EDITION • "+({lite:"LITE",normal:"NORMAL",super:"SUPER"}[selectedEdition]);
+}
+function showEditionSelector(event){
+  editionReturnFocus=event?.currentTarget||document.activeElement;
+  applyEdition(selectedEdition);
+  editionModal.classList.add("open");
+  editionModal.style.display="flex";
+  document.body.style.overflow="hidden";
+  document.querySelector('[data-edition-choice="'+selectedEdition+'"]')?.focus();
+}
+function hideEditionSelector(){
+  editionModal.classList.remove("open");
+  editionModal.style.display="none";
+  document.body.style.overflow="auto";
+  editionReturnFocus?.focus?.();
+}
+document.querySelectorAll("[data-edition-choice]").forEach(btn=>btn.addEventListener("click",()=>applyEdition(btn.dataset.editionChoice)));
+[landingStart,heroStart,finalStart].forEach(btn=>{if(btn)btn.onclick=showEditionSelector;});
+if(editionCancel) editionCancel.addEventListener("click",hideEditionSelector);
+if(editionModal) editionModal.addEventListener("click",e=>{if(e.target===editionModal)hideEditionSelector();});
+if(editionConfirm) editionConfirm.addEventListener("click",()=>{applyEdition(selectedEdition);hideEditionSelector();openApp();});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&editionModal?.classList.contains("open"))hideEditionSelector();});
+applyEdition(selectedEdition);
+
+// SuperEdition: suspend host-side decorative motion while guest execution is active.
+let editionGuestState=false;
+setInterval(()=>{const active=!!window.emulator && (window.emulator.is_running===true || window.emulator.running===true || document.querySelector("#screen canvas"));if(active!==editionGuestState){editionGuestState=active;document.body.classList.toggle("guest-running",active&&selectedEdition==="super");}},1000);
+const editionObserver=new MutationObserver(()=>{if(selectedEdition==="super"&&window.emulator)document.body.classList.add("guest-running");else document.body.classList.remove("guest-running");});
+editionObserver.observe(document.body,{attributes:true,attributeFilter:["data-se-edition"]});
 
 const backLanding = document.getElementById("backLanding");
 if(backLanding) backLanding.onclick = openLanding;
@@ -4825,7 +4950,7 @@ async function superVmAutoSave(reason="power-off"){
     else result=await e.save_state();
     if(!(result instanceof ArrayBuffer)&&!(result instanceof Uint8Array))throw new Error("v86 save_state()から状態データが返りませんでした");
     const buffer=result instanceof ArrayBuffer?result:result.buffer.slice(result.byteOffset,result.byteOffset+result.byteLength);
-    await superVmWriteSavedState({state:buffer,signature:superVmCurrentSignature(),savedAt:new Date().toISOString(),reason,build:"2026.10.16.3",bytes:buffer.byteLength});
+    await superVmWriteSavedState({state:buffer,signature:superVmCurrentSignature(),savedAt:new Date().toISOString(),reason,build:"2026.10.19.2",bytes:buffer.byteLength});
     if(typeof window.log==="function")window.log("電源OFF用の仮想マシン状態を保存: "+(buffer.byteLength/1048576).toFixed(1)+" MB","OK");
     return true;
   }catch(err){if(typeof window.log==="function")window.log("自動保存に失敗: "+(err?.message||err)+"。仮想マシンは停止しますが、最新状態は保存されていない可能性があります。","ERROR");return false;}
@@ -5731,9 +5856,9 @@ window.downloadCurrentDiskImage=downloadCurrentDiskImage;
   function closeSettings(){const m=el("settingsModal");if(m){m.classList.remove("show");m.style.display="none";}}
 
   /* ランディング */
-  wire("landingStart",()=>{if(typeof window.openApp==="function")window.openApp();});
-  wire("heroStart",()=>{if(typeof window.openApp==="function")window.openApp();});
-  wire("finalStart",()=>{if(typeof window.openApp==="function")window.openApp();});
+  wire("landingStart",()=>{if(typeof showEditionSelector==="function")showEditionSelector();});
+  wire("heroStart",()=>{if(typeof showEditionSelector==="function")showEditionSelector();});
+  wire("finalStart",()=>{if(typeof showEditionSelector==="function")showEditionSelector();});
 
   /* サイドバー */
   wire("openSidebar",()=>{const x=el("sidebar");if(x)x.classList.remove("collapsed");});
@@ -7747,7 +7872,7 @@ window.superEmulatorMemoryProfile = function(){
 <script id="superEmulator-github-updater">
 (function(){
   'use strict';
-  const BUILD='2026.10.16.3';
+  const BUILD='2026.10.19.2';
   const SOURCE_HASH='cbead6c2d651d2eca0d10f0fa89db182b9cf63ecd7d79ad0c413eaca419cd760';
   const HASH_ZERO='0'.repeat(64);
   async function sha256Hex(text){const bytes=new TextEncoder().encode(text);const digest=await crypto.subtle.digest('SHA-256',bytes);return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');}
