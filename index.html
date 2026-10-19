@@ -1147,11 +1147,22 @@ body[data-se-edition="super"] .cursor-status { display: initial; }
 @media(max-width:720px){#editionModal .edition-options{grid-template-columns:1fr}#editionModal .edition-option{min-height:0}}
 </style>
 
+
+<style id="superEmulator-settings-category-css">
+/* Settings category navigation: compact Aero Glass cards */
+.settings-category-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0 4px}
+.settings-category-card{display:flex;flex-direction:column;align-items:flex-start;gap:7px;min-height:124px;padding:16px;text-align:left;border:1px solid rgba(150,190,235,.28);border-radius:14px;background:linear-gradient(145deg,rgba(255,255,255,.13),rgba(80,130,190,.07));color:inherit;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.12);transition:transform .16s ease,border-color .16s ease,background .16s ease}
+.settings-category-card:hover{transform:translateY(-2px);border-color:rgba(110,180,255,.75);background:linear-gradient(145deg,rgba(120,185,255,.2),rgba(80,130,190,.1))}
+.settings-category-card span{font-size:25px}.settings-category-card strong{font-size:16px}.settings-category-card small{font-size:12px;line-height:1.5;opacity:.78}
+#settingsModal .settings-section[data-settings-category]{margin-top:0}
+@media(max-width:600px){.settings-category-grid{grid-template-columns:1fr}.settings-category-card{min-height:95px}}
+</style>
+
 </head>
 
 <body>
 <button id="releaseNotesOpen" type="button" style="position:fixed;left:10px;bottom:10px;z-index:100000;padding:8px 12px;border:1px solid rgba(255,255,255,.25);border-radius:10px;background:rgba(15,25,42,.9);color:#eaf5ff;font:12px system-ui;cursor:pointer">📋 リリースノート</button>
-<div id="superEmulatorDebugBanner" style="position:fixed;right:10px;bottom:10px;z-index:99999;padding:7px 10px;border:1px solid rgba(255,255,255,.25);border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,.06));backdrop-filter:blur(12px);color:#dff4ff;font:11px ui-monospace,monospace;box-shadow:0 4px 18px rgba(0,0,0,.25);pointer-events:none">BUILD 2026.10.19.4</div>
+<div id="superEmulatorDebugBanner" style="position:fixed;right:10px;bottom:10px;z-index:99999;padding:7px 10px;border:1px solid rgba(255,255,255,.25);border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,.06));backdrop-filter:blur(12px);color:#dff4ff;font:11px ui-monospace,monospace;box-shadow:0 4px 18px rgba(0,0,0,.25);pointer-events:none">BUILD 2026.10.19.6</div>
 
 <!-- =========================================================
      LANDING
@@ -1597,9 +1608,23 @@ body[data-se-edition="super"] .cursor-status { display: initial; }
 <div class="modal" id="settingsModal">
   <div class="modal-card">
     <button class="close-modal" id="closeSettings">×</button>
-    <h2>⚙️ 設定</h2>
+    <div id="settingsHomeView">
+      <h2>⚙️ 設定</h2>
+      <p class="help" style="margin:0 0 14px">カテゴリを選ぶと専用画面が開きます。設定値や保存機能はそのまま利用できます。</p>
+      <div class="settings-category-grid">
+        <button class="settings-category-card" data-settings-page="os"><span>💿</span><strong>OS</strong><small>ISO・OS選択・仮想ディスク・CD/DVD・フロッピー</small></button>
+        <button class="settings-category-card" data-settings-page="hardware"><span>🧠</span><strong>ハードウェア</strong><small>メモリ・仮想PCの構成</small></button>
+        <button class="settings-category-card" data-settings-page="display"><span>🖥️</span><strong>画面・操作</strong><small>表示倍率・画面方式・入力操作</small></button>
+        <button class="settings-category-card" data-settings-page="appearance"><span>🎨</span><strong>外観</strong><small>テーマ・配色・エディション</small></button>
+        <button class="settings-category-card" data-settings-page="system"><span>🧰</span><strong>システム・診断</strong><small>Core System・ログ・更新・サイトパラメータ</small></button>
+      </div>
+    </div>
+    <div id="settingsPageToolbar" style="display:none;align-items:center;gap:10px;margin:0 0 12px">
+      <button class="ctrl-btn" id="settingsBackHome" type="button">← 設定トップ</button>
+      <h2 id="settingsPageTitle" style="margin:0">設定</h2>
+    </div>
 
-    <div class="settings-section" id="uiThemeSection">
+    <div class="settings-section" id="uiThemeSection" data-settings-category="appearance">
       <h3>🎨 UIテーマ・色の変更</h3>
       <div class="help" style="margin-bottom:10px">サイトの見た目だけを変更します。ゲストOSの設定やエミュレーターのCPU・メモリ設定には影響しません。選択はこのブラウザーに保存されます。</div>
       <label class="label" for="seThemeSelect">テーマ</label>
@@ -1622,8 +1647,8 @@ body[data-se-edition="super"] .cursor-status { display: initial; }
       <div class="help" id="seThemeStatus" style="margin-top:8px" aria-live="polite">Aero Glassテーマを選択中</div>
     </div>
 
-    <div class="settings-section">
-      <h3>💿 ISO / OS</h3>
+    <div class="settings-section" data-settings-category="os">
+      <h3>💿 OS：ISO・起動メディア</h3>
       <label class="label">ISO / ディスクイメージ</label>
       <input class="field" id="isoFile" type="file" accept=".iso,.img,.bin" style="display:none" aria-hidden="true" tabindex="-1">
       <div class="row">
@@ -1670,8 +1695,8 @@ body[data-se-edition="super"] .cursor-status { display: initial; }
       <div class="help" style="margin-top:8px">ISOを選ぶと自動判定を開始します。手動OSは「このOSを確定」を押した時点で起動用OSとして確定します。</div>
     </div>
 
-    <div class="settings-section">
-      <h3>💾 仮想ストレージ</h3>
+    <div class="settings-section" data-settings-category="os">
+      <h3>💾 OS：仮想ストレージ</h3>
       <label class="label">接続方式</label>
       <select class="field" id="storageType"><option value="hdd">HDD（IDE互換）</option><option value="ssd">SSD（高速ストレージ相当）</option></select>
       <label class="label">新規仮想ディスク容量</label>
@@ -1745,7 +1770,7 @@ body[data-se-edition="super"] .cursor-status { display: initial; }
       </div>
     </div>
 
-    <div class="settings-section">
+    <div class="settings-section" data-settings-category="display">
       <h3>🖥️ 画面 / 操作</h3>
       <div class="row">
         <button class="ctrl-btn" id="settingsFullscreenBtn">全画面</button>
@@ -1768,7 +1793,7 @@ body[data-se-edition="super"] .cursor-status { display: initial; }
       <div class="help">画面はスクロール可能です。大きな解像度でも画面外へスクロールできます。</div>
     </div>
 
-    <div class="settings-section">
+    <div class="settings-section" data-settings-category="hardware">
       <h3>🧠 メモリ</h3>
       <div class="disk-status"><div class="disk-box"><strong>自動割り当て</strong><span id="memoryStatus">未計算</span></div></div>
       <div class="help" style="margin-top:9px">通常は自動割り当て。メモリプロファイルをアップロードすると、その容量を起動時RAMの開始値として使用します。</div>
@@ -1781,13 +1806,13 @@ body[data-se-edition="super"] .cursor-status { display: initial; }
       <div id="memoryImageStatus" class="help" style="margin-top:8px">未接続</div>
       <div class="help" style="margin-top:8px">※これは実RAMそのものを保存する巨大な.imgではなく、起動RAM容量を記録した小さなプロファイルです。実際のRAMはv86が起動時に確保します。</div>
     </div>
-    <div class="settings-section" id="coreSystemSettingsLaunch">
+    <div class="settings-section" id="coreSystemSettingsLaunch" data-settings-category="system">
       <h3>🧩 コアシステム</h3>
       <div class="help" style="margin-bottom:9px">Linuxデバッグ環境の代わりに、サイト内蔵の管理GUIを起動します。debug-linux以下のファイルは削除しません。</div>
       <button class="ctrl-btn primary" id="launchCoreSystemSettings" type="button">🖥️ コアシステムを起動</button>
     </div>
 
-    <div class="settings-section">
+    <div class="settings-section" data-settings-category="system">
       <h3>🧰 デバッグ / ログ</h3>
       <div class="settings-grid"><div class="setting-card"><strong>起動診断</strong><small>WASM、BIOS、仮想ディスプレイ、v86の状態を確認。</small></div><div class="setting-card"><strong>詳細ログ</strong><small>起動・停止・ディスク・v86イベントを記録。</small></div></div>
       <div style="height:10px"></div><button class="ctrl-btn" id="showLogsBtn">ログ位置へ</button>
@@ -1861,7 +1886,7 @@ body[data-se-edition="super"] .cursor-status { display: initial; }
       <div style="height:8px"></div><div id="logs" style="height:180px;overflow:auto;font:10px ui-monospace,SFMono-Regular,Menlo,monospace;background:#05070a;color:#9facbf;padding:9px;border-radius:8px;white-space:pre-wrap"></div>
     </div>
 
-    <div class="settings-section" id="siteParametersSection">
+    <div class="settings-section" id="siteParametersSection" data-settings-category="system">
       <h3>🗂️ サイトパラメータ（仮想レジストリ）</h3>
       <div class="help" style="margin-bottom:10px">サイト側に保存するキー／値データです。エミュレーター起動時に読み込み、設定オブジェクトとして公開します。実際のWindowsレジストリを直接変更する機能ではありません。ゲストOS内へ反映するには、OS側で読み込めるファイルやドライバーなど別の連携が必要です。</div>
       <div class="row" style="flex-wrap:wrap;margin-bottom:8px;gap:8px">
@@ -1889,14 +1914,14 @@ body[data-se-edition="super"] .cursor-status { display: initial; }
       <div class="help" style="margin-top:6px">「ゲスト用設定JSON出力」で、仮想フロッピー／CD/DVD作成時に格納できる設定ファイルを出力します。ゲストOSで自動適用するには、OS側の起動スクリプトや専用ツールが別途必要です。BIOSはこのJSONを標準機能だけで自動解釈しません。</div>
     </div>
 
-    <div class="settings-section">
+    <div class="settings-section" data-settings-category="system">
       <h3>⌨️ Bash / コマンド</h3>
       <input class="field" id="commandInput" placeholder="例: uname -a"><button class="ctrl-btn primary" id="sendCommand">ゲストへ送信</button>
       <div style="height:8px"></div><div class="row"><button class="ctrl-btn command" data-command="uname -a">uname</button><button class="ctrl-btn command" data-command="ls">ls</button></div>
       <div class="row"><button class="ctrl-btn command" data-command="pwd">pwd</button><button class="ctrl-btn command" data-command="free -h">free</button></div>
     </div>
 
-    <div class="settings-section" id="faceVaultSection">
+    <div class="settings-section" id="faceVaultSection" data-settings-category="system">
       <h3>🔐 生体情報ボルト（暗号化バックアップ）</h3>
       <div class="help" style="margin-bottom:10px">superEmulator内で利用する顔特徴データの暗号化保管領域です。データはAES-256-GCMで暗号化してIndexedDBへ保存し、必要に応じて暗号化TXTとして書き出せます。顔特徴の抽出・照合モデル自体はこの保管機能には含まれていません。顔写真そのものや、他人の生体情報を入力しないでください。</div>
       <label class="label" for="faceVaultFeatureJson">顔認証モジュールが生成した特徴データJSON</label>
@@ -6465,6 +6490,25 @@ window.superEmulatorAuditButtons=function(){const ids=["detectBtn","manualDetect
     $('seThemeSelect')?.addEventListener('change',()=>{const t=$('seThemeSelect').value;if(t==='custom'){$('seThemeStatus').textContent='RGB色を選び「テーマを適用」を押してください';}});
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+})();
+</script>
+
+
+<script id="superEmulatorSettingsCategoryNavigation">
+(()=>{
+ const modal=document.getElementById('settingsModal'); if(!modal)return;
+ const home=document.getElementById('settingsHomeView'), toolbar=document.getElementById('settingsPageToolbar'), title=document.getElementById('settingsPageTitle');
+ const sections=[...modal.querySelectorAll('.settings-section')];
+ const names={os:'💿 OS',hardware:'🧠 ハードウェア',display:'🖥️ 画面・操作',appearance:'🎨 外観',system:'🧰 システム・診断'};
+ function showHome(){delete modal.dataset.settingsPage;home.style.display='';toolbar.style.display='none';sections.forEach(x=>x.style.display='none');}
+ function showPage(key){home.style.display='none';toolbar.style.display='flex';title.textContent=names[key]||'設定';sections.forEach(x=>x.style.display=x.dataset.settingsCategory===key?'':'none');modal.dataset.settingsPage=key;}
+ modal.querySelectorAll('[data-settings-page]').forEach(b=>b.addEventListener('click',()=>showPage(b.dataset.settingsPage)));
+ document.getElementById('settingsBackHome')?.addEventListener('click',showHome);
+ // Existing settings-opening handlers remain compatible; always land on the clean category home.
+ document.addEventListener('click',e=>{if(e.target.closest?.('#openSettingsMain,[data-panel="settings"]'))showHome();},true);
+ const observer=new MutationObserver(()=>{if(modal.classList.contains('show')||modal.style.display==='flex'){if(!modal.dataset.settingsPage)showHome();}});
+ observer.observe(modal,{attributes:true,attributeFilter:['class','style']});
+ showHome();
 })();
 </script>
 
