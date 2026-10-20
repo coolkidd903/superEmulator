@@ -1162,7 +1162,7 @@ body[data-se-edition="super"] .cursor-status { display: initial; }
 
 <body>
 <button id="releaseNotesOpen" type="button" style="position:fixed;left:10px;bottom:10px;z-index:100000;padding:8px 12px;border:1px solid rgba(255,255,255,.25);border-radius:10px;background:rgba(15,25,42,.9);color:#eaf5ff;font:12px system-ui;cursor:pointer">📋 リリースノート</button>
-<div id="superEmulatorDebugBanner" style="position:fixed;right:10px;bottom:10px;z-index:99999;padding:7px 10px;border:1px solid rgba(255,255,255,.25);border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,.06));backdrop-filter:blur(12px);color:#dff4ff;font:11px ui-monospace,monospace;box-shadow:0 4px 18px rgba(0,0,0,.25);pointer-events:none">BUILD 2026.10.19.6</div>
+<div id="superEmulatorDebugBanner" style="position:fixed;right:10px;bottom:10px;z-index:99999;padding:7px 10px;border:1px solid rgba(255,255,255,.25);border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,.06));backdrop-filter:blur(12px);color:#dff4ff;font:11px ui-monospace,monospace;box-shadow:0 4px 18px rgba(0,0,0,.25);pointer-events:none">BUILD 2026.10.20.1</div>
 
 <!-- =========================================================
      LANDING
@@ -1402,6 +1402,7 @@ body[data-se-edition="super"] .cursor-status { display: initial; }
   <div style="display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap"><h2 id="releaseNotesTitle" style="margin:0">superEmulator リリースノート</h2><button id="releaseNotesClose" type="button" class="ctrl-btn">閉じる ✕</button></div>
   <p style="opacity:.8;line-height:1.6">これまでの会話・配布ビルドで確認できる変更履歴。過去版のすべての内部変更を完全に記録したものではなく、実装・実機検証の状況も区別しています。</p>
   <article style="line-height:1.75">
+   <h3>2026.10.20.1（今回）</h3><ul><li>対象範囲をx86 32bitまでに明示。Windows 7／8／8.1／10は32bit版を優先し、Windows 11・64bit OSは対象外。</li><li>OS選択に互換性プロファイル表示を追加。OS別の注意点を表示し、起動成功を保証しないことを明記。</li><li>CPU進行状況／命令統計の診断説明を改善。0や異常値だけでCPU停止と断定しない切り分け手順を追加。</li><li>HTML/JavaScript構文チェック：インラインスクリプト30個を確認。実際のWindows起動、マウス精度、仮想ディスク永続化は未実機検証。</li></ul>
    <h3>2026.10.19.4（今回）</h3><ul><li>Editionの役割を再整理。LiteはUIを隠さず、Emulatorの基本機能を維持して視覚効果・不要な描画を最小化。</li><li>Normalは基本機能と便利な追加機能のバランスを重視。</li><li>SuperはゲストOS実行中にホスト側の不要な装飾処理を抑え、停止中は高品質な視覚効果を使用。</li><li>リリースノート画面を追加。すべてのEditionで同じ起動経路を維持する方針を明記。</li></ul>
    <h3>2026.10.19.4</h3><ul><li>Editionの動作方針とCoreSystemの起動表示を調整。</li><li>CoreSystem.wasm単体では完全なx86 PCエミュレーターではないことを明確化。</li></ul>
    <h3>2026.10.19.2</h3><ul><li>SuperEditionの視覚効果を強化するスタイルを追加。</li></ul>
@@ -1692,6 +1693,16 @@ body[data-se-edition="super"] .cursor-status { display: initial; }
           <span id="manualOSConfirmStatus" class="help" style="align-self:center">未確定</span>
         </div>
       </div>
+      <div class="setting-card" id="x86CompatibilityProfile" style="margin-top:12px;border:1px solid rgba(95,170,255,.35)">
+        <h4 style="margin:0 0 7px">🧭 x86互換性プロファイル（32bit上限）</h4>
+        <div class="help">superEmulatorの対象は32bit x86までです。Windows 7／8／8.1／10（32bit）を優先し、その他のOSもx86 32bit版のみを対象候補とします。OSごとの起動成功を保証する表示ではありません。</div>
+        <div class="settings-grid" style="margin-top:9px">
+          <div><small class="help">選択OS</small><strong id="x86ProfileOS">未選択</strong></div>
+          <div><small class="help">プロファイル</small><strong id="x86ProfileClass">未判定</strong></div>
+          <div><small class="help">アーキテクチャ範囲</small><strong id="x86ProfileArch">x86 32bitのみ</strong></div>
+        </div>
+        <div class="help" id="x86ProfileNotes" role="status" style="margin-top:8px">OSを選ぶと、一般的な互換性上の注意点を表示します。</div>
+      </div>
       <div class="help" style="margin-top:8px">ISOを選ぶと自動判定を開始します。手動OSは「このOSを確定」を押した時点で起動用OSとして確定します。</div>
     </div>
 
@@ -1866,6 +1877,11 @@ body[data-se-edition="super"] .cursor-status { display: initial; }
           <div class="help" id="win10DiagStatus" style="margin-top:8px">現在：標準設定（ACPI ON / VGA 64 MB）。変更後、エミュレーターを停止してから再起動してください。</div>
         </div>
         <div class="row" style="margin-top:8px;flex-wrap:wrap">
+          <div class="setting-card" id="x86DiagnosticsNotes" style="margin:0 0 10px;border:1px solid rgba(95,170,255,.3)">
+        <strong>🧪 x86 / WASM診断の読み方</strong>
+        <div class="help" style="margin-top:6px">CPUカウンターの増加は、そのカウンターが動いていることを示すだけで、ゲスト命令が正常に実行された証拠とは限りません。命令統計が0、WASMメモリ表示が負数、または値が取得不能の場合は「未取得／計測対象外」の可能性もあり、単独でフリーズの原因を断定しません。</div>
+        <div class="help" style="margin-top:5px">確認順：①起動ログと最後のイベント ②v86インスタンスの状態 ③CPU統計APIの対応状況 ④メモリ・BIOS・起動メディア ⑤同じ設定で別の32bit OSを起動。PAE/NXやACPIはOSと仮想CPU実装の要件に合わせて確認し、全OSに同一設定を強制しません。</div>
+      </div>
           <button class="ctrl-btn" id="cpuProgressCheckBtn" type="button">CPU進行状況を計測（3秒）</button>
           <button class="ctrl-btn" id="cpuStatsBtn" type="button">命令統計を取得</button>
           <button class="ctrl-btn" id="downloadDiagnosticLogBtn" type="button">診断ログを保存</button>
@@ -1962,7 +1978,7 @@ body[data-se-edition="super"] .cursor-status { display: initial; }
  function close(){if(!win)return;win.classList.remove('show');win.style.display='none';}
  function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
  function show(view){document.querySelectorAll('.core-tab').forEach(b=>b.classList.toggle('active',b.dataset.coreView===view));let html='';
-  if(view==='overview'){html='<h3>システム概要</h3><p>エミュレーター管理用の内蔵GUIです。ゲストOSのCPUやBIOSを置き換えるものではありません。</p><div class="settings-grid"><div class="setting-card"><strong>エミュレーター</strong><p>'+ (window.emulator?'起動中':'停止中')+'</p></div><div class="setting-card"><strong>ビルド</strong><p>2026.10.16.1</p></div><div class="setting-card"><strong>保存領域</strong><p>IndexedDB / LocalStorage</p></div><div class="setting-card"><strong>Linux資産</strong><p>削除・自動起動なし</p></div></div><button class="ctrl-btn primary" data-core-action="settings">サイト設定を開く</button>'}
+  if(view==='overview'){html='<h3>システム概要</h3><p>エミュレーター管理用の内蔵GUIです。ゲストOSのCPUやBIOSを置き換えるものではありません。</p><div class="settings-grid"><div class="setting-card"><strong>エミュレーター</strong><p>'+ (window.emulator?'起動中':'停止中')+'</p></div><div class="setting-card"><strong>ビルド</strong><p>2026.10.20.1</p></div><div class="setting-card"><strong>保存領域</strong><p>IndexedDB / LocalStorage</p></div><div class="setting-card"><strong>Linux資産</strong><p>削除・自動起動なし</p></div></div><button class="ctrl-btn primary" data-core-action="settings">サイト設定を開く</button>'}
   else if(view==='devices'){const details=`OS: ${window.currentOSConfig?.name||localStorage.getItem('superEmulator.lastOS')||'未選択'}\nEmulator: ${window.emulator?'active':'stopped'}\nScreen: ${$('screen')?.querySelector('canvas')?'canvas ready':'not initialized'}\nDisk: ${$('diskStatus')?.textContent||'未接続'}\nISO: ${$('isoStatus')?.textContent||'未接続'}`;html='<h3>仮想デバイス</h3><p>現在の構成を読み取り専用で表示します。</p><pre>'+esc(details)+'</pre><button class="ctrl-btn" data-core-action="settings">ハードウェア設定を開く</button>'}
   else if(view==='wasm'){html=`<h3>WASMカーネルラッパー（実験機能）</h3><p>内蔵 CoreSystem.wasm を自動読込し、SeaBIOS と SeaVGABIOS（VGABIOS）を既存の superEmulator ファームウェアローダーから自動取得します。BIOSファイルの手動選択は不要です。</p><div class="settings-grid"><div class="setting-card"><strong>WASMコア</strong><p class="help">HTML内蔵 CoreSystem.wasm（独自WASMで上書き可能）</p><label for="coreWasmFile">任意のWASMで上書き</label><input id="coreWasmFile" type="file" accept=".wasm,application/wasm"></div><div class="setting-card"><strong>ファームウェア</strong><p id="coreFirmwareStatus" class="help">SeaBIOS / VGABIOS：起動時に自動読込</p><p class="help">既存の FILE_PATHS（seabios.bin / vgabios.bin）を使用します。</p></div><div class="setting-card"><label for="coreDiskFile">起動ディスクイメージ (.img/.bin)</label><input id="coreDiskFile" type="file" accept=".img,.bin,application/octet-stream"><p class="help">OSを起動するには対応したディスクイメージが必要です。</p></div></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button class="ctrl-btn primary" id="coreKernelBoot" type="button">ファームウェア自動読込・起動</button><button class="ctrl-btn" id="coreKernelReset" type="button">リセット</button><button class="ctrl-btn" id="coreKernelStop" type="button">停止</button></div><div id="coreKernelStatus" role="status" class="help">停止中。SeaBIOS / VGABIOS は起動時に自動取得します。HTTP/HTTPSで開いてください。</div><canvas id="coreKernelCanvas" width="1024" height="768" tabindex="0" style="display:block;width:100%;max-width:680px;height:auto;background:#000;border:1px solid var(--se-border,#345);margin-top:12px"></canvas><p class="help">重要：現行 CoreSystem.wasm は完全なx86 PCエミュレーターではありません。ファームウェアをメモリに配置できても、WASM側にx86実行・チップセット・割り込み・VGA BIOS呼出しの実装がなければSeaBIOSからOSを起動できません。通常のOS起動には既存のv86エミュレーターを使用します。</p>`}
   else if(view==='registry'){html='<h3>サイトパラメータ・ハイブ</h3><p>Boot / System / Hardware / Keyboard / Media / Guest / BIOS / Diagnostics / Securityの各ハイブとして管理します。</p><button class="ctrl-btn primary" data-core-action="registry">サイトハイブを開く</button>'}
@@ -8131,6 +8147,40 @@ window.superEmulatorMemoryProfile = function(){
   window.superEmulatorReleaseMouseCapture=function(){try{if(document.pointerLockElement)document.exitPointerLock();}catch(err){say(err?.message||String(err),'WARN');}};
   window.superEmulatorMouseCaptureStatus=function(){return {locked:!!document.pointerLockElement,element:document.pointerLockElement?.id||null,screen:!!screen,canvas:!!guestCanvas(),geometry:window.__superEmulatorMouseGeometry||null};};
   say('マウス捕捉修正を登録しました。ゲスト画面をクリックすると画面外までマウスを動かせます。');
+})();
+</script>
+
+<script id="superEmulatorBuild20261020_1">
+(function(){
+  'use strict';
+  const $=id=>document.getElementById(id);
+  const osSelect=$('osSelect');
+  const labels={win10:'Windows 10 (32bit)',win8:'Windows 8 / 8.1',win7:'Windows 7',winvista:'Windows Vista',winxp:'Windows XP',win2000:'Windows 2000',winnt4:'Windows NT 4.0',winme:'Windows Me',win98:'Windows 98',win95:'Windows 95',win31:'Windows 3.x',win2:'Windows 2.x',win1:'Windows 1.x',msdos:'MS-DOS',freedos:'FreeDOS',linux:'Linux (x86)',debian:'Debian i386',ubuntu:'Ubuntu i386',alpine:'Alpine Linux x86',arch32:'Arch Linux 32',reactos:'ReactOS',kolibrios:'KolibriOS',haiku:'Haiku',android:'Android-x86',freebsd:'FreeBSD x86',openbsd:'OpenBSD x86',netbsd:'NetBSD x86',serenity:'SerenityOS 32bit','9front':'9front x86',skift:'SkiftOS x86',qnx:'QNX x86',other:'その他（要確認）'};
+  const legacy=new Set(['win1','win2','win31','win95','win98','winme','win2000','winnt4','winxp','winvista','msdos','freedos']);
+  const modern=new Set(['win7','win8','win10']);
+  const linux=new Set(['linux','debian','ubuntu','alpine','arch32']);
+  function update(){
+    const id=osSelect?.value||'';
+    const name=labels[id]||osSelect?.selectedOptions?.[0]?.textContent||'未選択';
+    let cls='要個別確認',note='ISOの実際のアーキテクチャと起動要件を確認してください。プロファイルは起動可否を保証しません。';
+    if(modern.has(id)){cls='優先対象・x86 32bit';note='Windowsの32bit版を使用してください。ISOが32bitであること、必要RAM、ACPI・PAE/NX要件、仮想ディスク形式を確認します。Windows 10 32bitのロゴ停止は、ログとCPU統計を併用して切り分けます。';}
+    else if(legacy.has(id)){cls='レガシー x86候補';note='比較的古いx86環境向け候補です。起動メディア形式、BIOS互換性、メモリ容量、入力デバイスの差に注意してください。';}
+    else if(linux.has(id)){cls='Linux x86候補';note='i386 / x86 32bitイメージを選択してください。最近のディストリビューションは32bit配布を終了している場合があり、ISO自体の提供状況・カーネル要件は別途確認が必要です。';}
+    else if(id){cls='その他のx86候補';note='32bit x86版のみ対象候補です。OS固有のカーネル、ファームウェア、デバイス要件により起動しない場合があります。';}
+    if($('x86ProfileOS')) $('x86ProfileOS').textContent=name;
+    if($('x86ProfileClass')) $('x86ProfileClass').textContent=cls;
+    if($('x86ProfileNotes')) $('x86ProfileNotes').textContent=note;
+    if($('x86ProfileArch')) $('x86ProfileArch').textContent='x86 32bitのみ';
+  }
+  if(osSelect){osSelect.addEventListener('change',update);update();}
+  // Make the build identifier available to the diagnostic log without overwriting existing app APIs.
+  window.superEmulatorBuild='2026.10.20.1';
+  window.superEmulatorCompatibilityScope={architecture:'x86-32',windows:['Windows 7 32bit','Windows 8/8.1 32bit','Windows 10 32bit'],windows11:false,all64bit:false,profileOnly:true};
+  const log=$('logs');
+  if(log && !log.textContent.includes('BUILD 2026.10.20.1')){
+    const line='[BUILD] 2026.10.20.1 — x86 32bit scope; OS profile/diagnostic guidance loaded';
+    log.textContent=(log.textContent?log.textContent+'\n':'')+line;
+  }
 })();
 </script>
 
