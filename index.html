@@ -1162,7 +1162,7 @@ body[data-se-edition="super"] .cursor-status { display: initial; }
 
 <body>
 <button id="releaseNotesOpen" type="button" style="position:fixed;left:10px;bottom:10px;z-index:100000;padding:8px 12px;border:1px solid rgba(255,255,255,.25);border-radius:10px;background:rgba(15,25,42,.9);color:#eaf5ff;font:12px system-ui;cursor:pointer">📋 リリースノート</button>
-<div id="superEmulatorDebugBanner" style="position:fixed;right:10px;bottom:10px;z-index:99999;padding:7px 10px;border:1px solid rgba(255,255,255,.25);border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,.06));backdrop-filter:blur(12px);color:#dff4ff;font:11px ui-monospace,monospace;box-shadow:0 4px 18px rgba(0,0,0,.25);pointer-events:none">BUILD 2026.10.20.1</div>
+<div id="superEmulatorDebugBanner" style="position:fixed;right:10px;bottom:10px;z-index:99999;padding:7px 10px;border:1px solid rgba(255,255,255,.25);border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,.06));backdrop-filter:blur(12px);color:#dff4ff;font:11px ui-monospace,monospace;box-shadow:0 4px 18px rgba(0,0,0,.25);pointer-events:none">BUILD 2026.10.20.2</div>
 
 <!-- =========================================================
      LANDING
@@ -1402,7 +1402,7 @@ body[data-se-edition="super"] .cursor-status { display: initial; }
   <div style="display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap"><h2 id="releaseNotesTitle" style="margin:0">superEmulator リリースノート</h2><button id="releaseNotesClose" type="button" class="ctrl-btn">閉じる ✕</button></div>
   <p style="opacity:.8;line-height:1.6">これまでの会話・配布ビルドで確認できる変更履歴。過去版のすべての内部変更を完全に記録したものではなく、実装・実機検証の状況も区別しています。</p>
   <article style="line-height:1.75">
-   <h3>2026.10.20.1（今回）</h3><ul><li>対象範囲をx86 32bitまでに明示。Windows 7／8／8.1／10は32bit版を優先し、Windows 11・64bit OSは対象外。</li><li>OS選択に互換性プロファイル表示を追加。OS別の注意点を表示し、起動成功を保証しないことを明記。</li><li>CPU進行状況／命令統計の診断説明を改善。0や異常値だけでCPU停止と断定しない切り分け手順を追加。</li><li>HTML/JavaScript構文チェック：インラインスクリプト30個を確認。実際のWindows起動、マウス精度、仮想ディスク永続化は未実機検証。</li></ul>
+   <h3>2026.10.20.2（今回）</h3><ul><li>対象範囲をx86 32bitまでに明示。Windows 7／8／8.1／10は32bit版を優先し、Windows 11・64bit OSは対象外。</li><li>OS選択に互換性プロファイル表示を追加。OS別の注意点を表示し、起動成功を保証しないことを明記。</li><li>CPU進行状況／命令統計の診断説明を改善。0や異常値だけでCPU停止と断定しない切り分け手順を追加。</li><li>HTML/JavaScript構文チェック：インラインスクリプト30個を確認。実際のWindows起動、マウス精度、仮想ディスク永続化は未実機検証。</li></ul>
    <h3>2026.10.19.4（今回）</h3><ul><li>Editionの役割を再整理。LiteはUIを隠さず、Emulatorの基本機能を維持して視覚効果・不要な描画を最小化。</li><li>Normalは基本機能と便利な追加機能のバランスを重視。</li><li>SuperはゲストOS実行中にホスト側の不要な装飾処理を抑え、停止中は高品質な視覚効果を使用。</li><li>リリースノート画面を追加。すべてのEditionで同じ起動経路を維持する方針を明記。</li></ul>
    <h3>2026.10.19.4</h3><ul><li>Editionの動作方針とCoreSystemの起動表示を調整。</li><li>CoreSystem.wasm単体では完全なx86 PCエミュレーターではないことを明確化。</li></ul>
    <h3>2026.10.19.2</h3><ul><li>SuperEditionの視覚効果を強化するスタイルを追加。</li></ul>
@@ -1978,7 +1978,7 @@ body[data-se-edition="super"] .cursor-status { display: initial; }
  function close(){if(!win)return;win.classList.remove('show');win.style.display='none';}
  function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
  function show(view){document.querySelectorAll('.core-tab').forEach(b=>b.classList.toggle('active',b.dataset.coreView===view));let html='';
-  if(view==='overview'){html='<h3>システム概要</h3><p>エミュレーター管理用の内蔵GUIです。ゲストOSのCPUやBIOSを置き換えるものではありません。</p><div class="settings-grid"><div class="setting-card"><strong>エミュレーター</strong><p>'+ (window.emulator?'起動中':'停止中')+'</p></div><div class="setting-card"><strong>ビルド</strong><p>2026.10.20.1</p></div><div class="setting-card"><strong>保存領域</strong><p>IndexedDB / LocalStorage</p></div><div class="setting-card"><strong>Linux資産</strong><p>削除・自動起動なし</p></div></div><button class="ctrl-btn primary" data-core-action="settings">サイト設定を開く</button>'}
+  if(view==='overview'){html='<h3>システム概要</h3><p>エミュレーター管理用の内蔵GUIです。ゲストOSのCPUやBIOSを置き換えるものではありません。</p><div class="settings-grid"><div class="setting-card"><strong>エミュレーター</strong><p>'+ (window.emulator?'起動中':'停止中')+'</p></div><div class="setting-card"><strong>ビルド</strong><p>2026.10.20.2</p></div><div class="setting-card"><strong>保存領域</strong><p>IndexedDB / LocalStorage</p></div><div class="setting-card"><strong>Linux資産</strong><p>削除・自動起動なし</p></div></div><button class="ctrl-btn primary" data-core-action="settings">サイト設定を開く</button>'}
   else if(view==='devices'){const details=`OS: ${window.currentOSConfig?.name||localStorage.getItem('superEmulator.lastOS')||'未選択'}\nEmulator: ${window.emulator?'active':'stopped'}\nScreen: ${$('screen')?.querySelector('canvas')?'canvas ready':'not initialized'}\nDisk: ${$('diskStatus')?.textContent||'未接続'}\nISO: ${$('isoStatus')?.textContent||'未接続'}`;html='<h3>仮想デバイス</h3><p>現在の構成を読み取り専用で表示します。</p><pre>'+esc(details)+'</pre><button class="ctrl-btn" data-core-action="settings">ハードウェア設定を開く</button>'}
   else if(view==='wasm'){html=`<h3>WASMカーネルラッパー（実験機能）</h3><p>内蔵 CoreSystem.wasm を自動読込し、SeaBIOS と SeaVGABIOS（VGABIOS）を既存の superEmulator ファームウェアローダーから自動取得します。BIOSファイルの手動選択は不要です。</p><div class="settings-grid"><div class="setting-card"><strong>WASMコア</strong><p class="help">HTML内蔵 CoreSystem.wasm（独自WASMで上書き可能）</p><label for="coreWasmFile">任意のWASMで上書き</label><input id="coreWasmFile" type="file" accept=".wasm,application/wasm"></div><div class="setting-card"><strong>ファームウェア</strong><p id="coreFirmwareStatus" class="help">SeaBIOS / VGABIOS：起動時に自動読込</p><p class="help">既存の FILE_PATHS（seabios.bin / vgabios.bin）を使用します。</p></div><div class="setting-card"><label for="coreDiskFile">起動ディスクイメージ (.img/.bin)</label><input id="coreDiskFile" type="file" accept=".img,.bin,application/octet-stream"><p class="help">OSを起動するには対応したディスクイメージが必要です。</p></div></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button class="ctrl-btn primary" id="coreKernelBoot" type="button">ファームウェア自動読込・起動</button><button class="ctrl-btn" id="coreKernelReset" type="button">リセット</button><button class="ctrl-btn" id="coreKernelStop" type="button">停止</button></div><div id="coreKernelStatus" role="status" class="help">停止中。SeaBIOS / VGABIOS は起動時に自動取得します。HTTP/HTTPSで開いてください。</div><canvas id="coreKernelCanvas" width="1024" height="768" tabindex="0" style="display:block;width:100%;max-width:680px;height:auto;background:#000;border:1px solid var(--se-border,#345);margin-top:12px"></canvas><p class="help">重要：現行 CoreSystem.wasm は完全なx86 PCエミュレーターではありません。ファームウェアをメモリに配置できても、WASM側にx86実行・チップセット・割り込み・VGA BIOS呼出しの実装がなければSeaBIOSからOSを起動できません。通常のOS起動には既存のv86エミュレーターを使用します。</p>`}
   else if(view==='registry'){html='<h3>サイトパラメータ・ハイブ</h3><p>Boot / System / Hardware / Keyboard / Media / Guest / BIOS / Diagnostics / Securityの各ハイブとして管理します。</p><button class="ctrl-btn primary" data-core-action="registry">サイトハイブを開く</button>'}
@@ -5033,11 +5033,49 @@ async function superVmAutoSave(reason="power-off"){
     else result=await e.save_state();
     if(!(result instanceof ArrayBuffer)&&!(result instanceof Uint8Array))throw new Error("v86 save_state()から状態データが返りませんでした");
     const buffer=result instanceof ArrayBuffer?result:result.buffer.slice(result.byteOffset,result.byteOffset+result.byteLength);
-    await superVmWriteSavedState({state:buffer,signature:superVmCurrentSignature(),savedAt:new Date().toISOString(),reason,build:"2026.10.19.2",bytes:buffer.byteLength});
-    if(typeof window.log==="function")window.log("電源OFF用の仮想マシン状態を保存: "+(buffer.byteLength/1048576).toFixed(1)+" MB","OK");
+    await superVmWriteSavedState({state:buffer,signature:superVmCurrentSignature(),savedAt:new Date().toISOString(),reason,build:"2026.10.20.2",bytes:buffer.byteLength});
+    if(typeof window.log==="function")window.log("仮想マシン状態を保存: "+(buffer.byteLength/1048576).toFixed(1)+" MB（ディスクイメージの外部ファイル書き戻しとは別です）","OK");
     return true;
   }catch(err){if(typeof window.log==="function")window.log("自動保存に失敗: "+(err?.message||err)+"。仮想マシンは停止しますが、最新状態は保存されていない可能性があります。","ERROR");return false;}
 }
+/*
+ * POWER-LOSS / TAB-CLOSE SAFETY NET (best effort)
+ * Browsers may terminate a page before async save_state completes, so this is
+ * not a substitute for an explicit safe shutdown. We save when the tab is
+ * hidden and warn on ordinary tab close while the VM is running.
+ */
+let __superVmPageSaveInFlight = false;
+let __superVmLastSuccessfulSaveAt = 0;
+async function superVmLifecycleSave(reason){
+  if(__superVmPageSaveInFlight || !window.emulator || typeof window.emulator.save_state !== "function") return false;
+  __superVmPageSaveInFlight = true;
+  try {
+    const ok = await superVmAutoSave(reason);
+    if(ok) __superVmLastSuccessfulSaveAt = Date.now();
+    return ok;
+  } finally { __superVmPageSaveInFlight = false; }
+}
+if(!window.__superVmLifecycleHooksInstalled){
+  window.__superVmLifecycleHooksInstalled = true;
+  document.addEventListener("visibilitychange",()=>{
+    if(document.visibilityState === "hidden") {
+      // Best effort only: a browser can suspend the page before this promise finishes.
+      superVmLifecycleSave("tab-hidden").catch(()=>{});
+    }
+  });
+  window.addEventListener("pagehide",()=>{
+    // Initiate the save immediately; pagehide does not guarantee async completion.
+    superVmLifecycleSave("pagehide").catch(()=>{});
+  });
+  window.addEventListener("beforeunload",(event)=>{
+    const running = !!window.emulator;
+    if(running && Date.now() - __superVmLastSuccessfulSaveAt > 15000){
+      event.preventDefault();
+      event.returnValue = "仮想PCの保存が完了していない可能性があります。先にsuperEmulatorの電源OFFを実行してください。";
+    }
+  });
+}
+
 async function superVmAutoRestore(e){
   if(!e||typeof e.restore_state!=="function"||window.__superVmRestoreAttempted)return false;
   window.__superVmRestoreAttempted=true;
@@ -7913,7 +7951,7 @@ window.superEmulatorMemoryProfile = function(){
   updateProfile();
 })();
 </script>
-<!-- superEmulator keyboard/fullscreen debug build: 2026-10-09 -->
+<!-- superEmulator build: 2026.10.20.2 | lifecycle-save safety-net -->
 
 <script id="superEmulator-persistent-state">
 (function(){
@@ -8174,11 +8212,11 @@ window.superEmulatorMemoryProfile = function(){
   }
   if(osSelect){osSelect.addEventListener('change',update);update();}
   // Make the build identifier available to the diagnostic log without overwriting existing app APIs.
-  window.superEmulatorBuild='2026.10.20.1';
+  window.superEmulatorBuild='2026.10.20.2';
   window.superEmulatorCompatibilityScope={architecture:'x86-32',windows:['Windows 7 32bit','Windows 8/8.1 32bit','Windows 10 32bit'],windows11:false,all64bit:false,profileOnly:true};
   const log=$('logs');
-  if(log && !log.textContent.includes('BUILD 2026.10.20.1')){
-    const line='[BUILD] 2026.10.20.1 — x86 32bit scope; OS profile/diagnostic guidance loaded';
+  if(log && !log.textContent.includes('BUILD 2026.10.20.2')){
+    const line='[BUILD] 2026.10.20.2 — x86 32bit scope; OS profile/diagnostic guidance loaded';
     log.textContent=(log.textContent?log.textContent+'\n':'')+line;
   }
 })();
